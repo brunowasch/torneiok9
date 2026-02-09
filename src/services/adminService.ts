@@ -1,15 +1,17 @@
 import { db } from '../lib/firebase';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  doc, 
-  getDocs, 
-  query, 
+import {
+  collection,
+  addDoc,
+  getDocs,
+  getDoc,
+  doc,
+  query,
   where,
-  deleteDoc
+  updateDoc,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
-import { Room, Competitor, TestTemplate } from '../types/schema';
+import { Room, Competitor, TestTemplate, AppUser } from '../types/schema';
 
 // ROOMS
 export const createRoom = async (roomData: Omit<Room, 'id' | 'createdAt'>) => {
@@ -25,12 +27,26 @@ export const createRoom = async (roomData: Omit<Room, 'id' | 'createdAt'>) => {
   }
 };
 
-export const getRooms = async (adminId: string) => {
-    // In a real app we might filter by createdBy, 
-    // but for now let's just fetch all or filter if needed
-    const q = query(collection(db, 'rooms'), where('createdBy', '==', adminId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
+export const getRoomById = async (roomId: string) => {
+  const docRef = doc(db, 'rooms', roomId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as Room;
+  } else {
+    throw new Error("Sala não encontrada");
+  }
+}
+
+export const getRooms = async (adminId?: string) => {
+  let q;
+  // Allow fetching all if no ID provided (for dev convenience) or filter
+  if (adminId) {
+    q = query(collection(db, 'rooms'), where('createdBy', '==', adminId));
+  } else {
+    q = query(collection(db, 'rooms'));
+  }
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
 };
 
 // COMPETITORS
@@ -67,11 +83,58 @@ export const createTestTemplate = async (templateData: Omit<TestTemplate, 'id'>)
 export const getTestTemplates = async (roomId?: string) => {
   let q;
   if (roomId) {
-     q = query(collection(db, 'tests'), where('roomId', '==', roomId));
+    q = query(collection(db, 'tests'), where('roomId', '==', roomId));
   } else {
-     q = query(collection(db, 'tests'));
+    q = query(collection(db, 'tests'));
   }
-  
+
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TestTemplate));
+};
+
+export const updateTestTemplate = async (testId: string, templateData: Partial<TestTemplate>) => {
+  try {
+    const docRef = doc(db, 'tests', testId);
+    await updateDoc(docRef, templateData);
+  } catch (error) {
+    console.error("Error updating test template: ", error);
+    throw error;
+  }
+};
+
+// JUDGES MANAGEMENT
+export const addJudgeToRoom = async (roomId: string, judgeUid: string) => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    await updateDoc(roomRef, {
+      judges: arrayUnion(judgeUid)
+    });
+  } catch (error) {
+    console.error("Error adding judge to room: ", error);
+    throw error;
+  }
+};
+
+export const removeJudgeFromRoom = async (roomId: string, judgeUid: string) => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    await updateDoc(roomRef, {
+      judges: arrayRemove(judgeUid)
+    });
+  } catch (error) {
+    console.error("Error removing judge from room: ", error);
+    throw error;
+  }
+};
+
+export const getJudgesList = async () => {
+  const q = query(collection(db, 'users'), where('role', '==', 'judge'));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
+};
+
+export const getRoomsWhereJudge = async (judgeUid: string) => {
+  const q = query(collection(db, 'rooms'), where('judges', 'array-contains', judgeUid));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
 };

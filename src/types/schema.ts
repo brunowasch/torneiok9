@@ -25,6 +25,7 @@ export interface Competitor {
   dogName: string;
   dogBreed: string;
   competitorNumber: number;
+  testId?: string; // ID da prova que o competidor vai realizar
   photoUrl?: string;
   createdAt: number;
 }
@@ -63,16 +64,16 @@ export interface Evaluation {
   testId: string;
   competitorId: string;
   judgeId: string;
-  
+
   // Mapa de IDs dos critérios de nota -> valor atribuído
   scores: Record<string, number>;
-  
+
   // Lista de penalidades aplicadas
   penaltiesApplied: {
     penaltyId: string;
     value: number;
   }[];
-  
+
   finalScore: number;
   notes?: string;
   createdAt: number;

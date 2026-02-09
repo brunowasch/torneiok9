@@ -1,304 +1,266 @@
 'use client';
 
-import { useState } from 'react';
-import { createRoom, createTestTemplate, addCompetitor } from '@/services/adminService';
-import { 
-    MapPin, 
-    Users, 
-    FileText, 
-    Info, 
-    PlusCircle, 
-    UserPlus, 
-    Wand2, 
-    ShieldAlert 
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { createRoom, getRooms } from '@/services/adminService';
+import { auth } from '@/lib/firebase';
+import {
+    PlusCircle,
+    ShieldAlert,
+    ChevronRight,
+    MapPin,
+    Calendar,
+    Users
 } from 'lucide-react';
-import { ScoreGroup, PenaltyOption } from '@/types/schema';
+import { Room } from '@/types/schema';
+import { onAuthStateChanged } from 'firebase/auth';
 
-export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState('room');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+export default function AdminDashboard() {
+    const [rooms, setRooms] = useState<Room[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [newRoomName, setNewRoomName] = useState('');
+    const [user, setUser] = useState<any>(null);
 
-  // ... (rest of the state logic is unchanged) ...
+    // Admin Creation State
+    const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
+    const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '' });
 
-  // Keep logic... just replacing UI in return
-
-  // Room State
-  const [roomName, setRoomName] = useState('');
-  
-  // Competitor State
-  const [roomIdForCompetitor, setRoomIdForCompetitor] = useState('');
-  const [handlerName, setHandlerName] = useState('');
-  const [dogName, setDogName] = useState('');
-  const [dogBreed, setDogBreed] = useState('');
-
-  // Template State
-  const [roomIdForTemplate, setRoomIdForTemplate] = useState('');
-
-  const createProtecaoTemplate = async () => {
-    if (!roomIdForTemplate) {
-        setMessage('Erro: Informe o ID da Sala para o Template');
-        return;
-    }
-
-    setLoading(true);
-    try {
-        const groups: ScoreGroup[] = [
-            {
-              name: "Parte A: Avaliação da Condutora",
-              items: [
-                { id: "a1", label: "Leitura de Cenário e Antecipação", maxPoints: 2.0, description: "Percebeu a ameaça?" },
-                { id: "a2", label: "Posicionamento Tático", maxPoints: 1.5, description: "Usou o cão como barreira?" },
-                { id: "a3", label: "Comando e Controle", maxPoints: 1.5, description: "Comandos claros?" }
-              ]
-            },
-            {
-              name: "Parte B: Avaliação do Cão",
-              items: [
-                { id: "b1", label: "Mudança de Estado e Foco", maxPoints: 1.5, description: "Reação rápida?" },
-                { id: "b2", label: "Intensidade da Dissuasão", maxPoints: 1.5, description: "Latido forte?" },
-                { id: "b3", label: "CONTROLE DE IMPULSOS", maxPoints: 2.0, description: "Não mordeu?" }
-              ]
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
+            if (currentUser) {
+                fetchRooms(currentUser.uid);
+            } else {
+                console.log("No user logged in in Admin Dashboard");
+                setLoading(false);
             }
-        ];
-
-        const penalties: PenaltyOption[] = [
-            { id: "p1", label: "Comando de ataque indevido", value: -5.0 },
-            { id: "p2", label: "Cão morde sem comando", value: -4.0 },
-            { id: "p3", label: "Cão recua/medo", value: -3.0 },
-            { id: "p4", label: "Perda de controle físico", value: -2.0 },
-            { id: "p5", label: "Latido fraco", value: -1.0 }
-        ];
-
-        const id = await createTestTemplate({
-            title: "Prova de Proteção 1",
-            description: "Categoria Feminina (Condutoras)",
-            maxScore: 10.0,
-            groups,
-            penalties,
-            roomId: roomIdForTemplate
         });
-        setMessage(`Template criado com ID: ${id}`);
-    } catch (e: any) {
-        setMessage(`Erro: ${e.message}`);
-    }
-    setLoading(false);
-  };
+        return () => unsubscribe();
+    }, []);
 
-  const handleCreateRoom = async () => {
-    setLoading(true);
-    try {
-        const id = await createRoom({
-            name: roomName,
-            description: "Torneio Teste",
-            active: true,
-            judges: [],
-            createdBy: 'test-admin-uid'
-        });
-        setMessage(`Sala criada com ID: ${id}`);
-        setRoomIdForCompetitor(id); // Auto-fill for convenience
-    } catch (e: any) {
-        setMessage(`Erro: ${e.message}`);
-    }
-    setLoading(false);
-  };
+    const fetchRooms = async (uid: string) => {
+        try {
+            const data = await getRooms(uid);
+            if (data.length === 0) {
+                const all = await getRooms();
+                const owned = all.filter(r => r.createdBy === uid);
+                setRooms(owned.length > 0 ? owned : data);
+            } else {
+                setRooms(data);
+            }
+        } catch (e) {
+            console.error("Error loading rooms", e);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const handleAddCompetitor = async () => {
-    setLoading(true);
-    try {
-        const id = await addCompetitor({
-            roomId: roomIdForCompetitor,
-            handlerName,
-            dogName,
-            dogBreed,
-            competitorNumber: Math.floor(Math.random() * 100),
-        });
-        setMessage(`Competidor adicionado com ID: ${id}`);
-    } catch (e: any) {
-        setMessage(`Erro: ${e.message}`);
-    }
-    setLoading(false);
-  };
+    const handleCreateRoom = async () => {
+        if (!newRoomName || !user) return;
+        try {
+            await createRoom({
+                name: newRoomName,
+                description: 'Torneio K9',
+                active: true,
+                createdBy: user.uid,
+                judges: []
+            });
+            setNewRoomName('');
+            setShowCreateModal(false);
+            fetchRooms(user.uid);
+        } catch (e) {
+            alert('Erro ao criar sala. Verifique permissões.');
+        }
+    };
 
-  return (
-    <div className="min-h-screen bg-tactical-black p-8 text-gray-200">
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-8 border-b border-gray-800 pb-4 flex items-center justify-between">
-            <div>
-                <h1 className="text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-                    <ShieldAlert className="text-police-gold w-8 h-8" />
-                    Painel de Controle
-                </h1>
-                <p className="text-police-gold text-sm uppercase tracking-widest pl-11">Administração do Torneio</p>
+    const handleCreateAdmin = async () => {
+        if (!newAdmin.email || !newAdmin.password || !newAdmin.name) return;
+        try {
+            const { createNewAdminByAdmin } = await import('@/services/userService');
+            await createNewAdminByAdmin(newAdmin.email, newAdmin.password, newAdmin.name);
+            alert('Novo Admin criado com sucesso!');
+            setShowCreateAdminModal(false);
+            setNewAdmin({ name: '', email: '', password: '' });
+        } catch (e: any) {
+            alert('Erro: ' + e.message);
+        }
+    };
+
+    if (!user && !loading) {
+        return (
+            <div className="min-h-screen bg-tactical-black flex items-center justify-center p-4 text-white">
+                <div className="text-center">
+                    <ShieldAlert className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <h1 className="text-xl font-bold uppercase">Acesso Restrito</h1>
+                    <p className="text-gray-500 text-sm mt-2">Você deve estar logado para acessar esta área.</p>
+                </div>
             </div>
-            <div className="text-xs text-gray-500 font-mono">SECURE CONNECTION</div>
-        </header>
-      
-      {message && (
-        <div className="p-4 mb-6 bg-green-900/20 border border-green-700 text-green-400 rounded-sm font-mono text-sm flex items-center gap-2">
-            <Info className="w-5 h-5" />
-            <span>[SYSTEM_MSG]: {message}</span>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-tactical-black p-4 md:p-8 text-gray-200 font-sans">
+            <div className="max-w-6xl mx-auto">
+                <header className="mb-12 border-b border-gray-800 pb-6 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                            <ShieldAlert className="text-police-gold w-8 h-8" />
+                            Comando Central
+                        </h1>
+                        <p className="text-police-gold text-sm uppercase tracking-widest pl-11">Dashboard Administrativo</p>
+                    </div>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => setShowCreateAdminModal(true)}
+                            className="bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-4 py-3 rounded tracking-widest transition-all flex items-center gap-2 text-xs cursor-pointer"
+                        >
+                            <Users className="w-4 h-4" />
+                            Novo Admin
+                        </button>
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="bg-white hover:bg-gray-200 text-black font-bold uppercase px-6 py-3 rounded tracking-widest transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(212,175,55,0.2)] cursor-pointer"
+                        >
+                            <PlusCircle className="w-5 h-5" />
+                            Nova Operação
+                        </button>
+                    </div>
+                </header>
+
+                {loading ? (
+                    <div className="text-center p-12 animate-pulse text-police-gold font-mono">[CONFIRMANDO CREDENCIAIS...]</div>
+                ) : (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {rooms.map(room => (
+                            <Link href={`/admin/rooms/${room.id}`} key={room.id} className="group">
+                                <div className="bg-tactical-gray border border-gray-800 rounded-xl p-6 hover:border-police-gold transition-all relative overflow-hidden h-full flex flex-col">
+                                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-white/5 to-transparent"></div>
+
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="p-3 bg-black/40 rounded-lg text-police-gold group-hover:scale-110 transition-transform">
+                                            <MapPin className="w-6 h-6" />
+                                        </div>
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${room.active ? 'bg-green-900/30 text-green-400 border border-green-900/50' : 'bg-red-900/30 text-red-400'}`}>
+                                            {room.active ? 'Em Progresso' : 'Finalizada'}
+                                        </span>
+                                    </div>
+
+                                    <h2 className="text-xl font-bold text-white uppercase leading-tight mb-2 group-hover:text-police-gold transition-colors">
+                                        {room.name}
+                                    </h2>
+                                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-6">
+                                        {room.description}
+                                    </p>
+
+                                    <div className="mt-auto flex items-center justify-between text-xs text-gray-400 border-t border-gray-800 pt-4">
+                                        <div className="flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" />
+                                            <span>{new Date(room.createdAt).toLocaleDateString()}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1 font-bold text-police-gold group-hover:translate-x-1 transition-transform">
+                                            GERENCIAR <ChevronRight className="w-3 h-3" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+
+                        {rooms.length === 0 && (
+                            <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-800 rounded-xl bg-white/[0.02]">
+                                <p className="text-gray-500 uppercase font-bold tracking-widest mb-4">Nenhuma operação tática iniciada</p>
+                                <button
+                                    onClick={() => setShowCreateModal(true)}
+                                    className="text-police-gold hover:text-white underline uppercase text-xs tracking-wider"
+                                >
+                                    Criar primeira sala
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Create Room Modal */}
+                {showCreateModal && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+                        <div className="bg-tactical-gray border border-gray-700 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+                            <h2 className="text-xl font-bold text-white uppercase mb-6 flex items-center gap-2">
+                                <PlusCircle className="text-police-gold w-5 h-5" /> Nova Sala
+                            </h2>
+                            <input
+                                type="text"
+                                value={newRoomName}
+                                onChange={(e) => setNewRoomName(e.target.value)}
+                                className="w-full bg-black/50 border border-gray-700 text-white p-3 rounded mb-6 focus:outline-none focus:border-police-gold uppercase"
+                                placeholder="NOME DA OPERAÇÃO..."
+                            />
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowCreateModal(false)}
+                                    className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold uppercase text-xs rounded tracking-wider cursor-pointer"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleCreateRoom}
+                                    disabled={!newRoomName}
+                                    className="flex-1 py-3 bg-white hover:bg-gray-200 text-black font-bold uppercase text-xs rounded tracking-wider disabled:opacity-50 cursor-pointer"
+                                >
+                                    Criar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Create Admin Modal */}
+                {showCreateAdminModal && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+                        <div className="bg-tactical-gray border border-gray-700 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+                            <h2 className="text-xl font-bold text-white uppercase mb-6 flex items-center gap-2">
+                                <Users className="text-police-gold w-5 h-5" /> Novo Administrador
+                            </h2>
+                            <div className="space-y-4 mb-6">
+                                <input
+                                    type="text"
+                                    value={newAdmin.name}
+                                    onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
+                                    className="w-full bg-black/50 border border-gray-700 text-white p-3 rounded focus:outline-none focus:border-police-gold"
+                                    placeholder="Nome..."
+                                />
+                                <input
+                                    type="email"
+                                    value={newAdmin.email}
+                                    onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
+                                    className="w-full bg-black/50 border border-gray-700 text-white p-3 rounded focus:outline-none focus:border-police-gold"
+                                    placeholder="Email..."
+                                />
+                                <input
+                                    type="password"
+                                    value={newAdmin.password}
+                                    onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
+                                    className="w-full bg-black/50 border border-gray-700 text-white p-3 rounded focus:outline-none focus:border-police-gold"
+                                    placeholder="Senha..."
+                                />
+                            </div>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowCreateAdminModal(false)}
+                                    className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold uppercase text-xs rounded tracking-wider cursor-pointer"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleCreateAdmin}
+                                    className="flex-1 py-3 bg-white hover:bg-gray-200 text-black font-bold uppercase text-xs rounded tracking-wider disabled:opacity-50 cursor-pointer"
+                                >
+                                    Criar Usuário
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
-      )}
-
-      <div className="flex gap-2 mb-8 bg-tactical-gray p-1 rounded-lg border border-gray-800">
-        <button 
-            onClick={() => setActiveTab('room')}
-            className={`flex-1 px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all rounded-md flex items-center justify-center gap-2 ${activeTab === 'room' ? 'bg-police-gold text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-        >
-            <MapPin className="w-4 h-4" />
-            1. Criar Sala
-        </button>
-        <button 
-            onClick={() => setActiveTab('competitor')}
-            className={`flex-1 px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all rounded-md flex items-center justify-center gap-2 ${activeTab === 'competitor' ? 'bg-police-gold text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-        >
-            <Users className="w-4 h-4" />
-            2. Competidores
-        </button>
-        <button 
-            onClick={() => setActiveTab('template')}
-            className={`flex-1 px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all rounded-md flex items-center justify-center gap-2 ${activeTab === 'template' ? 'bg-police-gold text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-        >
-            <FileText className="w-4 h-4" />
-            3. Templates
-        </button>
-      </div>
-
-      <div className="bg-tactical-gray p-8 rounded-xl border border-gray-800 shadow-2xl relative overflow-hidden">
-        {/* Decorative corner */}
-        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-white/5 to-transparent pointer-events-none"></div>
-
-        {activeTab === 'room' && (
-            <div className="space-y-6">
-                <div>
-                    <h2 className="text-xl font-bold text-white mb-1 uppercase flex items-center gap-2">
-                        <PlusCircle className="text-police-gold w-5 h-5" />
-                        Nova Sala de Torneio
-                    </h2>
-                    <p className="text-gray-500 text-xs uppercase tracking-wider">Inicie um novo evento</p>
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-police-gold mb-2 uppercase tracking-wider">Nome da Sala</label>
-                    <input 
-                        type="text" 
-                        value={roomName} 
-                        onChange={(e) => setRoomName(e.target.value)}
-                        className="w-full bg-black/50 border border-gray-700 text-white rounded p-3 focus:outline-none focus:border-police-gold focus:ring-1 focus:ring-police-gold transition-all"
-                        placeholder="EX: 5º TORNEIO INTERNACIONAL..."
-                    />
-                </div>
-                <button 
-                    onClick={handleCreateRoom}
-                    disabled={loading}
-                    className="w-full bg-police-dark-gold hover:bg-police-gold text-black font-black uppercase py-4 rounded tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                    <PlusCircle className="w-5 h-5" />
-                    {loading ? 'PROCESSANDO...' : 'CRIAR OPERAÇÃO'}
-                </button>
-            </div>
-        )}
-
-        {activeTab === 'competitor' && (
-            <div className="space-y-6">
-                 <div>
-                    <h2 className="text-xl font-bold text-white mb-1 uppercase flex items-center gap-2">
-                        <UserPlus className="text-police-gold w-5 h-5" />
-                        Cadastro de Binômio
-                    </h2>
-                    <p className="text-gray-500 text-xs uppercase tracking-wider">Inserir dados do competidor</p>
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-police-gold mb-2 uppercase tracking-wider">ID da Sala (Hash)</label>
-                    <input 
-                        type="text" 
-                        value={roomIdForCompetitor} 
-                        onChange={(e) => setRoomIdForCompetitor(e.target.value)}
-                        className="w-full bg-black/50 border border-gray-700 text-white rounded p-3 font-mono text-sm focus:outline-none focus:border-police-gold"
-                    />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-police-gold mb-2 uppercase tracking-wider">Condutor(a)</label>
-                    <input 
-                        type="text" 
-                        value={handlerName} 
-                        onChange={(e) => setHandlerName(e.target.value)}
-                        className="w-full bg-black/50 border border-gray-700 text-white rounded p-3 focus:outline-none focus:border-police-gold"
-                    />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-xs font-bold text-police-gold mb-2 uppercase tracking-wider">Nome do Cão</label>
-                        <input 
-                            type="text" 
-                            value={dogName} 
-                            onChange={(e) => setDogName(e.target.value)}
-                            className="w-full bg-black/50 border border-gray-700 text-white rounded p-3 focus:outline-none focus:border-police-gold"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-police-gold mb-2 uppercase tracking-wider">Raça</label>
-                        <input 
-                            type="text" 
-                            value={dogBreed} 
-                            onChange={(e) => setDogBreed(e.target.value)}
-                            className="w-full bg-black/50 border border-gray-700 text-white rounded p-3 focus:outline-none focus:border-police-gold"
-                        />
-                    </div>
-                </div>
-                <button 
-                    onClick={handleAddCompetitor}
-                    disabled={loading}
-                    className="w-full bg-green-800 hover:bg-green-700 text-white border border-green-600 font-black uppercase py-4 rounded tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                     <UserPlus className="w-5 h-5" />
-                    {loading ? 'SALVANDO DADOS...' : 'REGISTRAR BINÔMIO'}
-                </button>
-            </div>
-        )}
-
-        {activeTab === 'template' && (
-            <div className="space-y-6">
-                <div>
-                    <h2 className="text-xl font-bold text-white mb-1 uppercase flex items-center gap-2">
-                        <FileText className="text-police-gold w-5 h-5" />
-                        Protocolo de Prova
-                    </h2>
-                    <p className="text-gray-500 text-xs uppercase tracking-wider">Gerar template padrão (Proteção 1)</p>
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-police-gold mb-2 uppercase tracking-wider">ID da Sala Alvo</label>
-                    <input 
-                        type="text" 
-                        value={roomIdForTemplate} 
-                        onChange={(e) => setRoomIdForTemplate(e.target.value)}
-                        className="w-full bg-black/50 border border-gray-700 text-white rounded p-3 font-mono text-sm focus:outline-none focus:border-police-gold"
-                        placeholder="Cole o ID da sala aqui"
-                    />
-                </div>
-                <div className="p-4 bg-black/30 border border-gray-700 rounded text-sm text-gray-400 flex items-start gap-3">
-                    <Info className="w-5 h-5 text-police-gold shrink-0 mt-0.5" />
-                    <div>
-                        <p>Esta ação carregará automaticamente os parâmetros de:</p>
-                        <ul className="list-disc ml-5 mt-2 space-y-1 text-xs">
-                            <li>Parte A: Avaliação da Condutora</li>
-                            <li>Parte B: Avaliação do Cão</li>
-                            <li>Penalidades Táticas</li>
-                        </ul>
-                    </div>
-                </div>
-                <button 
-                    onClick={createProtecaoTemplate}
-                    disabled={loading}
-                    className="w-full bg-purple-900/50 hover:bg-purple-900 text-purple-200 border border-purple-700 font-bold uppercase py-4 rounded tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                     <Wand2 className="w-5 h-5" />
-                    {loading ? 'GERANDO PROTOCOLO...' : 'GERAR TEMPLATE PADRÃO'}
-                </button>
-            </div>
-        )}
-      </div>
-      </div>
-    </div>
-  );
+    );
 }
