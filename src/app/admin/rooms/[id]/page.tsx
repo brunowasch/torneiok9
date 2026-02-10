@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, createTestTemplate, updateTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom } from '@/services/adminService';
 import { createJudgeByAdmin } from '@/services/userService';
-import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser } from '@/types/schema'; // Import ScoreOption
+import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, MODALITIES } from '@/types/schema'; // Import ScoreOption
 import {
     ArrowLeft,
     Users,
@@ -45,6 +45,7 @@ export default function RoomDetailsPage() {
     const [handlerItems, setHandlerItems] = useState<ScoreOption[]>([]);
     const [dogItems, setDogItems] = useState<ScoreOption[]>([]);
     const [templateTitle, setTemplateTitle] = useState('');
+    const [selectedModality, setSelectedModality] = useState<Modality | ''>('');
     const [genMsg, setGenMsg] = useState('');
     const [editingTestId, setEditingTestId] = useState<string | null>(null);
 
@@ -121,6 +122,7 @@ export default function RoomDetailsPage() {
 
     const editTest = (test: TestTemplate) => {
         setTemplateTitle(test.title);
+        setSelectedModality(test.modality || '');
         // Start by checking specific names, but fallback to index if needed or adjust logic
         const handlerGroup = test.groups.find(g => g.name.includes('Condutor')) || test.groups[0];
         const dogGroup = test.groups.find(g => g.name.includes('Cão')) || test.groups[1];
@@ -132,12 +134,8 @@ export default function RoomDetailsPage() {
     };
 
     const saveTest = async () => {
-        if (handlerScoreSum > 5) {
-            setGenMsg('ERRO: Total do Condutor excede 5 pontos.');
-            return;
-        }
-        if (dogScoreSum > 5) {
-            setGenMsg('ERRO: Total do Cão excede 5 pontos.');
+        if (!selectedModality) {
+            setGenMsg('Selecione uma modalidade.');
             return;
         }
 
@@ -151,6 +149,7 @@ export default function RoomDetailsPage() {
             if (editingTestId) {
                 await updateTestTemplate(editingTestId, {
                     title: templateTitle || "Nova Prova",
+                    modality: selectedModality,
                     maxScore: handlerScoreSum + dogScoreSum,
                     groups,
                     penalties
@@ -158,6 +157,7 @@ export default function RoomDetailsPage() {
             } else {
                 await createTestTemplate({
                     title: templateTitle || "Nova Prova",
+                    modality: selectedModality,
                     description: "Provas de Campo",
                     maxScore: handlerScoreSum + dogScoreSum,
                     groups,
@@ -170,6 +170,7 @@ export default function RoomDetailsPage() {
             setHandlerItems([]);
             setDogItems([]);
             setTemplateTitle('');
+            setSelectedModality('');
             setEditingTestId(null);
             setShowAddTest(false);
             loadRoomData();
@@ -362,6 +363,7 @@ export default function RoomDetailsPage() {
                                             setHandlerItems([]);
                                             setDogItems([]);
                                             setTemplateTitle('');
+                                            setSelectedModality('');
                                             setShowAddTest(true);
                                         }}
                                         className="bg-purple-900/50 hover:bg-purple-800 border border-purple-800 text-purple-100 font-bold uppercase px-4 py-3 rounded text-sm tracking-wider flex items-center gap-2 cursor-pointer"
@@ -413,11 +415,25 @@ export default function RoomDetailsPage() {
                                     />
                                 </div>
 
+                                <div className="mb-6">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Modalidade</label>
+                                    <select
+                                        value={selectedModality}
+                                        onChange={e => setSelectedModality(e.target.value as Modality)}
+                                        className="w-full bg-black/50 border border-gray-700 text-white p-3 rounded focus:outline-none focus:border-police-gold mt-1"
+                                    >
+                                        <option value="">-- Selecione a Modalidade --</option>
+                                        {MODALITIES.map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 {/* Handler Items */}
                                 <div className="mb-6 p-4 bg-black/20 rounded border border-gray-800">
                                     <div className="flex justify-between mb-2">
                                         <h3 className="text-sm font-bold text-white uppercase">Avaliação do Condutor</h3>
-                                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${handlerScoreSum > 5 ? 'bg-red-900 text-white' : 'text-gray-500'}`}>{handlerScoreSum}/5.0</span>
+                                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{handlerScoreSum} pts</span>
                                     </div>
                                     <div className="space-y-2 mb-3">
                                         {handlerItems.map((item, i) => (
@@ -432,7 +448,7 @@ export default function RoomDetailsPage() {
                                     </div>
                                     <div className="flex gap-2">
                                         <input id="h-lbl" placeholder="Critério" className="flex-1 bg-black/50 border border-gray-700 text-white text-xs p-2 rounded" />
-                                        <input id="h-pts" placeholder="Pts" type="number" step="0.5" className="w-16 bg-black/50 border border-gray-700 text-white text-xs p-2 rounded" />
+                                        <input id="h-pts" placeholder="Pts" type="number" step="0.5" defaultValue={10} className="w-16 bg-black/50 border border-gray-700 text-white text-xs p-2 rounded" />
                                         <button
                                             onClick={() => {
                                                 const l = (document.getElementById('h-lbl') as HTMLInputElement).value;
@@ -448,7 +464,7 @@ export default function RoomDetailsPage() {
                                 <div className="mb-6 p-4 bg-black/20 rounded border border-gray-800">
                                     <div className="flex justify-between mb-2">
                                         <h3 className="text-sm font-bold text-white uppercase">Avaliação do Cão</h3>
-                                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${dogScoreSum > 5 ? 'bg-red-900 text-white' : 'text-gray-500'}`}>{dogScoreSum}/5.0</span>
+                                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{dogScoreSum} pts</span>
                                     </div>
                                     <div className="space-y-2 mb-3">
                                         {dogItems.map((item, i) => (
@@ -463,7 +479,7 @@ export default function RoomDetailsPage() {
                                     </div>
                                     <div className="flex gap-2">
                                         <input id="d-lbl" placeholder="Critério" className="flex-1 bg-black/50 border border-gray-700 text-white text-xs p-2 rounded" />
-                                        <input id="d-pts" placeholder="Pts" type="number" step="0.5" className="w-16 bg-black/50 border border-gray-700 text-white text-xs p-2 rounded" />
+                                        <input id="d-pts" placeholder="Pts" type="number" step="0.5" defaultValue={10} className="w-16 bg-black/50 border border-gray-700 text-white text-xs p-2 rounded" />
                                         <button
                                             onClick={() => {
                                                 const l = (document.getElementById('d-lbl') as HTMLInputElement).value;
@@ -481,7 +497,7 @@ export default function RoomDetailsPage() {
                                     <button onClick={() => { setShowAddTest(false); setEditingTestId(null); }} className="flex-1 py-3 bg-gray-800 text-gray-300 font-bold uppercase rounded text-sm cursor-pointer">Cancelar</button>
                                     <button
                                         onClick={saveTest}
-                                        disabled={(handlerScoreSum + dogScoreSum) > 10}
+                                        disabled={!templateTitle || !selectedModality}
                                         className="flex-1 py-3 bg-white hover:bg-gray-200 text-black font-bold uppercase rounded text-sm disabled:opacity-50 cursor-pointer"
                                     >
                                         {editingTestId ? 'Atualizar Prova' : 'Salvar Prova'}

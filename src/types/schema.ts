@@ -1,5 +1,22 @@
 export type UserRole = 'admin' | 'judge';
 
+export type Modality =
+  | 'Cão de patrulha e intervenção'
+  | 'Proteção/intervenção'
+  | 'Feminina'
+  | 'Batalha Arena K9'
+  | 'Busca e resgate por odor específico'
+  | 'Faro de narcóticos';
+
+export const MODALITIES: Modality[] = [
+  'Cão de patrulha e intervenção',
+  'Proteção/intervenção',
+  'Feminina',
+  'Batalha Arena K9',
+  'Busca e resgate por odor específico',
+  'Faro de narcóticos'
+];
+
 export interface AppUser {
   uid: string;
   email: string;
@@ -51,6 +68,7 @@ export interface PenaltyOption {
 export interface TestTemplate {
   id: string;
   roomId?: string; // Se null, é um template global
+  modality?: Modality; // Modalidade da prova
   title: string; // ex: "Prova de Proteção 1"
   description: string;
   maxScore: number;

@@ -2,9 +2,12 @@ import { db } from '../lib/firebase';
 import { collection, onSnapshot, query, orderBy, where, getDocs } from 'firebase/firestore';
 import { Competitor, Evaluation } from '../types/schema';
 
+// Update type to include detailed evaluation data
 export interface LeaderboardEntry extends Competitor {
     totalScore: number;
     evaluationsCount: number;
+    evaluations: Evaluation[]; // Included to allow client-side filtering by Test/Modality
+    scoresByTest: Record<string, number>;
 }
 
 export const subscribeToLeaderboard = (roomId: string, callback: (data: LeaderboardEntry[]) => void) => {
@@ -20,10 +23,17 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
             const compEvals = evaluations.filter(e => e.competitorId === comp.id);
             const totalScore = compEvals.reduce((sum, e) => sum + e.finalScore, 0);
 
+            const scoresByTest: Record<string, number> = {};
+            compEvals.forEach(e => {
+                scoresByTest[e.testId] = e.finalScore;
+            });
+
             return {
                 ...comp,
                 totalScore,
-                evaluationsCount: compEvals.length
+                evaluationsCount: compEvals.length,
+                evaluations: compEvals,
+                scoresByTest
             };
         });
 
