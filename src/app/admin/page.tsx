@@ -89,7 +89,7 @@ export default function AdminDashboard() {
 
     if (!user && !loading) {
         return (
-            <div className="min-h-screen bg-tactical-black flex items-center justify-center p-4 text-white">
+            <div className="min-h-screen bg-k9-white flex items-center justify-center p-4 text-k9-black">
                 <div className="text-center">
                     <ShieldAlert className="w-12 h-12 text-red-500 mx-auto mb-4" />
                     <h1 className="text-xl font-bold uppercase">Acesso Restrito</h1>
@@ -100,27 +100,27 @@ export default function AdminDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-tactical-black p-4 md:p-8 text-gray-200 font-sans">
+        <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
             <div className="max-w-6xl mx-auto">
-                <header className="mb-12 border-b border-gray-800 pb-6 flex items-center justify-between">
+                <header className="mb-12 border-b-2 border-gray-200 pb-6 flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-                            <ShieldAlert className="text-police-gold w-8 h-8" />
+                        <h1 className="text-3xl font-black text-k9-black uppercase tracking-tighter flex items-center gap-3">
+                            <ShieldAlert className="text-k9-orange w-8 h-8" />
                             Comando Central
                         </h1>
-                        <p className="text-police-gold text-sm uppercase tracking-widest pl-11">Dashboard Administrativo</p>
+                        <p className="text-k9-orange text-sm uppercase tracking-widest pl-11 font-bold">Dashboard Administrativo</p>
                     </div>
                     <div className="flex gap-4">
                         <button
                             onClick={() => setShowCreateAdminModal(true)}
-                            className="bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-4 py-3 rounded tracking-widest transition-all flex items-center gap-2 text-xs cursor-pointer"
+                            className="bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase px-4 py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-xs cursor-pointer border-2 border-gray-300 shadow-sm"
                         >
                             <Users className="w-4 h-4" />
                             Novo Admin
                         </button>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="bg-white hover:bg-gray-200 text-black font-bold uppercase px-6 py-3 rounded tracking-widest transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(212,175,55,0.2)] cursor-pointer"
+                            className="bg-k9-orange hover:bg-amber-600 text-white font-bold uppercase px-6 py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer"
                         >
                             <PlusCircle className="w-5 h-5" />
                             Nova Operação
@@ -129,36 +129,36 @@ export default function AdminDashboard() {
                 </header>
 
                 {loading ? (
-                    <div className="text-center p-12 animate-pulse text-police-gold font-mono">[CONFIRMANDO CREDENCIAIS...]</div>
+                    <div className="text-center p-12 animate-pulse text-k9-orange font-mono">[CONFIRMANDO CREDENCIAIS...]</div>
                 ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {rooms.map(room => (
                             <Link href={`/admin/rooms/${room.id}`} key={room.id} className="group">
-                                <div className="bg-tactical-gray border border-gray-800 rounded-xl p-6 hover:border-police-gold transition-all relative overflow-hidden h-full flex flex-col">
-                                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-white/5 to-transparent"></div>
+                                <div className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-k9-orange hover:shadow-lg transition-all relative overflow-hidden h-full flex flex-col">
+                                    <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-bl from-k9-orange/5 to-transparent"></div>
 
                                     <div className="flex items-start justify-between mb-4">
-                                        <div className="p-3 bg-black/40 rounded-lg text-police-gold group-hover:scale-110 transition-transform">
+                                        <div className="p-3 bg-k9-orange/10 rounded-lg text-k9-orange group-hover:scale-110 transition-transform border-2 border-k9-orange/30">
                                             <MapPin className="w-6 h-6" />
                                         </div>
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${room.active ? 'bg-green-900/30 text-green-400 border border-green-900/50' : 'bg-red-900/30 text-red-400'}`}>
+                                        <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider border-2 ${room.active ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
                                             {room.active ? 'Em Progresso' : 'Finalizada'}
                                         </span>
                                     </div>
 
-                                    <h2 className="text-xl font-bold text-white uppercase leading-tight mb-2 group-hover:text-police-gold transition-colors">
+                                    <h2 className="text-xl font-black text-k9-black uppercase leading-tight mb-2 group-hover:text-k9-orange transition-colors tracking-tight">
                                         {room.name}
                                     </h2>
-                                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-6">
+                                    <p className="text-xs text-gray-600 uppercase tracking-wide mb-6 font-semibold">
                                         {room.description}
                                     </p>
 
-                                    <div className="mt-auto flex items-center justify-between text-xs text-gray-400 border-t border-gray-800 pt-4">
+                                    <div className="mt-auto flex items-center justify-between text-xs text-gray-500 border-t-2 border-gray-200 pt-4 font-bold">
                                         <div className="flex items-center gap-1">
                                             <Calendar className="w-3 h-3" />
                                             <span>{new Date(room.createdAt).toLocaleDateString()}</span>
                                         </div>
-                                        <div className="flex items-center gap-1 font-bold text-police-gold group-hover:translate-x-1 transition-transform">
+                                        <div className="flex items-center gap-1 text-k9-orange group-hover:translate-x-1 transition-transform">
                                             GERENCIAR <ChevronRight className="w-3 h-3" />
                                         </div>
                                     </div>
@@ -167,11 +167,11 @@ export default function AdminDashboard() {
                         ))}
 
                         {rooms.length === 0 && (
-                            <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-800 rounded-xl bg-white/[0.02]">
-                                <p className="text-gray-500 uppercase font-bold tracking-widest mb-4">Nenhuma operação tática iniciada</p>
+                            <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+                                <p className="text-gray-600 uppercase font-bold tracking-widest mb-4">Nenhuma operação tática iniciada</p>
                                 <button
                                     onClick={() => setShowCreateModal(true)}
-                                    className="text-police-gold hover:text-white underline uppercase text-xs tracking-wider"
+                                    className="text-k9-orange hover:text-k9-black underline uppercase text-xs tracking-wider font-bold transition-colors"
                                 >
                                     Criar primeira sala
                                 </button>
@@ -182,29 +182,29 @@ export default function AdminDashboard() {
 
                 {/* Create Room Modal */}
                 {showCreateModal && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-                        <div className="bg-tactical-gray border border-gray-700 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
-                            <h2 className="text-xl font-bold text-white uppercase mb-6 flex items-center gap-2">
-                                <PlusCircle className="text-police-gold w-5 h-5" /> Nova Sala
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+                        <div className="bg-white border-2 border-gray-200 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+                            <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
+                                <PlusCircle className="text-k9-orange w-5 h-5" /> Nova Sala
                             </h2>
                             <input
                                 type="text"
                                 value={newRoomName}
                                 onChange={(e) => setNewRoomName(e.target.value)}
-                                className="w-full bg-black/50 border border-gray-700 text-white p-3 rounded mb-6 focus:outline-none focus:border-police-gold uppercase"
+                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg mb-6 focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange uppercase font-semibold placeholder-gray-400"
                                 placeholder="NOME DA OPERAÇÃO..."
                             />
                             <div className="flex gap-4">
                                 <button
                                     onClick={() => setShowCreateModal(false)}
-                                    className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold uppercase text-xs rounded tracking-wider cursor-pointer"
+                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     onClick={handleCreateRoom}
                                     disabled={!newRoomName}
-                                    className="flex-1 py-3 bg-white hover:bg-gray-200 text-black font-bold uppercase text-xs rounded tracking-wider disabled:opacity-50 cursor-pointer"
+                                    className="flex-1 py-3 bg-k9-orange hover:bg-amber-600 text-white font-bold uppercase text-xs rounded-lg tracking-wider disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
                                 >
                                     Criar
                                 </button>
@@ -215,44 +215,44 @@ export default function AdminDashboard() {
 
                 {/* Create Admin Modal */}
                 {showCreateAdminModal && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-                        <div className="bg-tactical-gray border border-gray-700 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
-                            <h2 className="text-xl font-bold text-white uppercase mb-6 flex items-center gap-2">
-                                <Users className="text-police-gold w-5 h-5" /> Novo Administrador
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+                        <div className="bg-white border-2 border-gray-200 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+                            <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
+                                <Users className="text-k9-orange w-5 h-5" /> Novo Administrador
                             </h2>
                             <div className="space-y-4 mb-6">
                                 <input
                                     type="text"
                                     value={newAdmin.name}
                                     onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
-                                    className="w-full bg-black/50 border border-gray-700 text-white p-3 rounded focus:outline-none focus:border-police-gold"
+                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold placeholder-gray-400"
                                     placeholder="Nome..."
                                 />
                                 <input
                                     type="email"
                                     value={newAdmin.email}
                                     onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
-                                    className="w-full bg-black/50 border border-gray-700 text-white p-3 rounded focus:outline-none focus:border-police-gold"
+                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold placeholder-gray-400"
                                     placeholder="Email..."
                                 />
                                 <input
                                     type="password"
                                     value={newAdmin.password}
                                     onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
-                                    className="w-full bg-black/50 border border-gray-700 text-white p-3 rounded focus:outline-none focus:border-police-gold"
+                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold placeholder-gray-400"
                                     placeholder="Senha..."
                                 />
                             </div>
                             <div className="flex gap-4">
                                 <button
                                     onClick={() => setShowCreateAdminModal(false)}
-                                    className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold uppercase text-xs rounded tracking-wider cursor-pointer"
+                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     onClick={handleCreateAdmin}
-                                    className="flex-1 py-3 bg-white hover:bg-gray-200 text-black font-bold uppercase text-xs rounded tracking-wider disabled:opacity-50 cursor-pointer"
+                                    className="flex-1 py-3 bg-k9-orange hover:bg-amber-600 text-white font-bold uppercase text-xs rounded-lg tracking-wider disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
                                 >
                                     Criar Usuário
                                 </button>
