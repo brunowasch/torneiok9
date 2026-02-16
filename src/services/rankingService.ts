@@ -1,5 +1,5 @@
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, query, orderBy, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { Competitor, Evaluation } from '../types/schema';
 
 // Update type to include detailed evaluation data

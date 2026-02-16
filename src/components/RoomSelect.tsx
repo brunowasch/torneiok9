@@ -19,7 +19,7 @@ export default function RoomSelect({
   rooms,
   buttonColor = 'bg-white', // Cor padrão do botão
   dropdownColor = 'bg-white', // Cor padrão do dropdown
-  selectedColor = 'bg-k9-orange text-white', // Cor padrão do item selecionado
+  selectedColor = 'bg-orange-400 text-white border-orange-400 shadow-md', // Cor padrão do item selecionado (mesmo laranja do botão Campeão)
   textColor = 'text-k9-black', // Cor padrão do texto
 }: RoomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);

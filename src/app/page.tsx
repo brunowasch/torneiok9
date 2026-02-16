@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import RoomSelect from '@/components/RoomSelect';
-import { getTestTemplates } from '@/services/adminService';
 import { Room, TestTemplate, Modality, MODALITIES } from '@/types/schema';
 import { Trophy, Medal, Crown, ListFilter, Target, Flame } from 'lucide-react';
 import { LeaderboardEntry, subscribeToLeaderboard } from '@/services/rankingService';
@@ -17,47 +16,85 @@ export default function Home() {
   const [selectedTestId, setSelectedTestId] = useState<string | 'geral'>('geral');
   const [loading, setLoading] = useState(true);
 
-  // 1. Fetch available rooms on mount
+  // Subscribe to rooms (real-time)
   useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        const { collection, getDocs } = await import('firebase/firestore');
-        const { db } = await import('@/lib/firebase');
-        const roomSnap = await getDocs(collection(db, 'rooms'));
-        const roomsData = roomSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
+    let unsubscribe: (() => void) | undefined;
 
-        setRooms(roomsData);
-        
-        if (roomsData.length > 0) {
-          setSelectedRoomId(roomsData[0].id);
-        }
+    const setup = async () => {
+      try {
+        const { collection, query, onSnapshot } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        const q = query(collection(db, 'rooms'));
+
+        unsubscribe = onSnapshot(
+          q,
+          (snap) => {
+            const roomsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
+            setRooms(roomsData);
+
+            // set default/repair selectedRoomId when needed
+            setSelectedRoomId(prev => {
+              if ((!prev || prev === '') && roomsData.length > 0) return roomsData[0].id;
+              if (prev && !roomsData.find(r => r.id === prev) && roomsData.length > 0) return roomsData[0].id;
+              return prev;
+            });
+
+            setLoading(false);
+          },
+          (err) => {
+            console.error('Error listening rooms', err);
+            setLoading(false);
+          }
+        );
       } catch (e) {
-        console.error("Error fetching rooms", e);
-      } finally {
+        console.error('Error setting up rooms listener', e);
         setLoading(false);
       }
     };
-    fetchRooms();
+
+    setup();
+
+    return () => { if (unsubscribe) unsubscribe(); };
   }, []);
 
-  // 2. Fetch tests and subscribe to leaderboard when room changes
+  // Fetch tests and subscribe to leaderboard when room changes
   useEffect(() => {
     if (!selectedRoomId) {
+      setTests([]);
+      setLeaderboard([]);
       return;
     }
 
-    getTestTemplates(selectedRoomId).then(t => {
-      setTests(t);
-    });
+    // subscribe to tests for the selected room (real-time)
+    let unsubscribeTests: (() => void) | undefined;
+    const setupTestsListener = async () => {
+      try {
+        const { collection, query, where, onSnapshot } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        const q = query(collection(db, 'tests'), where('roomId', '==', selectedRoomId));
 
-    const unsubscribe = subscribeToLeaderboard(selectedRoomId, (data) => {
+        unsubscribeTests = onSnapshot(q, (snap) => {
+          const t = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TestTemplate));
+          setTests(t);
+        }, (err) => console.error('Error listening tests', err));
+      } catch (e) {
+        console.error('Error setting up tests listener', e);
+      }
+    };
+
+    setupTestsListener();
+
+    const unsubscribeLeaderboard = subscribeToLeaderboard(selectedRoomId, (data) => {
       setLeaderboard(data);
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribeTests) unsubscribeTests();
+      if (unsubscribeLeaderboard) unsubscribeLeaderboard();
+    };
   }, [selectedRoomId]);
 
-  // 3. Set default modality
+  // Set default modality
   useEffect(() => {
     if (!selectedModality && MODALITIES.length > 0) {
       setSelectedModality(MODALITIES[0]);
@@ -125,17 +162,17 @@ export default function Home() {
 
         {/* Modality Tabs */}
         <div className="mb-8 overflow-x-auto pb-4">
-          <div className="flex gap-3 min-w-max">
+          <div className="flex gap-6 min-w-max px-3">
             {MODALITIES.map(mod => (
               <button
                 key={mod}
                 onClick={() => { setSelectedModality(mod); setSelectedTestId('geral'); }}
                 className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 
-  transition-all duration-200 whitespace-nowrap shadow-sm
-  ${selectedModality === mod
-    ? 'bg-orange-500 text-white border-orange-500 shadow-md scale-105'
-    : 'bg-white text-black border-gray-300 hover:bg-orange-500 hover:text-white hover:border-orange-500'
-  }`}
+                origin-left transition-all duration-200 whitespace-nowrap shadow-sm
+                ${selectedModality === mod
+                  ? 'bg-orange-500 text-white border-orange-500 shadow-md scale-105'
+                  : 'bg-white text-black border-gray-300 hover:bg-orange-500 hover:text-white hover:border-orange-500'
+                }`}
               >
                 {mod}
               </button>
@@ -145,10 +182,13 @@ export default function Home() {
 
         {/* Test Selector (Sub-nav) */}
         {selectedModality && (
-          <div className="mb-8 flex flex-wrap items-center gap-3 p-2">
+          <div className="mb-8 flex flex-wrap items-center gap-6 p-2">
             <button
               onClick={() => setSelectedTestId('geral')}
-              className={`px-4 py-2 text-xs font-black uppercase rounded-full flex items-center gap-2 transition-all border-2 ${selectedTestId === 'geral' ? 'bg-k9-black text-white border-k9-black shadow-md' : 'bg-white text-k9-black border-k9-orange hover:bg-k9-orange hover:text-white'}`}
+              className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm ${selectedTestId === 'geral'
+                ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
+                : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
+              }`}
             >
               <Trophy className="w-3 h-3" /> Campeão da Modalidade
             </button>
@@ -158,7 +198,10 @@ export default function Home() {
               <button
                 key={test.id}
                 onClick={() => setSelectedTestId(test.id)}
-                className={`px-4 py-2 text-xs font-black uppercase rounded-full flex items-center gap-2 transition-all border-2 ${selectedTestId === test.id ? 'bg-k9-orange text-white border-k9-orange shadow-md' : 'bg-white text-k9-black border-k9-orange hover:bg-k9-orange hover:text-white'}`}
+                className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm ${selectedTestId === test.id
+                  ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
+                  : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
+                }`}
               >
                 <Target className="w-3 h-3" /> {test.title}
               </button>

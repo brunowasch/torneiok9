@@ -90,7 +90,7 @@ export default function SecretLoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-k9-orange hover:bg-amber-600 text-white uppercase py-4 rounded-lg tracking-widest transition-all mt-6 cursor-pointer font-black disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-base border-2 border-k9-orange"
+                        className={`w-full px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm mt-6 disabled:opacity-50 disabled:cursor-not-allowed ${loading ? 'opacity-60 cursor-wait bg-orange-500 border-orange-500 text-white' : 'bg-orange-500 text-white border-orange-500 hover:scale-105'}`}
                     >
                         {loading ? 'Autenticando...' : 'ACESSAR'}
                     </button>
