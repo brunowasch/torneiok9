@@ -13,16 +13,15 @@ import {
     Users
 } from 'lucide-react';
 import { Room } from '@/types/schema';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 
 export default function AdminDashboard() {
     const [rooms, setRooms] = useState<Room[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newRoomName, setNewRoomName] = useState('');
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
 
-    // Admin Creation State
     const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
     const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '' });
 
@@ -69,7 +68,8 @@ export default function AdminDashboard() {
             setNewRoomName('');
             setShowCreateModal(false);
             fetchRooms(user.uid);
-        } catch (e) {
+        } catch (err) {
+            console.error('Error creating room', err);
             alert('Erro ao criar sala. Verifique permissões.');
         }
     };
@@ -82,8 +82,9 @@ export default function AdminDashboard() {
             alert('Novo Admin criado com sucesso!');
             setShowCreateAdminModal(false);
             setNewAdmin({ name: '', email: '', password: '' });
-        } catch (e: any) {
-            alert('Erro: ' + e.message);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            alert('Erro: ' + msg);
         }
     };
 
@@ -120,10 +121,10 @@ export default function AdminDashboard() {
                         </button>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="bg-k9-orange hover:bg-amber-600 text-white font-bold uppercase px-6 py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer"
+                            className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 hover:scale-105 bg-orange-400 text-white border-orange-400`}
                         >
                             <PlusCircle className="w-5 h-5" />
-                            Nova Operação
+                            Nova Sala
                         </button>
                     </div>
                 </header>
@@ -204,7 +205,7 @@ export default function AdminDashboard() {
                                 <button
                                     onClick={handleCreateRoom}
                                     disabled={!newRoomName}
-                                    className="flex-1 py-3 bg-k9-orange hover:bg-amber-600 text-white font-bold uppercase text-xs rounded-lg tracking-wider disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105"
                                 >
                                     Criar
                                 </button>
@@ -224,23 +225,26 @@ export default function AdminDashboard() {
                                 <input
                                     type="text"
                                     value={newAdmin.name}
+                                    required
+                                    placeholder="Nome completo"
                                     onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
-                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold placeholder-gray-400"
-                                    placeholder="Nome..."
+                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
                                 />
                                 <input
                                     type="email"
                                     value={newAdmin.email}
+                                    required
+                                    placeholder="usuario@comando.k9"
                                     onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
-                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold placeholder-gray-400"
-                                    placeholder="Email..."
+                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
                                 />
                                 <input
                                     type="password"
                                     value={newAdmin.password}
+                                    required
+                                    placeholder="Senha (mín. 8 caracteres)"
                                     onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
-                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold placeholder-gray-400"
-                                    placeholder="Senha..."
+                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
                                 />
                             </div>
                             <div className="flex gap-4">
@@ -252,7 +256,8 @@ export default function AdminDashboard() {
                                 </button>
                                 <button
                                     onClick={handleCreateAdmin}
-                                    className="flex-1 py-3 bg-k9-orange hover:bg-amber-600 text-white font-bold uppercase text-xs rounded-lg tracking-wider disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+                                    disabled={!newAdmin.name || !newAdmin.email || !newAdmin.password}
+                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105"
                                 >
                                     Criar Usuário
                                 </button>

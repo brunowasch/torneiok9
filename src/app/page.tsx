@@ -16,7 +16,6 @@ export default function Home() {
   const [selectedTestId, setSelectedTestId] = useState<string | 'geral'>('geral');
   const [loading, setLoading] = useState(true);
 
-  // Subscribe to rooms (real-time)
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
@@ -32,7 +31,6 @@ export default function Home() {
             const roomsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
             setRooms(roomsData);
 
-            // set default/repair selectedRoomId when needed
             setSelectedRoomId(prev => {
               if ((!prev || prev === '') && roomsData.length > 0) return roomsData[0].id;
               if (prev && !roomsData.find(r => r.id === prev) && roomsData.length > 0) return roomsData[0].id;
@@ -57,7 +55,6 @@ export default function Home() {
     return () => { if (unsubscribe) unsubscribe(); };
   }, []);
 
-  // Fetch tests and subscribe to leaderboard when room changes
   useEffect(() => {
     if (!selectedRoomId) {
       setTests([]);
@@ -65,7 +62,6 @@ export default function Home() {
       return;
     }
 
-    // subscribe to tests for the selected room (real-time)
     let unsubscribeTests: (() => void) | undefined;
     const setupTestsListener = async () => {
       try {
@@ -94,14 +90,12 @@ export default function Home() {
     };
   }, [selectedRoomId]);
 
-  // Set default modality
   useEffect(() => {
     if (!selectedModality && MODALITIES.length > 0) {
       setSelectedModality(MODALITIES[0]);
     }
   }, [selectedModality]);
 
-  // Compute filtered leaderboard based on Modality & Test
   const getFilteredLeaderboard = () => {
     if (!selectedModality) return [];
 
@@ -170,8 +164,8 @@ export default function Home() {
                 className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 
                 origin-left transition-all duration-200 whitespace-nowrap shadow-sm
                 ${selectedModality === mod
-                  ? 'bg-orange-500 text-white border-orange-500 shadow-md scale-105'
-                  : 'bg-white text-black border-gray-300 hover:bg-orange-500 hover:text-white hover:border-orange-500'
+                  ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
+                  : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
                 }`}
               >
                 {mod}
