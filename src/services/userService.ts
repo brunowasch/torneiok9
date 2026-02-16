@@ -1,5 +1,5 @@
-import { db, auth, firebaseConfig } from '../lib/firebase'; // Ensure firebaseConfig is exported from lib/firebase
-import { collection, query, where, getDocs, setDoc, doc, getDoc } from 'firebase/firestore';
+import { db, auth, firebaseConfig } from '../lib/firebase'; 
+import { collection, query, where, getDocs, setDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
@@ -9,7 +9,6 @@ import {
 import { initializeApp, getApp, getApps, deleteApp } from 'firebase/app';
 import { AppUser } from '../types/schema';
 
-// Helper to check if admin already exists
 export const checkAdminExists = async () => {
     try {
         const q = query(collection(db, 'users'), where('role', '==', 'admin'));
@@ -50,7 +49,6 @@ export const logoutAdmin = async () => {
     await signOut(auth);
 };
 
-// Create Initial Admin (Public/Setup)
 export const createAdminUser = async (email: string, password: string, name: string) => {
     let uid = '';
     try {
@@ -88,9 +86,7 @@ export const createAdminUser = async (email: string, password: string, name: str
     }
 };
 
-// Create Judge (Authenticated) - Uses Secondary App
 export const createJudgeByAdmin = async (email: string, password: string, name: string) => {
-    // 1. Initialize a secondary app instance
     let secondaryApp;
     try {
         secondaryApp = getApp('Secondary');
@@ -101,11 +97,9 @@ export const createJudgeByAdmin = async (email: string, password: string, name: 
     const secondaryAuth = getAuth(secondaryApp);
 
     try {
-        // 2. Create user in Auth
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
         const uid = userCredential.user.uid;
 
-        // 3. Create user in Firestore
         const userData: AppUser = {
             uid,
             email,
@@ -116,11 +110,9 @@ export const createJudgeByAdmin = async (email: string, password: string, name: 
 
         await setDoc(doc(db, 'users', uid), userData);
 
-        // 4. Cleanup
         await deleteApp(secondaryApp);
         return uid;
     } catch (error: any) {
-        // try to cleanup
         try { await deleteApp(secondaryApp); } catch (e) { }
         console.error("Error creating judge", error);
         throw error;
@@ -128,7 +120,6 @@ export const createJudgeByAdmin = async (email: string, password: string, name: 
 };
 
 export const createNewAdminByAdmin = async (email: string, password: string, name: string) => {
-    // 1. Initialize a secondary app instance
     let secondaryApp;
     try {
         secondaryApp = getApp('Secondary');
@@ -139,11 +130,9 @@ export const createNewAdminByAdmin = async (email: string, password: string, nam
     const secondaryAuth = getAuth(secondaryApp);
 
     try {
-        // 2. Create user in Auth
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
         const uid = userCredential.user.uid;
 
-        // 3. Create user in Firestore (using main app's db which is authenticated as the current admin)
         const userData: AppUser = {
             uid,
             email,
@@ -154,13 +143,21 @@ export const createNewAdminByAdmin = async (email: string, password: string, nam
 
         await setDoc(doc(db, 'users', uid), userData);
 
-        // 4. Cleanup
         await deleteApp(secondaryApp);
         return uid;
     } catch (error: any) {
-        // try to cleanup
         try { await deleteApp(secondaryApp); } catch (e) { }
         console.error("Error creating sub-admin", error);
+        throw error;
+    }
+};
+
+export const updateUser = async (uid: string, data: Partial<AppUser>) => {
+    try {
+        const docRef = doc(db, 'users', uid);
+        await updateDoc(docRef, data);
+    } catch (error) {
+        console.error("Error updating user", error);
         throw error;
     }
 };

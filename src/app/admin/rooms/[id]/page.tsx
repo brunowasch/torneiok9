@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, createTestTemplate, updateTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom } from '@/services/adminService';
-import { createJudgeByAdmin } from '@/services/userService';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, createTestTemplate, updateTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom } from '@/services/adminService';
+import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, MODALITIES } from '@/types/schema'; 
+import Modal from '@/components/Modal';
 import {
     ArrowLeft,
     Users,
@@ -35,10 +36,11 @@ export default function RoomDetailsPage() {
 
     // Forms State
     const [showAddCompetitor, setShowAddCompetitor] = useState(false);
+    const [editingCompetitorId, setEditingCompetitorId] = useState<string | null>(null);
     const [compForm, setCompForm] = useState({ handlerName: '', dogName: '', dogBreed: '', testId: '' });
 
+    // Test Form State
     const [showAddTest, setShowAddTest] = useState(false);
-    // Detailed test form states
     const [handlerItems, setHandlerItems] = useState<ScoreOption[]>([]);
     const [dogItems, setDogItems] = useState<ScoreOption[]>([]);
     const [templateTitle, setTemplateTitle] = useState('');
@@ -46,10 +48,12 @@ export default function RoomDetailsPage() {
     const [genMsg, setGenMsg] = useState('');
     const [editingTestId, setEditingTestId] = useState<string | null>(null);
 
+    // Judge Form State
     const [showAddJudge, setShowAddJudge] = useState(false);
     const [judgeMode, setJudgeMode] = useState<'existing' | 'new'>('existing');
     const [selectedJudgeId, setSelectedJudgeId] = useState('');
     const [newJudgeForm, setNewJudgeForm] = useState({ name: '', email: '', password: '' });
+    const [editingJudge, setEditingJudge] = useState<AppUser | null>(null);
 
     const loadRoomData = useCallback(async () => {
         try {
@@ -117,19 +121,41 @@ export default function RoomDetailsPage() {
         };
     }, [roomId, loadRoomData]);
 
-    // Actions
+    // Competitor Actions
+    const handleEditCompetitor = (comp: Competitor) => {
+        setCompForm({
+            handlerName: comp.handlerName,
+            dogName: comp.dogName,
+            dogBreed: comp.dogBreed,
+            testId: comp.testId || ''
+        });
+        setEditingCompetitorId(comp.id);
+        setShowAddCompetitor(true);
+    };
+
     const saveCompetitor = async () => {
         if (!compForm.handlerName || !compForm.dogName) return;
         try {
-            await addCompetitor({
-                roomId,
-                handlerName: compForm.handlerName,
-                dogName: compForm.dogName,
-                dogBreed: compForm.dogBreed,
-                competitorNumber: Math.floor(Math.random() * 900) + 100,
-                testId: compForm.testId || undefined
-            });
+            if (editingCompetitorId) {
+                await updateCompetitor(editingCompetitorId, {
+                    handlerName: compForm.handlerName,
+                    dogName: compForm.dogName,
+                    dogBreed: compForm.dogBreed,
+                    testId: compForm.testId || undefined
+                });
+            } else {
+                await addCompetitor({
+                    roomId,
+                    handlerName: compForm.handlerName,
+                    dogName: compForm.dogName,
+                    dogBreed: compForm.dogBreed,
+                    competitorNumber: Math.floor(Math.random() * 900) + 100,
+                    testId: compForm.testId || undefined
+                });
+            }
+            // Reset
             setCompForm({ handlerName: '', dogName: '', dogBreed: '', testId: '' });
+            setEditingCompetitorId(null);
             setShowAddCompetitor(false);
             loadRoomData(); 
         } catch (err) {
@@ -138,6 +164,7 @@ export default function RoomDetailsPage() {
         }
     };
 
+    // Test Actions
     const handlerScoreSum = handlerItems.reduce((acc, item) => acc + item.maxPoints, 0);
     const dogScoreSum = dogItems.reduce((acc, item) => acc + item.maxPoints, 0);
 
@@ -213,23 +240,43 @@ export default function RoomDetailsPage() {
         }
     };
 
+    // Judge Actions
+    const handleEditJudge = (judge: AppUser) => {
+        setEditingJudge(judge);
+        setNewJudgeForm({
+            name: judge.name,
+            email: judge.email,
+            password: '' // Password not editable directly here
+        });
+        setJudgeMode('new'); // Reuse the form layout
+        setShowAddJudge(true);
+    };
+
     const handleAddJudge = async () => {
         try {
-            if (judgeMode === 'existing') {
-                if (!selectedJudgeId) return alert('Selecione um juiz');
-                await addJudgeToRoom(roomId, selectedJudgeId);
+            if (editingJudge) {
+                if (!newJudgeForm.name) return alert('Nome é obrigatório');
+                await updateUser(editingJudge.uid, { name: newJudgeForm.name });
             } else {
-                if (!newJudgeForm.name || !newJudgeForm.email || !newJudgeForm.password) return alert('Preencha todos os campos');
-                const newUid = await createJudgeByAdmin(newJudgeForm.email, newJudgeForm.password, newJudgeForm.name);
-                await addJudgeToRoom(roomId, newUid);
+                if (judgeMode === 'existing') {
+                    if (!selectedJudgeId) return alert('Selecione um juiz');
+                    await addJudgeToRoom(roomId, selectedJudgeId);
+                } else {
+                    if (!newJudgeForm.name || !newJudgeForm.email || !newJudgeForm.password) return alert('Preencha todos os campos');
+                    const newUid = await createJudgeByAdmin(newJudgeForm.email, newJudgeForm.password, newJudgeForm.name);
+                    await addJudgeToRoom(roomId, newUid);
+                }
             }
+            
+            // Reset
             setShowAddJudge(false);
             setNewJudgeForm({ name: '', email: '', password: '' });
             setSelectedJudgeId('');
+            setEditingJudge(null);
             loadRoomData();
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            alert(msg || "Erro ao adicionar juiz");
+            alert(msg || "Erro ao salvar juiz");
         }
     };
 
@@ -295,150 +342,165 @@ export default function RoomDetailsPage() {
 
                 {activeTab === 'competitors' && (
                     <div>
-                        {!showAddCompetitor ? (
-                            <>
-                                <div className="flex justify-end mb-6">
-                                    <button
-                                        onClick={() => setShowAddCompetitor(true)}
-                                        className={`px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-green-50 text-green-700 border-green-100 hover:bg-green-100`}
-                                    >
-                                        <Plus className="w-4 h-4 text-green-700" /> Registar Novo Competidor
-                                    </button>
-                                </div>
+                        <div className="flex justify-end mb-6">
+                            <button
+                                onClick={() => {
+                                    setEditingCompetitorId(null);
+                                    setCompForm({ handlerName: '', dogName: '', dogBreed: '', testId: '' });
+                                    setShowAddCompetitor(true);
+                                }}
+                                className={`px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-green-50 text-green-700 border-green-100 hover:bg-green-100`}
+                            >
+                                <Plus className="w-4 h-4 text-green-700" /> Registar Novo Competidor
+                            </button>
+                        </div>
 
-                                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {competitors.map(comp => (
-                                        <div key={comp.id} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-between group">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center font-extrabold shadow-sm">
-                                                    {comp.competitorNumber}
-                                                </div>
-                                                <div>
-                                                    <div className="font-bold text-k9-black uppercase text-sm">{comp.handlerName}</div>
-                                                    <div className="text-xs text-gray-400 font-mono uppercase">Cão: {comp.dogName}</div>
-                                                </div>
-                                            </div>
-                                            <button className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {competitors.map(comp => (
+                                <div key={comp.id} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-between group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center font-extrabold shadow-sm">
+                                            {comp.competitorNumber}
                                         </div>
-                                    ))}
-                                    {competitors.length === 0 && <div className="text-gray-500 col-span-full text-center py-8">Nenhum competidor registrado.</div>}
+                                        <div>
+                                            <div className="font-bold text-k9-black uppercase text-sm">{comp.handlerName}</div>
+                                            <div className="text-xs text-gray-400 font-mono uppercase">Cão: {comp.dogName}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => handleEditCompetitor(comp)}
+                                            className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                                            title="Editar"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button 
+                                            className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                            title="Remover (Não implementado)"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                            </>
-                        ) : (
-                            <div className="max-w-xl mx-auto bg-white border border-gray-200 p-6 rounded-xl shadow-sm">
-                                <h2 className="text-xl font-bold text-k9-black uppercase mb-6 flex items-center gap-2">
-                                    <UserPlus className="text-police-gold w-5 h-5" /> Novo Registro
-                                </h2>
-                                <div className="space-y-4">
+                            ))}
+                            {competitors.length === 0 && <div className="text-gray-500 col-span-full text-center py-8">Nenhum competidor registrado.</div>}
+                        </div>
+
+                        <Modal
+                            isOpen={showAddCompetitor}
+                            onClose={() => { setShowAddCompetitor(false); setEditingCompetitorId(null); }}
+                            title={<div className="flex items-center gap-2"><UserPlus className="text-police-gold w-5 h-5" /> {editingCompetitorId ? 'Editar Competidor' : 'Novo Registro'}</div>}
+                            maxWidth="max-w-xl"
+                        >
+                            <div className="space-y-4">
+                                <input
+                                    placeholder="Nome do Condutor"
+                                    value={compForm.handlerName}
+                                    onChange={e => setCompForm({ ...compForm, handlerName: e.target.value })}
+                                    className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
+                                />
+                                <div className="grid grid-cols-2 gap-4">
                                     <input
-                                        placeholder="Nome do Condutor"
-                                        value={compForm.handlerName}
-                                        onChange={e => setCompForm({ ...compForm, handlerName: e.target.value })}
+                                        placeholder="Nome do Cão"
+                                        value={compForm.dogName}
+                                        onChange={e => setCompForm({ ...compForm, dogName: e.target.value })}
                                         className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
                                     />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <input
-                                            placeholder="Nome do Cão"
-                                            value={compForm.dogName}
-                                            onChange={e => setCompForm({ ...compForm, dogName: e.target.value })}
-                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                        />
-                                        <input
-                                            placeholder="Raça"
-                                            value={compForm.dogBreed}
-                                            onChange={e => setCompForm({ ...compForm, dogBreed: e.target.value })}
-                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                        />
-                                    </div>
+                                    <input
+                                        placeholder="Raça"
+                                        value={compForm.dogBreed}
+                                        onChange={e => setCompForm({ ...compForm, dogBreed: e.target.value })}
+                                        className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
+                                    />
+                                </div>
 
-                                    {/* Test Selection */}
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Prova / Categoria <span className="text-red-500">*</span></label>
+                                {/* Test Selection */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Prova / Categoria <span className="text-red-500">*</span></label>
 
-                                        {tests.length === 0 ? (
-                                            <div className="p-3 border border-red-900/50 bg-red-900/10 rounded text-red-400 text-xs text-center">
-                                                <p className="font-bold mb-2">⚠ NENHUMA PROVA DISPONÍVEL</p>
-                                                <p>Crie uma prova na aba &apos;Provas&apos; antes de registrar competidores.</p>
-                                            </div>
-                                        ) : (
-                                            <select
-                                                value={compForm.testId}
-                                                onChange={e => setCompForm({ ...compForm, testId: e.target.value })}
-                                                className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                            >
-                                                <option value="">-- Selecione a Prova --</option>
-                                                {tests.map(t => (
-                                                    <option key={t.id} value={t.id}>{t.title}</option>
-                                                ))}
-                                            </select>
-                                        )}
-                                    </div>
-                                    <div className="flex gap-4 pt-4">
-                                        <button onClick={() => setShowAddCompetitor(false)} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-800 text-gray-300 border-gray-700 transition-all">Cancelar</button>
-                                        <button onClick={saveCompetitor} className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-black border-gray-200 hover:bg-gray-100 transition-all">Salvar</button>
-                                    </div>
+                                    {tests.length === 0 ? (
+                                        <div className="p-3 border border-red-900/50 bg-red-900/10 rounded text-red-400 text-xs text-center">
+                                            <p className="font-bold mb-2">⚠ NENHUMA PROVA DISPONÍVEL</p>
+                                            <p>Crie uma prova na aba &apos;Provas&apos; antes de registrar competidores.</p>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={compForm.testId}
+                                            onChange={e => setCompForm({ ...compForm, testId: e.target.value })}
+                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
+                                        >
+                                            <option value="">-- Selecione a Prova --</option>
+                                            {tests.map(t => (
+                                                <option key={t.id} value={t.id}>{t.title}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                                <div className="flex gap-4 pt-4">
+                                    <button onClick={() => { setShowAddCompetitor(false); setEditingCompetitorId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-800 text-gray-300 border-gray-700 transition-all">Cancelar</button>
+                                    <button onClick={saveCompetitor} className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-black border-gray-200 hover:bg-gray-100 transition-all">
+                                        {editingCompetitorId ? 'Atualizar' : 'Salvar'}
+                                    </button>
                                 </div>
                             </div>
-                        )}
+                        </Modal>
                     </div>
                 )}
 
                 {/* TESTS VIEW */}
                 {activeTab === 'tests' && (
                     <div>
-                        {!showAddTest ? (
-                            <>
-                                <div className="flex justify-end mb-6">
-                                    <button
-                                        onClick={() => {
-                                            setEditingTestId(null);
-                                            setHandlerItems([]);
-                                            setDogItems([]);
-                                            setTemplateTitle('');
-                                            setSelectedModality('');
-                                            setShowAddTest(true);
-                                        }}
-                                        className={`px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100`}
-                                    >
-                                        <Wand2 className="w-4 h-4 text-purple-700" /> Criar Prova
-                                    </button>
-                                </div>
+                        <div className="flex justify-end mb-6">
+                            <button
+                                onClick={() => {
+                                    setEditingTestId(null);
+                                    setHandlerItems([]);
+                                    setDogItems([]);
+                                    setTemplateTitle('');
+                                    setSelectedModality('');
+                                    setShowAddTest(true);
+                                }}
+                                className={`px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100`}
+                            >
+                                <Wand2 className="w-4 h-4 text-purple-700" /> Criar Prova
+                            </button>
+                        </div>
 
-                                <div className="space-y-4">
-                                    {tests.map(test => (
-                                        <div key={test.id} className="bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all flex justify-between items-center group">
-                                            <div>
-                                                <h3 className="font-bold text-k9-black uppercase">{test.title}</h3>
-                                                <div className="text-xs text-gray-400 mt-2 flex gap-3">
-                                                    <span className="px-2 py-1 bg-gray-50 rounded text-[11px]">Grupos: {test.groups.length}</span>
-                                                    <span className="px-2 py-1 bg-gray-50 rounded text-[11px]">Max: {test.maxScore}</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <button
-                                                    onClick={() => editTest(test)}
-                                                    className="p-2 bg-gray-50 rounded-md text-gray-400 hover:bg-orange-50 hover:text-orange-500 transition-colors"
-                                                    title="Editar Prova"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <div className="px-3 py-1 bg-orange-50 text-orange-600 text-xs font-bold rounded uppercase border border-orange-100">
-                                                    Ativo
-                                                </div>
-                                            </div>
+                        <div className="space-y-4">
+                            {tests.map(test => (
+                                <div key={test.id} className="bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all flex justify-between items-center group">
+                                    <div>
+                                        <h3 className="font-bold text-k9-black uppercase">{test.title}</h3>
+                                        <div className="text-xs text-gray-400 mt-2 flex gap-3">
+                                            <span className="px-2 py-1 bg-gray-50 rounded text-[11px]">Grupos: {test.groups.length}</span>
+                                            <span className="px-2 py-1 bg-gray-50 rounded text-[11px]">Max: {test.maxScore}</span>
                                         </div>
-                                    ))}
-                                    {tests.length === 0 && <div className="text-gray-500 text-center py-8">Nenhuma prova cadastrada.</div>}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => editTest(test)}
+                                            className="p-2 bg-gray-50 rounded-md text-gray-400 hover:bg-orange-50 hover:text-orange-500 transition-colors"
+                                            title="Editar Prova"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <div className="px-3 py-1 bg-orange-50 text-orange-600 text-xs font-bold rounded uppercase border border-orange-100">
+                                            Ativo
+                                        </div>
+                                    </div>
                                 </div>
-                            </>
-                        ) : (
-                            <div className="max-w-2xl mx-auto bg-white border border-gray-200 p-6 rounded-xl shadow-sm">
-                                <h2 className="text-xl font-bold text-k9-black uppercase mb-6 flex items-center gap-2">
-                                    <Wand2 className="text-police-gold w-5 h-5" /> {editingTestId ? 'Editar Prova' : 'Criar Prova'}
-                                </h2>
+                            ))}
+                            {tests.length === 0 && <div className="text-gray-500 text-center py-8">Nenhuma prova cadastrada.</div>}
+                        </div>
 
+                        <Modal
+                            isOpen={showAddTest}
+                            onClose={() => { setShowAddTest(false); setEditingTestId(null); }}
+                            title={<div className="flex items-center gap-2"><Wand2 className="text-police-gold w-5 h-5" /> {editingTestId ? 'Editar Prova' : 'Criar Prova'}</div>}
+                            maxWidth="max-w-2xl"
+                        >
+                            <div className="">
                                 <div className="mb-6">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Título</label>
                                     <input
@@ -464,7 +526,7 @@ export default function RoomDetailsPage() {
                                 </div>
 
                                 {/* Handler Items */}
-                                    <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
+                                <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
                                     <div className="flex justify-between mb-2">
                                         <h3 className="text-sm font-bold text-k9-black uppercase">Avaliação do Condutor</h3>
                                         <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{handlerScoreSum} pts</span>
@@ -495,7 +557,7 @@ export default function RoomDetailsPage() {
                                 </div>
 
                                 {/* Dog Items */}
-                                    <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
+                                <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
                                     <div className="flex justify-between mb-2">
                                         <h3 className="text-sm font-bold text-k9-black uppercase">Avaliação do Cão</h3>
                                         <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{dogScoreSum} pts</span>
@@ -538,62 +600,77 @@ export default function RoomDetailsPage() {
                                     </button>
                                 </div>
                             </div>
-                        )}
+                        </Modal>
                     </div>
                 )}
 
                 {activeTab === 'judges' && (
                     <div>
-                        {!showAddJudge ? (
-                            <>
-                                <div className="flex justify-end mb-6">
-                                    <button
-                                        onClick={() => setShowAddJudge(true)}
-                                        className="px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-md bg-yellow-50 text-yellow-700 border border-yellow-100 hover:bg-yellow-100 flex items-center gap-2 cursor-pointer shadow-sm"
-                                    >
-                                        <Gavel className="w-4 h-4 text-yellow-700" /> Criar Juiz
-                                    </button>
-                                </div>
+                        <div className="flex justify-end mb-6">
+                            <button
+                                onClick={() => {
+                                    setEditingJudge(null);
+                                    setNewJudgeForm({ name: '', email: '', password: '' });
+                                    setJudgeMode('existing');
+                                    setShowAddJudge(true);
+                                }}
+                                className="px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-md bg-yellow-50 text-yellow-700 border border-yellow-100 hover:bg-yellow-100 flex items-center gap-2 cursor-pointer shadow-sm"
+                            >
+                                <Gavel className="w-4 h-4 text-yellow-700" /> Criar Juiz
+                            </button>
+                        </div>
 
-                                <div className="grid md:grid-cols-2 gap-4">
-                                    {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => (
-                                        <div key={j.uid} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-md transition-all flex justify-between items-center">
-                                            <div>
-                                                <div className="font-bold text-k9-black uppercase">{j.name}</div>
-                                                <div className="text-xs text-gray-400 font-mono">{j.email}</div>
-                                            </div>
-                                            <button onClick={() => handleRemoveJudge(j.uid)} className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                    {(!room?.judges || room?.judges.length === 0) && (
-                                        <div className="col-span-full text-center py-8 text-gray-500">Nenhum juiz atribuído a esta sala.</div>
-                                    )}
+                        <div className="grid md:grid-cols-2 gap-4">
+                            {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => (
+                                <div key={j.uid} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-md transition-all flex justify-between items-center">
+                                    <div>
+                                        <div className="font-bold text-k9-black uppercase">{j.name}</div>
+                                        <div className="text-xs text-gray-400 font-mono">{j.email}</div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => handleEditJudge(j)}
+                                            className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                                            title="Editar"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => handleRemoveJudge(j.uid)} className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                            </>
-                        ) : (
-                            <div className="max-w-xl mx-auto bg-white border border-gray-200 p-6 rounded-xl shadow-sm">
-                                <h2 className="text-xl font-bold text-k9-black uppercase mb-6 flex items-center gap-2">
-                                    <Gavel className="text-police-gold w-5 h-5" /> Gerenciar Juízes
-                                </h2>
+                            ))}
+                            {(!room?.judges || room?.judges.length === 0) && (
+                                <div className="col-span-full text-center py-8 text-gray-500">Nenhum juiz atribuído a esta sala.</div>
+                            )}
+                        </div>
 
-                                <div className="flex bg-gray-100 p-1 rounded mb-6">
-                                    <button
-                                        onClick={() => setJudgeMode('existing')}
-                                        className={`flex-1 py-2 text-xs font-bold uppercase rounded ${judgeMode === 'existing' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}
-                                    >
-                                        Selecionar Existente
-                                    </button>
-                                    <button
-                                        onClick={() => setJudgeMode('new')}
-                                        className={`flex-1 py-2 text-xs font-bold uppercase rounded ${judgeMode === 'new' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}
-                                    >
-                                        Criar Novo
-                                    </button>
-                                </div>
+                        <Modal
+                            isOpen={showAddJudge}
+                            onClose={() => { setShowAddJudge(false); setEditingJudge(null); }}
+                            title={<div className="flex items-center gap-2"><Gavel className="text-police-gold w-5 h-5" /> {editingJudge ? 'Editar Juiz' : 'Gerenciar Juízes'}</div>}
+                            maxWidth="max-w-xl"
+                        >
+                            <div className="">
+                                {!editingJudge && (
+                                    <div className="flex bg-gray-100 p-1 rounded mb-6">
+                                        <button
+                                            onClick={() => setJudgeMode('existing')}
+                                            className={`flex-1 py-2 text-xs font-bold uppercase rounded ${judgeMode === 'existing' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}
+                                        >
+                                            Selecionar Existente
+                                        </button>
+                                        <button
+                                            onClick={() => setJudgeMode('new')}
+                                            className={`flex-1 py-2 text-xs font-bold uppercase rounded ${judgeMode === 'new' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}
+                                        >
+                                            Criar Novo
+                                        </button>
+                                    </div>
+                                )}
 
-                                {judgeMode === 'existing' ? (
+                                {judgeMode === 'existing' && !editingJudge ? (
                                     <div className="mb-6">
                                         <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Juiz</label>
                                         <select
@@ -621,28 +698,33 @@ export default function RoomDetailsPage() {
                                             <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Email</label>
                                             <input
                                                 value={newJudgeForm.email}
+                                                disabled={!!editingJudge}
                                                 onChange={e => setNewJudgeForm({ ...newJudgeForm, email: e.target.value })}
-                                                className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
+                                                className={`w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange ${editingJudge ? 'opacity-60 cursor-not-allowed' : ''}`}
                                             />
                                         </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Senha Provisória</label>
-                                            <input
-                                                value={newJudgeForm.password}
-                                                onChange={e => setNewJudgeForm({ ...newJudgeForm, password: e.target.value })}
-                                                type="text"
-                                                className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                            />
-                                        </div>
+                                        {!editingJudge && (
+                                            <div>
+                                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Senha Provisória</label>
+                                                <input
+                                                    value={newJudgeForm.password}
+                                                    onChange={e => setNewJudgeForm({ ...newJudgeForm, password: e.target.value })}
+                                                    type="text"
+                                                    className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
                                 <div className="flex gap-4">
-                                    <button onClick={() => setShowAddJudge(false)} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-100 text-k9-black border-gray-200 transition-all">Cancelar</button>
-                                    <button onClick={handleAddJudge} className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-k9-black border-gray-200 hover:bg-gray-100 transition-all">Salvar</button>
+                                    <button onClick={() => { setShowAddJudge(false); setEditingJudge(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-100 text-k9-black border-gray-200 transition-all">Cancelar</button>
+                                    <button onClick={handleAddJudge} className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-k9-black border-gray-200 hover:bg-gray-100 transition-all">
+                                        {editingJudge ? 'Atualizar' : 'Salvar'}
+                                    </button>
                                 </div>
                             </div>
-                        )}
+                        </Modal>
                     </div>
                 )}
 

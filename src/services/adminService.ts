@@ -13,7 +13,6 @@ import {
 } from 'firebase/firestore';
 import { Room, Competitor, TestTemplate, AppUser } from '../types/schema';
 
-// ROOMS
 export const createRoom = async (roomData: Omit<Room, 'id' | 'createdAt'>) => {
   try {
     const docRef = await addDoc(collection(db, 'rooms'), {
@@ -39,7 +38,6 @@ export const getRoomById = async (roomId: string) => {
 
 export const getRooms = async (adminId?: string) => {
   let q;
-  // Allow fetching all if no ID provided (for dev convenience) or filter
   if (adminId) {
     q = query(collection(db, 'rooms'), where('createdBy', '==', adminId));
   } else {
@@ -49,7 +47,6 @@ export const getRooms = async (adminId?: string) => {
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
 };
 
-// COMPETITORS
 export const addCompetitor = async (competitorData: Omit<Competitor, 'id' | 'createdAt'>) => {
   try {
     const docRef = await addDoc(collection(db, 'competitors'), {
@@ -69,7 +66,16 @@ export const getCompetitorsByRoom = async (roomId: string) => {
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
 };
 
-// TESTS / TEMPLATES
+export const updateCompetitor = async (competitorId: string, data: Partial<Competitor>) => {
+    try {
+        const docRef = doc(db, 'competitors', competitorId);
+        await updateDoc(docRef, data);
+    } catch (error) {
+        console.error("Error updating competitor: ", error);
+        throw error;
+    }
+};
+
 export const createTestTemplate = async (templateData: Omit<TestTemplate, 'id'>) => {
   try {
     const docRef = await addDoc(collection(db, 'tests'), templateData);
@@ -102,7 +108,6 @@ export const updateTestTemplate = async (testId: string, templateData: Partial<T
   }
 };
 
-// JUDGES MANAGEMENT
 export const addJudgeToRoom = async (roomId: string, judgeUid: string) => {
   try {
     const roomRef = doc(db, 'rooms', roomId);
