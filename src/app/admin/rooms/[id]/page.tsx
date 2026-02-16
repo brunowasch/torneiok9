@@ -41,8 +41,7 @@ export default function RoomDetailsPage() {
 
     // Test Form State
     const [showAddTest, setShowAddTest] = useState(false);
-    const [handlerItems, setHandlerItems] = useState<ScoreOption[]>([]);
-    const [dogItems, setDogItems] = useState<ScoreOption[]>([]);
+    const [scoreItems, setScoreItems] = useState<ScoreOption[]>([]);
     const [templateTitle, setTemplateTitle] = useState('');
     const [selectedModality, setSelectedModality] = useState<Modality | ''>('');
     const [genMsg, setGenMsg] = useState('');
@@ -165,30 +164,23 @@ export default function RoomDetailsPage() {
     };
 
     // Test Actions
-    const handlerScoreSum = handlerItems.reduce((acc, item) => acc + item.maxPoints, 0);
-    const dogScoreSum = dogItems.reduce((acc, item) => acc + item.maxPoints, 0);
+    const totalScore = scoreItems.reduce((acc, item) => acc + item.maxPoints, 0);
 
-    const addHandlerItem = (label: string, points: number) => {
-        setHandlerItems([...handlerItems, { id: `h-${Date.now()}`, label, maxPoints: points }]);
+    const addScoreItem = (label: string, points: number) => {
+        setScoreItems([...scoreItems, { id: `item-${Date.now()}`, label, maxPoints: points }]);
     };
-    const removeHandlerItem = (index: number) => {
-        setHandlerItems(handlerItems.filter((_, i) => i !== index));
-    };
-    const addDogItem = (label: string, points: number) => {
-        setDogItems([...dogItems, { id: `d-${Date.now()}`, label, maxPoints: points }]);
-    };
-    const removeDogItem = (index: number) => {
-        setDogItems(dogItems.filter((_, i) => i !== index));
+    const removeScoreItem = (index: number) => {
+        setScoreItems(scoreItems.filter((_, i) => i !== index));
     };
 
     const editTest = (test: TestTemplate) => {
         setTemplateTitle(test.title);
         setSelectedModality(test.modality || '');
-        const handlerGroup = test.groups.find(g => g.name.includes('Condutor')) || test.groups[0];
-        const dogGroup = test.groups.find(g => g.name.includes('Cão')) || test.groups[1];
-
-        setHandlerItems(handlerGroup ? handlerGroup.items : []);
-        setDogItems(dogGroup ? dogGroup.items : []);
+        
+        // Flatten all items from all groups into a single list
+        const allItems = test.groups.flatMap(g => g.items);
+        
+        setScoreItems(allItems);
         setEditingTestId(test.id);
         setShowAddTest(true);
     };
@@ -200,9 +192,9 @@ export default function RoomDetailsPage() {
         }
 
         try {
+            // Save as a single group
             const groups: ScoreGroup[] = [
-                { name: "Parte A: Avaliação do Condutor", items: handlerItems },
-                { name: "Parte B: Avaliação do Cão", items: dogItems }
+                { name: "Critérios de Avaliação", items: scoreItems }
             ];
             const penalties: PenaltyOption[] = []; 
 
@@ -210,7 +202,7 @@ export default function RoomDetailsPage() {
                 await updateTestTemplate(editingTestId, {
                     title: templateTitle || "Nova Prova",
                     modality: selectedModality,
-                    maxScore: handlerScoreSum + dogScoreSum,
+                    maxScore: totalScore,
                     groups,
                     penalties
                 });
@@ -218,8 +210,8 @@ export default function RoomDetailsPage() {
                 await createTestTemplate({
                     title: templateTitle || "Nova Prova",
                     modality: selectedModality,
-                    description: "Provas de Campo",
-                    maxScore: handlerScoreSum + dogScoreSum,
+                    description: "Prova Unificada",
+                    maxScore: totalScore,
                     groups,
                     penalties,
                     roomId
@@ -227,8 +219,7 @@ export default function RoomDetailsPage() {
             }
 
             // Reset
-            setHandlerItems([]);
-            setDogItems([]);
+            setScoreItems([]);
             setTemplateTitle('');
             setSelectedModality('');
             setEditingTestId(null);
@@ -255,9 +246,11 @@ export default function RoomDetailsPage() {
     const handleAddJudge = async () => {
         try {
             if (editingJudge) {
+                // Update Existing Judge
                 if (!newJudgeForm.name) return alert('Nome é obrigatório');
                 await updateUser(editingJudge.uid, { name: newJudgeForm.name });
             } else {
+                // Create / Add New
                 if (judgeMode === 'existing') {
                     if (!selectedJudgeId) return alert('Selecione um juiz');
                     await addJudgeToRoom(roomId, selectedJudgeId);
@@ -455,8 +448,7 @@ export default function RoomDetailsPage() {
                             <button
                                 onClick={() => {
                                     setEditingTestId(null);
-                                    setHandlerItems([]);
-                                    setDogItems([]);
+                                    setScoreItems([]);
                                     setTemplateTitle('');
                                     setSelectedModality('');
                                     setShowAddTest(true);
@@ -525,64 +517,34 @@ export default function RoomDetailsPage() {
                                     </select>
                                 </div>
 
-                                {/* Handler Items */}
+                                {/* Evaluation Items */}
                                 <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
                                     <div className="flex justify-between mb-2">
-                                        <h3 className="text-sm font-bold text-k9-black uppercase">Avaliação do Condutor</h3>
-                                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{handlerScoreSum} pts</span>
+                                        <h3 className="text-sm font-bold text-k9-black uppercase">Critérios de Avaliação</h3>
+                                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{totalScore} pts</span>
                                     </div>
                                     <div className="space-y-2 mb-3">
-                                        {handlerItems.map((item, i) => (
+                                        {scoreItems.map((item, i) => (
                                             <div key={i} className="flex justify-between items-center text-xs bg-tactical-gray p-2 rounded">
                                                 <span className="text-gray-300">{item.label}</span>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-police-gold font-mono">{item.maxPoints} pts</span>
-                                                    <button onClick={() => removeHandlerItem(i)} className="text-red-500 cursor-pointer"><X className="w-4 h-4" /></button>
+                                                    <button onClick={() => removeScoreItem(i)} className="text-red-500 cursor-pointer"><X className="w-4 h-4" /></button>
                                                 </div>
                                             </div>
                                         ))}
+                                        {scoreItems.length === 0 && <div className="text-xs text-gray-400 font-mono text-center">Nenhum critério adicionado. Utilize os campos abaixo.</div>}
                                     </div>
                                     <div className="flex gap-2">
-                                        <input id="h-lbl" placeholder="Critério" className="flex-1 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
-                                        <input id="h-pts" placeholder="Pts" type="number" step="0.5" defaultValue={10} className="w-16 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
+                                        <input id="score-lbl" placeholder="Critério (ex: Obediência)" className="flex-1 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
+                                        <input id="score-pts" placeholder="Pts" type="number" step="0.5" defaultValue={10} className="w-16 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
                                         <button
                                             onClick={() => {
-                                                const l = (document.getElementById('h-lbl') as HTMLInputElement).value;
-                                                const p = parseFloat((document.getElementById('h-pts') as HTMLInputElement).value);
-                                                if (l && p) { addHandlerItem(l, p); (document.getElementById('h-lbl') as HTMLInputElement).value = ''; (document.getElementById('h-pts') as HTMLInputElement).value = ''; }
+                                                const l = (document.getElementById('score-lbl') as HTMLInputElement).value;
+                                                const p = parseFloat((document.getElementById('score-pts') as HTMLInputElement).value);
+                                                if (l && p) { addScoreItem(l, p); (document.getElementById('score-lbl') as HTMLInputElement).value = ''; (document.getElementById('score-pts') as HTMLInputElement).value = ''; }
                                             }}
                                             className="bg-gray-100 text-k9-black px-3 rounded text-xs uppercase font-bold cursor-pointer"
-                                        >Add</button>
-                                    </div>
-                                </div>
-
-                                {/* Dog Items */}
-                                <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
-                                    <div className="flex justify-between mb-2">
-                                        <h3 className="text-sm font-bold text-k9-black uppercase">Avaliação do Cão</h3>
-                                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{dogScoreSum} pts</span>
-                                    </div>
-                                    <div className="space-y-2 mb-3">
-                                        {dogItems.map((item, i) => (
-                                            <div key={i} className="flex justify-between items-center text-xs bg-tactical-gray p-2 rounded">
-                                                <span className="text-gray-300">{item.label}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-police-gold font-mono">{item.maxPoints} pts</span>
-                                                    <button onClick={() => removeDogItem(i)} className="text-red-500 cursor-pointer">×</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <input id="d-lbl" placeholder="Critério" className="flex-1 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
-                                        <input id="d-pts" placeholder="Pts" type="number" step="0.5" defaultValue={10} className="w-16 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
-                                        <button
-                                            onClick={() => {
-                                                const l = (document.getElementById('d-lbl') as HTMLInputElement).value;
-                                                const p = parseFloat((document.getElementById('d-pts') as HTMLInputElement).value);
-                                                if (l && p) { addDogItem(l, p); (document.getElementById('d-lbl') as HTMLInputElement).value = ''; (document.getElementById('d-pts') as HTMLInputElement).value = ''; }
-                                            }}
-                                            className="bg-gray-100 text-k9-black px-3 rounded text-xs uppercase font-bold"
                                         >Add</button>
                                     </div>
                                 </div>
@@ -593,7 +555,7 @@ export default function RoomDetailsPage() {
                                     <button onClick={() => { setShowAddTest(false); setEditingTestId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-800 text-gray-300 border-gray-700 transition-all">Cancelar</button>
                                     <button
                                         onClick={saveTest}
-                                        disabled={!templateTitle || !selectedModality}
+                                        disabled={!templateTitle || !selectedModality || scoreItems.length === 0}
                                         className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-black border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                     >
                                         {editingTestId ? 'Atualizar Prova' : 'Salvar Prova'}
