@@ -40,8 +40,15 @@ export default function SecretLoginPage() {
                 {/* Decorative */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-bl from-k9-orange/10 to-transparent pointer-events-none"></div>
 
-                <div className="text-center mb-8">
-                    <Shield className="w-12 h-12 text-k9-orange mx-auto mb-4" />
+                <div className="text-center mb-8 relative">
+                    <div className="w-32 h-32 mx-auto mb-4 relative flex items-center justify-center bg-black rounded-full p-4 shadow-lg border-2 border-k9-orange">
+                        <img 
+                            src="/logo.png" 
+                            alt="Logo Torneio K9" 
+                            className="object-contain w-full h-full"
+                        />
+                    </div>
+                    {/* <Shield className="w-12 h-12 text-k9-orange mx-auto mb-4" /> */}
                     <h1 className="text-2xl font-black text-k9-black uppercase tracking-tighter">Acesso Restrito</h1>
                     <p className="text-gray-600 font-mono text-xs uppercase tracking-widest mt-1 font-bold">Comando Central K9</p>
                 </div>

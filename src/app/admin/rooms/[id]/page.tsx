@@ -177,7 +177,6 @@ export default function RoomDetailsPage() {
         setTemplateTitle(test.title);
         setSelectedModality(test.modality || '');
         
-        // Flatten all items from all groups into a single list
         const allItems = test.groups.flatMap(g => g.items);
         
         setScoreItems(allItems);
@@ -192,7 +191,6 @@ export default function RoomDetailsPage() {
         }
 
         try {
-            // Save as a single group
             const groups: ScoreGroup[] = [
                 { name: "Critérios de Avaliação", items: scoreItems }
             ];
@@ -246,11 +244,9 @@ export default function RoomDetailsPage() {
     const handleAddJudge = async () => {
         try {
             if (editingJudge) {
-                // Update Existing Judge
                 if (!newJudgeForm.name) return alert('Nome é obrigatório');
                 await updateUser(editingJudge.uid, { name: newJudgeForm.name });
             } else {
-                // Create / Add New
                 if (judgeMode === 'existing') {
                     if (!selectedJudgeId) return alert('Selecione um juiz');
                     await addJudgeToRoom(roomId, selectedJudgeId);
@@ -290,17 +286,26 @@ export default function RoomDetailsPage() {
     return (
         <div className="min-h-screen bg-k9-white text-k9-black">
             {/* Header */}
-            <div className="bg-white border-b border-gray-200 p-6">
-                <div className="max-w-6xl mx-auto">
-                    <button onClick={() => router.push('/admin')} className="inline-flex items-center gap-2 px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-md bg-orange-50 text-orange-400 border border-orange-100 hover:bg-orange-100 transition-colors cursor-pointer mb-4">
-                        <ArrowLeft className="w-4 h-4 text-orange-400" /> Voltar ao Painel
+            <div className="bg-black border-b-4 border-k9-orange text-white shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+                <div className="max-w-6xl mx-auto px-6 py-8 relative z-10">
+                    <button onClick={() => router.push('/admin')} className="inline-flex items-center gap-2 px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-md bg-gray-900 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-white transition-colors cursor-pointer mb-6">
+                        <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
                     </button>
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-black text-black uppercase tracking-tighter">{room.name}</h1>
-                            <div className="flex items-center gap-4 mt-2">
-                                <span className="text-xs font-mono text-police-gold bg-police-gold/10 px-2 py-1 rounded border border-police-gold/20">ID: {room.id}</span>
-                                <span className={`text-xs font-bold uppercase ${room.active ? 'text-green-500' : 'text-red-500'}`}>{room.active ? '• Ativa' : '• Finalizada'}</span>
+                            <h1 className="text-4xl font-black text-white uppercase tracking-tighter flex items-center gap-4">
+                                <div className="w-12 h-12 relative flex items-center justify-center">
+                                    <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                                </div>
+                                {room.name}
+                            </h1>
+                            <div className="flex items-center gap-4 mt-3">
+                                <span className="text-xs font-mono text-k9-orange bg-orange-900/20 px-3 py-1 rounded border border-orange-900/50">ID: {room.id}</span>
+                                <span className={`text-xs font-bold uppercase flex items-center gap-2 px-3 py-1 rounded-full border ${room.active ? 'bg-green-900/20 text-green-400 border-green-900/30' : 'bg-red-900/20 text-red-400 border-red-900/30'}`}>
+                                    <div className={`w-2 h-2 rounded-full ${room.active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                    {room.active ? 'Operação Ativa' : 'Finalizada'}
+                                </span>
                             </div>
                         </div>
                     </div>

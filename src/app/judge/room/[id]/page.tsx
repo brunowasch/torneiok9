@@ -17,18 +17,14 @@ import {
     Room,
     Competitor,
     TestTemplate,
-    Evaluation,
-    ScoreOption,
-    PenaltyOption
+    Evaluation
 } from '@/types/schema';
 import {
     ArrowLeft,
-    User,
-    ClipboardCheck,
-    AlertTriangle,
+    Users,
     CheckCircle2,
-    Timer,
-    Gavel
+    Check,
+    AlertCircle
 } from 'lucide-react';
 
 export default function JudgeRoomPage() {
@@ -48,7 +44,6 @@ export default function JudgeRoomPage() {
     const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
     const [activeTest, setActiveTest] = useState<TestTemplate | null>(null);
     const [scores, setScores] = useState<Record<string, number>>({});
-    const [penalties, setPenalties] = useState<string[]>([]); // Store IDs of applied penalties
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -97,7 +92,6 @@ export default function JudgeRoomPage() {
 
         // Reset form
         setScores({});
-        setPenalties([]);
         setNotes('');
 
         setActiveTest(test);
@@ -110,20 +104,11 @@ export default function JudgeRoomPage() {
         setScores(prev => ({ ...prev, [itemId]: clamped }));
     };
 
-    const togglePenalty = (penaltyId: string) => {
-        setPenalties(prev =>
-            prev.includes(penaltyId)
-                ? prev.filter(id => id !== penaltyId)
-                : [...prev, penaltyId]
-        );
-    };
-
     const submitEvaluation = async () => {
         if (!selectedCompetitor || !activeTest || !user) return;
         setSubmitting(true);
 
         try {
-            // Penalties are now handled by Admin
             const penaltiesApplied: any[] = [];
 
             await saveEvaluation({
@@ -156,74 +141,81 @@ export default function JudgeRoomPage() {
     const calculateCurrentTotal = () => {
         if (!activeTest) return 0;
         let total = 0;
-
-        // Add scores
         activeTest.groups.forEach(g => {
             g.items.forEach(item => {
                 total += scores[item.id] || 0;
             });
         });
-
-
-
         return Math.max(0, total);
     };
 
-    if (loading) return <div className="min-h-screen bg-tactical-black flex items-center justify-center text-police-gold font-mono">[CARREGANDO DADOS DA OPERAÇÃO...]</div>;
-    if (!room) return <div className="p-8 text-white">Sala não encontrada.</div>;
+    if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">[CARREGANDO DADOS DA OPERAÇÃO...]</div>;
+    if (!room) return <div className="p-8 text-black">Sala não encontrada.</div>;
 
-    // Evaluation Form View
+    // ------------------------------------------------------------------
+    // EVALUATION FORM VIEW
+    // ------------------------------------------------------------------
     if (selectedCompetitor && activeTest) {
         return (
-            <div className="min-h-screen bg-tactical-black text-gray-200 p-4 pb-20">
-                <div className="max-w-2xl mx-auto">
-                    {/* Form Header */}
-                    <div className="sticky top-0 z-10 bg-tactical-black/95 backdrop-blur border-b border-gray-800 pb-4 pt-2 mb-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <button onClick={() => setSelectedCompetitor(null)} className="text-gray-500 hover:text-white flex items-center gap-2 text-xs font-bold uppercase transition-colors">
-                                <ArrowLeft className="w-4 h-4" /> Cancelar
-                            </button>
-                            <div className="text-right">
-                                <div className="text-[10px] text-gray-500 font-mono uppercase">Pontuação Atual</div>
-                                <div className="text-2xl font-black text-police-gold">{calculateCurrentTotal().toFixed(1)} <span className="text-sm text-gray-600">/ {activeTest.maxScore}</span></div>
-                            </div>
+            <div className="min-h-screen bg-gray-50 text-k9-black pb-20">
+                {/* Sticky Header */}
+                <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm px-4 py-3">
+                    <div className="max-w-2xl mx-auto flex items-center justify-between">
+                        <button 
+                            onClick={() => setSelectedCompetitor(null)} 
+                            className="text-gray-500 hover:text-black flex items-center gap-2 text-xs font-bold uppercase transition-colors"
+                        >
+                            <ArrowLeft className="w-4 h-4" /> Cancelar
+                        </button>
+                        <div className="text-right">
+                            <div className="text-[10px] text-gray-400 font-mono uppercase font-bold">Total Parcial</div>
+                            <div className="text-2xl font-black text-k9-orange leading-none">{calculateCurrentTotal().toFixed(1)} <span className="text-sm text-gray-300">/ {activeTest.maxScore}</span></div>
                         </div>
+                    </div>
+                </div>
 
-                        <div className="flex items-center gap-4 bg-tactical-gray p-4 rounded-lg border border-gray-700">
-                            <div className="w-12 h-12 bg-black rounded flex items-center justify-center font-black text-xl text-gray-500">
-                                {selectedCompetitor.competitorNumber}
-                            </div>
-                            <div>
-                                <h1 className="font-bold text-white text-lg uppercase leading-none">{selectedCompetitor.handlerName}</h1>
-                                <p className="text-police-gold text-xs uppercase font-mono mt-1">Cão: {selectedCompetitor.dogName} • {activeTest.title}</p>
+                <div className="max-w-2xl mx-auto p-4 space-y-6">
+                    {/* Competitor Card */}
+                    <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
+                        <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-lg flex items-center justify-center font-black text-xl border-2 border-orange-100">
+                            {selectedCompetitor.competitorNumber}
+                        </div>
+                        <div>
+                            <h1 className="font-black text-xl uppercase text-k9-black leading-tight">{selectedCompetitor.handlerName}</h1>
+                            <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase mt-1">
+                                <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">Cão: {selectedCompetitor.dogName}</span>
+                                <span className="text-orange-400">•</span>
+                                <span>{activeTest.title}</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="space-y-8">
-                        {/* Scoring Groups */}
-                        {activeTest.groups.map((group, gIdx) => (
-                            <div key={gIdx} className="bg-white/5 border border-gray-800 rounded-xl overflow-hidden">
-                                <div className="bg-gray-800/50 px-4 py-3 border-b border-gray-700">
-                                    <h3 className="font-bold text-white text-sm uppercase">{group.name}</h3>
-                                </div>
-                                <div className="p-4 space-y-6">
-                                    {group.items.map(item => (
-                                        <div key={item.id}>
-                                            <div className="flex justify-between items-center mb-2">
-                                                <label className="text-sm text-gray-300 font-medium">{item.label}</label>
-                                                <span className="text-xs font-mono text-police-gold bg-police-gold/10 px-2 py-1 rounded">Max: {item.maxPoints}</span>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <input
-                                                    type="range"
-                                                    min="0"
-                                                    max={item.maxPoints}
-                                                    step="0.5"
-                                                    value={scores[item.id] || 0}
-                                                    onChange={(e) => handleScoreChange(item.id, parseFloat(e.target.value), item.maxPoints)}
-                                                    className="flex-1 accent-police-gold h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                                                />
+                    {/* Groups & Criteria */}
+                    {activeTest.groups.map((group, gIdx) => (
+                        <div key={gIdx} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                            <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex justify-between items-center">
+                                <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">{group.name}</h3>
+                                <div className="text-xs font-mono font-bold text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">Ref: {group.items.reduce((a, b) => a + b.maxPoints, 0)} pts</div>
+                            </div>
+                            <div className="p-5 space-y-8">
+                                {group.items.map(item => (
+                                    <div key={item.id}>
+                                        <div className="flex justify-between items-end mb-3">
+                                            <label className="text-sm font-bold text-k9-black w-3/4">{item.label}</label>
+                                            <span className="text-xs font-mono font-bold text-k9-orange bg-orange-50 px-2 py-1 rounded border border-orange-100">Max: {item.maxPoints}</span>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-4">
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max={item.maxPoints}
+                                                step="0.5"
+                                                value={scores[item.id] || 0}
+                                                onChange={(e) => handleScoreChange(item.id, parseFloat(e.target.value), item.maxPoints)}
+                                                className="flex-1 h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500 hover:bg-gray-300 transition-colors"
+                                            />
+                                            <div className="relative">
                                                 <input
                                                     type="number"
                                                     min="0"
@@ -231,34 +223,40 @@ export default function JudgeRoomPage() {
                                                     step="0.1"
                                                     value={scores[item.id] || 0}
                                                     onChange={(e) => handleScoreChange(item.id, parseFloat(e.target.value), item.maxPoints)}
-                                                    className="w-16 bg-black border border-gray-600 rounded p-2 text-center text-white font-mono focus:border-police-gold focus:outline-none"
+                                                    className="w-20 bg-white border-2 border-gray-200 rounded-lg p-2 text-center text-lg font-bold text-k9-black focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all font-mono"
                                                 />
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-
-
-
-                        {/* Notes */}
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Observações do Juiz</label>
-                            <textarea
-                                value={notes}
-                                onChange={e => setNotes(e.target.value)}
-                                className="w-full bg-black/50 border border-gray-700 text-white p-4 rounded-xl focus:outline-none focus:border-police-gold h-32"
-                                placeholder="Detalhes adicionais sobre a avaliação..."
-                            ></textarea>
                         </div>
+                    ))}
 
+                    {/* Notes & Actions */}
+                    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4" /> Observações Técnicas
+                        </label>
+                        <textarea
+                            value={notes}
+                            onChange={e => setNotes(e.target.value)}
+                            className="w-full bg-gray-50 border-2 border-gray-200 text-k9-black p-4 rounded-xl focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 min-h-[120px] font-sans text-sm"
+                            placeholder="Insira detalhes adicionais, justificativas ou comentários sobre a performance..."
+                        ></textarea>
+                    </div>
+
+                    <div className="pt-4 pb-8">
                         <button
                             onClick={submitEvaluation}
                             disabled={submitting}
-                            className="w-full bg-white hover:bg-white text-black font-black uppercase py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            className="w-full bg-black hover:bg-gray-900 text-white font-black uppercase py-5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:shadow-2xl hover:-translate-y-1 flex items-center justify-center gap-3 text-lg border-2 border-transparent"
                         >
-                            {submitting ? 'Enviando...' : 'Finalizar Avaliação'}
+                            {submitting ? 'Processando envio...' : (
+                                <>
+                                    <CheckCircle2 className="w-6 h-6 text-green-400" /> Confirmar Avaliação
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -266,62 +264,105 @@ export default function JudgeRoomPage() {
         );
     }
 
-    // Default List View
+    // ------------------------------------------------------------------
+    // LIST VIEW
+    // ------------------------------------------------------------------
     return (
-        <div className="min-h-screen bg-tactical-black text-gray-200">
+        <div className="min-h-screen bg-k9-white text-k9-black font-sans">
             {/* Header */}
-            <div className="bg-tactical-gray border-b border-gray-800 p-6 sticky top-0 z-10 backdrop-blur-md bg-opacity-90">
-                <div className="max-w-4xl mx-auto">
-                    <button onClick={() => router.push('/judge')} className="flex items-center gap-2 text-gray-500 hover:text-white mb-4 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer">
-                        <ArrowLeft className="w-4 h-4" /> Voltar
-                    </button>
-                    <div>
-                        <h1 className="text-2xl font-black text-white uppercase tracking-tighter">{room.name}</h1>
-                        <p className="text-police-gold text-xs uppercase tracking-widest mt-1">Lista de Competidores</p>
+            <div className="bg-black border-b-4 border-k9-orange text-white shadow-lg sticky top-0 z-30">
+                <div className="max-w-4xl mx-auto px-6 py-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                             <button onClick={() => router.push('/judge')} className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer">
+                                <ArrowLeft className="w-3 h-3" /> Voltar
+                            </button>
+                            <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter leading-none flex items-center gap-4">
+                                <div className="w-10 h-10 relative flex items-center justify-center shrink-0">
+                                    <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                                </div>
+                                {room.name}
+                            </h1>
+                            <p className="text-k9-orange text-[10px] md:text-xs uppercase tracking-[0.2em] mt-1 font-bold">Seleção de Operador</p>
+                        </div>
+                        <div className="hidden md:block">
+                            <div className="bg-gray-900 border border-gray-800 px-4 py-2 rounded-lg text-center">
+                                <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Status</div>
+                                <div className="text-green-500 font-black uppercase text-xs flex items-center gap-1"><div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div> Online</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div className="max-w-4xl mx-auto p-6 md:p-8">
                 {competitors.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500 border border-dashed border-gray-800 rounded-xl bg-white/5">
-                        <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p className="uppercase font-bold text-sm">Nenhum competidor registrado</p>
+                    <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                        <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                        <p className="uppercase font-bold text-sm tracking-wide">Nenhum competidor na lista</p>
                     </div>
                 ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid md:grid-cols-2 gap-4">
                         {competitors.map(comp => {
                             const isDone = isCompetitorEvaluated(comp.id);
+                            const canEvaluate = !isDone;
+
                             return (
-                                <div key={comp.id} className={`bg-tactical-gray border ${isDone ? 'border-green-900/50 bg-green-900/5' : 'border-gray-800'} p-4 rounded-xl relative overflow-hidden group`}>
+                                <div 
+                                    key={comp.id} 
+                                    className={`
+                                        relative overflow-hidden rounded-xl border-2 transition-all group
+                                        ${isDone 
+                                            ? 'bg-green-50/50 border-green-100 opacity-80' 
+                                            : 'bg-white border-gray-200 hover:border-k9-orange hover:shadow-md'
+                                        }
+                                    `}
+                                >
                                     {isDone && (
-                                        <div className="absolute top-2 right-2 text-green-500">
-                                            <CheckCircle2 className="w-5 h-5" />
+                                        <div className="absolute top-0 right-0 p-2 bg-green-100 rounded-bl-xl border-l border-b border-green-200">
+                                            <div className="flex items-center gap-1 text-[10px] font-black uppercase text-green-700">
+                                                <Check className="w-3 h-3" /> Avaliado
+                                            </div>
                                         </div>
                                     )}
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-black text-xl shadow-inner ${isDone ? 'bg-green-900/20 text-green-500' : 'bg-black text-gray-600'}`}>
+
+                                    <div className="p-5 flex items-start gap-4">
+                                        <div className={`
+                                            w-14 h-14 rounded-lg flex items-center justify-center font-black text-xl shadow-sm border-2
+                                            ${isDone 
+                                                ? 'bg-white border-green-100 text-green-600' 
+                                                : 'bg-gray-50 border-gray-100 text-gray-500 group-hover:text-k9-orange group-hover:bg-orange-50 group-hover:border-orange-100'
+                                            }
+                                        `}>
                                             {comp.competitorNumber}
                                         </div>
-                                        <div>
-                                            <div className="font-bold text-white uppercase text-sm leading-tight">{comp.handlerName}</div>
-                                            <div className="text-xs text-police-gold font-mono uppercase mt-0.5">{comp.dogName}</div>
+                                        
+                                        <div className="flex-1">
+                                            <h3 className={`font-black uppercase text-sm leading-tight ${isDone ? 'text-green-900' : 'text-k9-black'}`}>
+                                                {comp.handlerName}
+                                            </h3>
+                                            <p className="text-xs font-bold text-gray-400 uppercase mt-1">
+                                                Cão: {comp.dogName}
+                                            </p>
+                                            <p className="text-[10px] font-bold text-gray-300 uppercase mt-2 bg-gray-50 inline-block px-2 py-1 rounded">
+                                                {comp.dogBreed}
+                                            </p>
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-between items-center pt-4 border-t border-gray-800/50">
-                                        <div className="text-[10px] uppercase font-bold text-gray-500">
-                                            {comp.dogBreed}
-                                        </div>
+                                    <div className={`p-3 border-t-2 flex justify-end ${isDone ? 'border-green-100 bg-green-50/30' : 'border-gray-50 bg-gray-50'}`}>
                                         <button
-                                            onClick={() => !isDone && startEvaluation(comp)}
+                                            onClick={() => canEvaluate && startEvaluation(comp)}
                                             disabled={isDone}
-                                            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${isDone
-                                                ? 'text-gray-500 cursor-not-allowed'
-                                                : 'bg-white text-black hover:bg-white cursor-pointer'
-                                                }`}
+                                            className={`
+                                                px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all
+                                                ${isDone
+                                                    ? 'text-green-300 cursor-not-allowed'
+                                                    : 'bg-black text-white hover:bg-orange-500 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer'
+                                                }
+                                            `}
                                         >
-                                            {isDone ? 'Avaliado' : 'Avaliar'}
+                                            {isDone ? 'Concluído' : 'Iniciar Avaliação'}
                                         </button>
                                     </div>
                                 </div>
@@ -332,26 +373,4 @@ export default function JudgeRoomPage() {
             </div>
         </div>
     );
-}
-
-function Users(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-    )
 }

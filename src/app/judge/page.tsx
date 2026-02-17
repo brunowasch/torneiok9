@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { Gavel, MapPin, Calendar, ChevronRight, LogOut, ShieldAlert } from 'lucide-react';
+import { Gavel, LogOut, ShieldAlert, ChevronRight, MapPin, Calendar } from 'lucide-react';
 import { Room } from '@/types/schema';
 import { getRoomsWhereJudge } from '@/services/adminService';
 
@@ -20,7 +20,6 @@ export default function JudgeDashboard() {
                 return;
             }
             try {
-                // Ensure service exists or create it
                 const myRooms = await getRoomsWhereJudge(currentUser.uid);
                 setRooms(myRooms);
             } catch (error) {
@@ -40,19 +39,24 @@ export default function JudgeDashboard() {
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">[CARREGANDO ACESSO DO JUIZ...]</div>;
 
     return (
-        <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black">
-            <div className="max-w-4xl mx-auto">
-                <header className="mb-12 border-b-2 border-gray-200 pb-6 flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-black text-k9-black uppercase tracking-tighter flex items-center gap-3">
-                            <Gavel className="text-k9-orange w-6 h-6" />
-                            Área do Juiz
-                        </h1>
-                        <p className="text-gray-500 text-xs uppercase tracking-widest pl-9 font-bold">Painel de Avaliação Tática</p>
+        <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
+            <div className="max-w-6xl mx-auto">
+                <header className="mb-12 bg-black border-b-4 border-k9-orange p-6 rounded-xl shadow-lg flex items-center justify-between text-white -mt-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-k9-orange/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                    <div className="relative z-10 flex items-center gap-4">
+                        <div className="h-14 w-14 relative flex items-center justify-center">
+                            <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-black uppercase tracking-tighter leading-none">
+                                Área do Juiz
+                            </h1>
+                            <p className="text-gray-400 text-sm uppercase tracking-widest font-bold mt-1">Painel de Avaliação Tática</p>
+                        </div>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="text-red-600 hover:text-red-700 text-xs font-bold uppercase flex items-center gap-2 transition-colors border-2 border-red-200 px-4 py-2 rounded-lg hover:bg-red-50"
+                        className="text-white hover:text-red-400 text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-4 py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 relative z-10 shadow-sm"
                     >
                         <LogOut className="w-4 h-4" /> Sair
                     </button>
@@ -67,32 +71,40 @@ export default function JudgeDashboard() {
                         Você não foi atribuído a nenhuma sala de competição ainda.
                     </div>
                 ) : (
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {rooms.map(room => (
                             <button
                                 key={room.id}
                                 onClick={() => router.push(`/judge/room/${room.id}`)}
-                                className="bg-white border-2 border-gray-200 p-6 rounded-xl text-left hover:border-k9-orange hover:shadow-lg transition-all group relative overflow-hidden"
+                                className="group w-full text-left"
                             >
-                                <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-bl from-k9-orange/5 to-transparent"></div>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-k9-orange/10 rounded-lg text-k9-orange border-2 border-k9-orange/30">
-                                        <MapPin className="w-6 h-6" />
+                                <div className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-k9-orange hover:shadow-lg transition-all relative overflow-hidden h-full flex flex-col">
+                                    <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-bl from-k9-orange/5 to-transparent"></div>
+                                    
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="p-3 bg-k9-orange/10 rounded-lg text-k9-orange group-hover:scale-110 transition-transform border-2 border-k9-orange/30">
+                                            <MapPin className="w-6 h-6" />
+                                        </div>
+                                        <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider border-2 ${room.active ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
+                                            {room.active ? 'Em Progresso' : 'Encerrada'}
+                                        </span>
                                     </div>
-                                    <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full uppercase border-2 ${room.active ? 'text-green-700 bg-green-100 border-green-300' : 'text-red-700 bg-red-100 border-red-300'}`}>
-                                        {room.active ? 'Em Andamento' : 'Encerrada'}
-                                    </span>
-                                </div>
-                                <h3 className="text-xl font-black text-k9-black uppercase mb-1 group-hover:text-k9-orange transition-colors tracking-tight">{room.name}</h3>
-                                <p className="text-xs text-gray-600 mb-6 line-clamp-2 font-semibold">{room.description}</p>
 
-                                <div className="pt-4 border-t-2 border-gray-200 flex justify-between items-center text-xs text-gray-600 font-bold">
-                                    <div className="flex items-center gap-1">
-                                        <Calendar className="w-3 h-3" />
-                                        {new Date(room.createdAt).toLocaleDateString()}
-                                    </div>
-                                    <div className="flex items-center gap-1 text-k9-orange group-hover:translate-x-1 transition-transform">
-                                        ACESSAR <ChevronRight className="w-3 h-3" />
+                                    <h3 className="text-xl font-black text-k9-black uppercase leading-tight mb-2 group-hover:text-k9-orange transition-colors tracking-tight text-left">
+                                        {room.name}
+                                    </h3>
+                                    <p className="text-xs text-gray-600 uppercase tracking-wide mb-6 font-semibold line-clamp-2 text-left">
+                                        {room.description}
+                                    </p>
+
+                                    <div className="mt-auto flex items-center justify-between text-xs text-gray-500 border-t-2 border-gray-200 pt-4 font-bold w-full">
+                                        <div className="flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" />
+                                            {new Date(room.createdAt).toLocaleDateString()}
+                                        </div>
+                                        <div className="flex items-center gap-1 text-k9-orange group-hover:translate-x-1 transition-transform">
+                                            ACESSAR <ChevronRight className="w-3 h-3" />
+                                        </div>
                                     </div>
                                 </div>
                             </button>

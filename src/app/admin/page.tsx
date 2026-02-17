@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createRoom, getRooms } from '@/services/adminService';
 import { auth } from '@/lib/firebase';
 import {
@@ -10,12 +11,15 @@ import {
     ChevronRight,
     MapPin,
     Calendar,
-    Users
+    Users,
+    LogOut,
+    Menu
 } from 'lucide-react';
 import { Room } from '@/types/schema';
-import { onAuthStateChanged, type User } from 'firebase/auth';
+import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 
 export default function AdminDashboard() {
+    const router = useRouter();
     const [rooms, setRooms] = useState<Room[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -53,6 +57,11 @@ export default function AdminDashboard() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleLogout = async () => {
+        await signOut(auth);
+        router.push('/');
     };
 
     const handleCreateRoom = async () => {
@@ -103,31 +112,44 @@ export default function AdminDashboard() {
     return (
         <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
             <div className="max-w-6xl mx-auto">
-                <header className="mb-12 border-b-2 border-gray-200 pb-6 flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-black text-k9-black uppercase tracking-tighter flex items-center gap-3">
-                            <ShieldAlert className="text-k9-orange w-8 h-8" />
-                            Comando Central
-                        </h1>
-                        <p className="text-k9-orange text-sm uppercase tracking-widest pl-11 font-bold">Dashboard Administrativo</p>
+                <header className="mb-4 bg-black border-b-4 border-k9-orange p-6 rounded-xl shadow-lg flex items-center justify-between text-white -mt-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-k9-orange/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                    <div className="relative z-10 flex items-center gap-4">
+                        <div className="h-14 w-14 relative flex items-center justify-center">
+                            <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-black uppercase tracking-tighter leading-none">
+                                Comando Central
+                            </h1>
+                            <p className="text-gray-400 text-sm uppercase tracking-widest font-bold mt-1">Dashboard Administrativo</p>
+                        </div>
                     </div>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => setShowCreateAdminModal(true)}
-                            className="bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase px-4 py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-xs cursor-pointer border-2 border-gray-300 shadow-sm"
-                        >
-                            <Users className="w-4 h-4" />
-                            Novo Admin
-                        </button>
-                        <button
-                            onClick={() => setShowCreateModal(true)}
-                            className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 hover:scale-105 bg-orange-400 text-white border-orange-400`}
-                        >
-                            <PlusCircle className="w-5 h-5" />
-                            Nova Sala
-                        </button>
-                    </div>
+                    
+                    <button
+                        onClick={handleLogout}
+                        className="text-white hover:text-red-400 text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-4 py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 relative z-10 shadow-sm"
+                    >
+                        <LogOut className="w-4 h-4" /> Sair
+                    </button>
                 </header>
+
+                <div className="flex justify-end gap-4 mb-8">
+                     <button
+                        onClick={() => setShowCreateAdminModal(true)}
+                        className="bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-4 py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-xs cursor-pointer border border-gray-700 shadow-sm hover:border-k9-orange"
+                    >
+                        <Users className="w-4 h-4 text-k9-orange" />
+                        Novo Admin
+                    </button>
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-k9-orange text-black border-k9-orange hover:bg-orange-500 hover:border-orange-500 hover:text-white"
+                    >
+                        <PlusCircle className="w-5 h-5" />
+                        Nova Sala
+                    </button>
+                </div>
 
                 {loading ? (
                     <div className="text-center p-12 animate-pulse text-k9-orange font-mono">[CONFIRMANDO CREDENCIAIS...]</div>
