@@ -64,7 +64,7 @@ export default function AdminDashboard() {
 
     const handleLogout = async () => {
         await signOut(auth);
-        router.push('/');
+        router.push('/secret-access');
     };
 
     const handleCreateRoom = async () => {

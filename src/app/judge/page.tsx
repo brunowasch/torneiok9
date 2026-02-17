@@ -12,13 +12,19 @@ export default function JudgeDashboard() {
     const router = useRouter();
     const [rooms, setRooms] = useState<Room[]>([]);
     const [loading, setLoading] = useState(true);
+    const [authDetermined, setAuthDetermined] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (!currentUser) {
-                router.push('/secret-access');
+                if (authDetermined || !auth.currentUser) {
+                    router.push('/secret-access');
+                }
+                setAuthDetermined(true);
                 return;
             }
+            
+            setAuthDetermined(true);
             try {
                 const myRooms = await getRoomsWhereJudge(currentUser.uid);
                 setRooms(myRooms);
@@ -29,11 +35,11 @@ export default function JudgeDashboard() {
             }
         });
         return () => unsubscribe();
-    }, [router]);
+    }, [router, authDetermined]);
 
     const handleLogout = async () => {
         await signOut(auth);
-        router.push('/');
+        router.push('/secret-access');
     };
 
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">[CARREGANDO ACESSO DO JUIZ...]</div>;

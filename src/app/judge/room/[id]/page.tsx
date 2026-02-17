@@ -62,17 +62,24 @@ export default function JudgeRoomPage() {
     const [showTestModal, setShowTestModal] = useState(false);
     const [modalCompetitor, setModalCompetitor] = useState<Competitor | null>(null);
 
+    const [authDetermined, setAuthDetermined] = useState(false);
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (!currentUser) {
-                router.push('/secret-access');
+                if (authDetermined || !auth.currentUser) {
+                    router.push('/secret-access');
+                }
+                setAuthDetermined(true);
                 return;
             }
+            
+            setAuthDetermined(true);
             setUser(currentUser);
             loadData();
         });
         return () => unsubscribe();
-    }, [roomId]);
+    }, [roomId, authDetermined, router]);
 
     const loadData = async () => {
         try {

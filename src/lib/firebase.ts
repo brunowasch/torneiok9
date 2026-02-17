@@ -18,11 +18,15 @@ for (const [key, value] of Object.entries(firebaseConfig)) {
     }
 }
 
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 const app = initializeApp(firebaseConfig);
 
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+    console.error("Erro ao configurar persistência:", error);
+});
 
 export { db, auth, firebaseConfig };

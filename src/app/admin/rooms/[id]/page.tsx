@@ -6,6 +6,8 @@ import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, upd
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, MODALITIES } from '@/types/schema'; 
 import Modal from '@/components/Modal';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import {
     ArrowLeft,
     Users,
@@ -18,7 +20,8 @@ import {
     Pencil,
     X,
     Gavel,
-    Camera
+    Camera,
+    LogOut
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -29,6 +32,12 @@ export default function RoomDetailsPage() {
 
     const [room, setRoom] = useState<Room | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const handleLogout = async () => {
+        const { signOut } = await import('firebase/auth');
+        await signOut(auth);
+        router.push('/secret-access');
+    };
     const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges'>('competitors');
     const [allJudges, setAllJudges] = useState<AppUser[]>([]);
 
@@ -58,6 +67,7 @@ export default function RoomDetailsPage() {
     const [newJudgeForm, setNewJudgeForm] = useState({ name: '', email: '', password: '' });
     const [editingJudge, setEditingJudge] = useState<AppUser | null>(null);
     const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+    const [user, setUser] = useState<any>(null);
 
     // Deletion Modal State
     const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string, type: 'competitor' | 'test' | 'judge' } | null>(null);
@@ -81,6 +91,17 @@ export default function RoomDetailsPage() {
             setLoading(false);
         }
     }, [roomId]);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            if (!currentUser) {
+                router.push('/secret-access');
+            } else {
+                setUser(currentUser);
+            }
+        });
+        return () => unsubscribe();
+    }, [router]);
 
     useEffect(() => {
         if (!roomId) return;
@@ -348,6 +369,12 @@ export default function RoomDetailsPage() {
                                 </span>
                             </div>
                         </div>
+                        <button
+                            onClick={handleLogout}
+                            className="text-white hover:text-red-400 text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-4 py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 relative z-10 shadow-sm"
+                        >
+                            <LogOut className="w-4 h-4" /> Sair
+                        </button>
                     </div>
                 </div>
             </div>
