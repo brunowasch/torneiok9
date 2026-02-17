@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import RoomSelect from '@/components/RoomSelect';
-import { Room, TestTemplate, Modality, MODALITIES } from '@/types/schema';
+import { Room, TestTemplate, Modality, INITIAL_MODALITIES, ModalityConfig } from '@/types/schema';
+import { getModalities } from '@/services/adminService';
 import { Trophy, Medal, Crown, ListFilter, Target, Flame } from 'lucide-react';
 import { LeaderboardEntry, subscribeToLeaderboard } from '@/services/rankingService';
 
@@ -12,6 +13,7 @@ export default function Home() {
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [tests, setTests] = useState<TestTemplate[]>([]);
+  const [modalities, setModalities] = useState<Modality[]>([]);
   const [selectedModality, setSelectedModality] = useState<Modality | null>(null);
   const [selectedTestId, setSelectedTestId] = useState<string | 'geral'>('geral');
   const [loading, setLoading] = useState(true);
@@ -23,6 +25,14 @@ export default function Home() {
       try {
         const { collection, query, onSnapshot } = await import('firebase/firestore');
         const { db } = await import('@/lib/firebase');
+        
+        const fetchedModalities = await getModalities();
+        const modalityNames = fetchedModalities.length > 0 
+          ? fetchedModalities.map(m => m.name) 
+          : INITIAL_MODALITIES;
+        setModalities(modalityNames);
+        if (modalityNames.length > 0) setSelectedModality(modalityNames[0]);
+
         const q = query(collection(db, 'rooms'));
 
         unsubscribe = onSnapshot(
@@ -91,10 +101,10 @@ export default function Home() {
   }, [selectedRoomId]);
 
   useEffect(() => {
-    if (!selectedModality && MODALITIES.length > 0) {
-      setSelectedModality(MODALITIES[0]);
+    if (!selectedModality && modalities.length > 0) {
+      setSelectedModality(modalities[0]);
     }
-  }, [selectedModality]);
+  }, [selectedModality, modalities]);
 
   const getFilteredLeaderboard = () => {
     if (!selectedModality) return [];
@@ -163,7 +173,7 @@ export default function Home() {
         {/* Modality Tabs */}
         <div className="mb-8 overflow-x-auto pb-4">
           <div className="flex gap-6 min-w-max px-3">
-            {MODALITIES.map(mod => (
+            {modalities.map(mod => (
               <button
                 key={mod}
                 onClick={() => { setSelectedModality(mod); setSelectedTestId('geral'); }}

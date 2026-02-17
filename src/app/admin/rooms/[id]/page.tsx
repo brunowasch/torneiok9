@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments } from '@/services/adminService';
+import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig } from '@/types/schema'; 
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities } from '@/services/adminService';
 import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
-import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, MODALITIES, Evaluation } from '@/types/schema'; 
 import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -73,6 +73,7 @@ export default function RoomDetailsPage() {
     const [selectedJudgeId, setSelectedJudgeId] = useState('');
     const [newJudgeForm, setNewJudgeForm] = useState({ name: '', email: '', password: '' });
     const [editingJudge, setEditingJudge] = useState<AppUser | null>(null);
+    const [modalities, setModalities] = useState<Modality[]>([]);
     const [selectedModalities, setSelectedModalities] = useState<Modality[]>([]);
     const [user, setUser] = useState<any>(null);
 
@@ -144,6 +145,9 @@ export default function RoomDetailsPage() {
                 unsubEvaluations = onSnapshot(qEval, (snap) => {
                     setEvaluations(snap.docs.map(d => ({ id: d.id, ...d.data() } as Evaluation)));
                 }, (err) => console.error('evaluations snapshot error', err));
+
+                const fetchedModalities = await getModalities();
+                setModalities(fetchedModalities.length > 0 ? fetchedModalities.map(m => m.name) : INITIAL_MODALITIES);
 
                 const j = await getJudgesList();
                 setAllJudges(j);
@@ -477,11 +481,11 @@ export default function RoomDetailsPage() {
                                                 <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Condutor</div>
                                                 <div className="text-xs text-k9-orange font-mono uppercase mt-1 font-bold truncate">Cão: {comp.dogName}</div>
                                                 <div className="flex flex-col gap-1.5 mt-3">
-                                                    <div className="flex items-center">
-                                                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-100 inline-block">
-                                                            {comp.modality}
-                                                        </span>
-                                                    </div>
+                                                        {modalities.includes(comp.modality) && (
+                                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-100 inline-block">
+                                                                {comp.modality}
+                                                            </span>
+                                                        )}
                                                     <div className="flex items-center">
                                                         <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded inline-block ${testCount > 0 ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-gray-50 text-gray-400 border border-gray-200'}`}>
                                                             {testCount > 0 ? `${testCount} ${testCount === 1 ? 'Prova' : 'Provas'}` : 'Sem Provas'}
@@ -596,7 +600,7 @@ export default function RoomDetailsPage() {
                                             className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
                                         >
                                             <option value="">-- Selecione a Modalidade --</option>
-                                            {MODALITIES.map(m => (
+                                            {modalities.map(m => (
                                                 <option key={m} value={m}>{m}</option>
                                             ))}
                                         </select>
@@ -737,7 +741,7 @@ export default function RoomDetailsPage() {
                                         className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1"
                                     >
                                         <option value="">-- Selecione a Modalidade --</option>
-                                        {MODALITIES.map(m => (
+                                        {modalities.map(m => (
                                             <option key={m} value={m}>{m}</option>
                                         ))}
                                     </select>
@@ -851,7 +855,7 @@ export default function RoomDetailsPage() {
 
                         <div className="grid md:grid-cols-2 gap-4">
                             {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => {
-                                const assignedMods = room?.judgeModalities?.[j.uid] || [];
+                                const assignedMods = (room?.judgeModalities?.[j.uid] || []).filter(m => modalities.includes(m));
                                 const assignedCount = assignedMods.length;
                                 
                                 return (
@@ -967,7 +971,7 @@ export default function RoomDetailsPage() {
                                         <div className="border-t border-gray-200 pt-4">
                                             <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Modalidades Atribuídas</label>
                                             <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-50 p-3 rounded border border-gray-200">
-                                                {MODALITIES.map(modality => (
+                                                {modalities.map(modality => (
                                                     <label 
                                                         key={modality} 
                                                         className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer transition-colors group"

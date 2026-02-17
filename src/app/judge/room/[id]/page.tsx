@@ -7,7 +7,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import {
     getRoomById,
     getCompetitorsByRoom,
-    getTestTemplates
+    getTestTemplates,
+    getModalities
 } from '@/services/adminService';
 import {
     saveEvaluation,
@@ -29,7 +30,8 @@ import {
     X,
     List,
     Trophy,
-    Search
+    Search,
+    Shield
 } from 'lucide-react';
 
 export default function JudgeRoomPage() {
@@ -43,6 +45,7 @@ export default function JudgeRoomPage() {
     const [competitors, setCompetitors] = useState<Competitor[]>([]);
     const [tests, setTests] = useState<TestTemplate[]>([]);
     const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+    const [modalities, setModalities] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Evaluation State
@@ -85,16 +88,18 @@ export default function JudgeRoomPage() {
 
     const loadData = async () => {
         try {
-            const [r, c, t, e] = await Promise.all([
+            const [r, c, t, e, m] = await Promise.all([
                 getRoomById(roomId),
                 getCompetitorsByRoom(roomId),
                 getTestTemplates(roomId),
-                getEvaluationsByRoom(roomId)
+                getEvaluationsByRoom(roomId),
+                getModalities()
             ]);
             setRoom(r);
             setCompetitors(c);
             setTests(t);
             setEvaluations(e);
+            setModalities(m.map(mod => mod.name));
         } catch (error) {
             console.error(error);
             alert('Erro ao carregar dados da sala.');
@@ -118,7 +123,7 @@ export default function JudgeRoomPage() {
         let filteredTests = tests;
         
         if (room.judgeModalities && room.judgeModalities[user.uid] && room.judgeModalities[user.uid].length > 0) {
-            const judgeModalities = room.judgeModalities[user.uid];
+            const judgeModalities = room.judgeModalities[user.uid].filter(m => modalities.includes(m));
             filteredTests = filteredTests.filter(t => judgeModalities.includes(t.modality as Modality));
         } else if (room.judgeAssignments && room.judgeAssignments[user.uid] && room.judgeAssignments[user.uid].length > 0) {
             const judgeTestIds = room.judgeAssignments[user.uid];
@@ -549,70 +554,99 @@ export default function JudgeRoomPage() {
                             />
                         </div>
 
-                        {getAssignedTests().length === 0 ? (
-                            <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                                <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                                <p className="uppercase font-bold text-sm tracking-wide">Nenhuma prova disponível nesta sala</p>
-                            </div>
-                        ) : (
-                            <div className="grid gap-3">
-                                {getAssignedTests()
-                                    .filter(t => {
-                                        if (!testSearch) return true;
-                                        const s = testSearch.toLowerCase();
-                                        return t.title.toLowerCase().includes(s) || 
-                                               (t.testNumber && t.testNumber.toString().includes(s));
-                                    })
-                                    .sort((a, b) => {
-                                        if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
-                                        return (a.testNumber || 0) - (b.testNumber || 0);
-                                    })
-                                    .map(test => {
-                                        const testCompetitors = competitors.filter(c => c.modality === test.modality);
-                                        const doneCount = testCompetitors.filter(c => isTestEvaluated(c.id, test.id)).length;
-                                        const isAllDone = testCompetitors.length > 0 && doneCount === testCompetitors.length;
+                        {(() => {
+                            const normalize = (text: string) => 
+                                text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
 
-                                        return (
-                                            <button
-                                                key={test.id}
-                                                onClick={() => handleSelectTest(test)}
-                                                className={`
-                                                    group relative w-full text-left p-5 rounded-2xl border transition-all flex items-center justify-between
-                                                    ${isAllDone 
-                                                        ? 'bg-green-50 border-green-100' 
-                                                        : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg'
-                                                    }
-                                                `}
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black transition-all shadow-sm border ${isAllDone ? 'bg-green-100 border-green-200 text-green-600' : 'bg-gray-900 border-gray-800 text-white group-hover:bg-k9-orange group-hover:border-k9-orange'}`}>
-                                                        <span className="text-[8px] opacity-60 leading-none mb-0.5">Nº</span>
-                                                        <span className="text-lg leading-none">{test.testNumber ? test.testNumber.toString().padStart(2, '0') : '--'}</span>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className={`font-black uppercase text-base ${isAllDone ? 'text-green-900' : 'text-k9-black'}`}>{test.title}</h3>
-                                                        <div className="flex items-center gap-2 mt-0.5 font-bold uppercase text-[9px]">
-                                                            <span className={`px-2 py-0.5 rounded ${isAllDone ? 'bg-green-200/50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>{test.modality}</span>
-                                                            <span className="text-gray-300">•</span>
-                                                            <span className={isAllDone ? 'text-green-600' : 'text-gray-400'}>{doneCount}/{testCompetitors.length} AVALIADOS</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                {isAllDone ? (
-                                                    <div className="bg-green-100 text-green-600 p-2 rounded-full">
-                                                        <Check className="w-5 h-5" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-orange-50 group-hover:text-k9-orange transition-all">
-                                                        <ArrowLeft className="w-5 h-5 rotate-180" />
-                                                    </div>
-                                                )}
-                                            </button>
-                                        );
-                                    })
-                                }
-                            </div>
-                        )}
+                            const assignedTests = getAssignedTests()
+                                .filter(t => {
+                                    if (!testSearch) return true;
+                                    const s = normalize(testSearch);
+                                    const titleMatch = normalize(t.title).includes(s);
+                                    const modalityMatch = t.modality ? normalize(t.modality).includes(s) : false;
+                                    const numberMatch = t.testNumber ? t.testNumber.toString().includes(s) : false;
+                                    
+                                    return titleMatch || modalityMatch || numberMatch;
+                                })
+                                .sort((a, b) => {
+                                    if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
+                                    return (a.testNumber || 0) - (b.testNumber || 0);
+                                });
+
+                            if (assignedTests.length === 0) {
+                                return (
+                                    <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                        <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                                        <p className="uppercase font-bold text-sm tracking-wide">Nenhuma prova encontrada</p>
+                                    </div>
+                                );
+                            }
+
+                            const groupedByModality = assignedTests.reduce((acc, test) => {
+                                const modality = test.modality || 'OUTRAS';
+                                if (!acc[modality]) acc[modality] = [];
+                                acc[modality].push(test);
+                                return acc;
+                            }, {} as Record<string, TestTemplate[]>);
+
+                            return (
+                                <div className="space-y-8">
+                                    {Object.entries(groupedByModality).map(([modality, modalityTests]) => (
+                                        <div key={modality} className="bg-gray-50/50 border border-gray-100 rounded-3xl p-6 shadow-sm">
+                                            <h3 className="text-sm font-black uppercase text-k9-orange mb-6 flex items-center gap-2 tracking-widest">
+                                                <Shield className="w-4 h-4" /> {modality}
+                                            </h3>
+                                            <div className="grid gap-3">
+                                                {modalityTests
+                                                    .sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0))
+                                                    .map(test => {
+                                                        const testCompetitors = competitors.filter(c => c.modality === test.modality);
+                                                        const doneCount = testCompetitors.filter(c => isTestEvaluated(c.id, test.id)).length;
+                                                        const isAllDone = testCompetitors.length > 0 && doneCount === testCompetitors.length;
+
+                                                        return (
+                                                            <button
+                                                                key={test.id}
+                                                                onClick={() => handleSelectTest(test)}
+                                                                className={`
+                                                                    group relative w-full text-left p-5 rounded-2xl border transition-all flex items-center justify-between shadow-sm
+                                                                    ${isAllDone 
+                                                                        ? 'bg-green-50/50 border-green-200' 
+                                                                        : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg'
+                                                                    }
+                                                                `}
+                                                            >
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black transition-all shadow-sm border ${isAllDone ? 'bg-green-100 border-green-200 text-green-600' : 'bg-gray-900 border-gray-800 text-white group-hover:bg-k9-orange group-hover:border-k9-orange'}`}>
+                                                                        <span className="text-[8px] opacity-60 leading-none mb-0.5">Nº</span>
+                                                                        <span className="text-lg leading-none">{test.testNumber ? test.testNumber.toString().padStart(2, '0') : '--'}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 className={`font-black uppercase text-base ${isAllDone ? 'text-green-900' : 'text-k9-black'}`}>{test.title}</h4>
+                                                                        <div className="flex items-center gap-2 mt-0.5 font-bold uppercase text-[9px]">
+                                                                            <span className={isAllDone ? 'text-green-600' : 'text-gray-400'}>{doneCount}/{testCompetitors.length} AVALIADOS</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                {isAllDone ? (
+                                                                    <div className="bg-green-100 text-green-600 p-2 rounded-full">
+                                                                        <Check className="w-5 h-5" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-orange-50 group-hover:text-k9-orange transition-all">
+                                                                        <ArrowLeft className="w-5 h-5 rotate-180" />
+                                                                    </div>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })
+                                                }
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
                     </div>
                 ) : (
                     /* 2. LISTA DE COMPETIDORES PARA A PROVA SELECIONADA */

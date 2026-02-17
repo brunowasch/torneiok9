@@ -14,7 +14,8 @@ import {
     Users,
     LogOut,
     Menu,
-    Trash2
+    Trash2,
+    Shield
 } from 'lucide-react';
 import { Room } from '@/types/schema';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
@@ -154,6 +155,13 @@ export default function AdminDashboard() {
                 </header>
 
                 <div className="flex justify-end gap-4 mb-8">
+                     <button
+                        onClick={() => router.push('/admin/modalities')}
+                        className="bg-white hover:bg-orange-50 text-k9-black font-bold uppercase px-4 py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-xs cursor-pointer border-2 border-gray-200 shadow-sm hover:border-k9-orange"
+                    >
+                        <Shield className="w-4 h-4 text-k9-orange" />
+                        Modalidades
+                    </button>
                      <button
                         onClick={() => setShowCreateAdminModal(true)}
                         className="bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-4 py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-xs cursor-pointer border border-gray-700 shadow-sm hover:border-k9-orange"

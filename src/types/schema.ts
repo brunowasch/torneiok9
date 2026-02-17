@@ -1,21 +1,14 @@
 export type UserRole = 'admin' | 'judge';
 
-export type Modality =
-  | 'Cão de patrulha e intervenção'
-  | 'Proteção/intervenção'
-  | 'Feminina'
-  | 'Batalha Arena K9'
-  | 'Busca e resgate por odor específico'
-  | 'Faro de narcóticos';
+export type Modality = string;
 
-export const MODALITIES: Modality[] = [
-  'Cão de patrulha e intervenção',
-  'Proteção/intervenção',
-  'Feminina',
-  'Batalha Arena K9',
-  'Busca e resgate por odor específico',
-  'Faro de narcóticos'
-];
+export interface ModalityConfig {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
+export const INITIAL_MODALITIES: Modality[] = [];
 
 export interface AppUser {
   uid: string;

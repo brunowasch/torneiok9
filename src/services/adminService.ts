@@ -12,7 +12,7 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
-import { Room, Competitor, TestTemplate, AppUser } from '../types/schema';
+import { Room, Competitor, TestTemplate, AppUser, ModalityConfig } from '../types/schema';
 
 export const createRoom = async (roomData: Omit<Room, 'id' | 'createdAt'>) => {
   try {
@@ -218,6 +218,45 @@ export const deleteTestTemplate = async (testId: string) => {
     await deleteDoc(docRef);
   } catch (error) {
     console.error("Error deleting test: ", error);
+    throw error;
+  }
+};
+
+export const getModalities = async () => {
+  const q = query(collection(db, 'modalities'));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ModalityConfig));
+};
+
+export const addModality = async (name: string) => {
+  try {
+    const docRef = await addDoc(collection(db, 'modalities'), {
+      name,
+      createdAt: Date.now()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("Error adding modality: ", error);
+    throw error;
+  }
+};
+
+export const updateModality = async (id: string, name: string) => {
+  try {
+    const docRef = doc(db, 'modalities', id);
+    await updateDoc(docRef, { name });
+  } catch (error) {
+    console.error("Error updating modality: ", error);
+    throw error;
+  }
+};
+
+export const deleteModality = async (id: string) => {
+  try {
+    const docRef = doc(db, 'modalities', id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting modality: ", error);
     throw error;
   }
 };
