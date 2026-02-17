@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { getAllCompetitors } from '@/services/rankingService';
 import { Competitor } from '@/types/schema';
-import { Users, Search } from 'lucide-react';
+import { Users, Search, Flame } from 'lucide-react';
 
 export default function CompetitorsPage() {
     const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -69,36 +69,52 @@ export default function CompetitorsPage() {
                 </div>
 
                 {loading ? (
-                    <div className="text-center p-12 animate-pulse text-k9-orange font-mono">[CARREGANDO DADOS...]</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="bg-white border border-gray-100 p-6 rounded-2xl animate-pulse h-32"></div>
+                        ))}
+                    </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filtered.map(comp => (
-                            <div key={comp.id} className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-k9-orange hover:shadow-lg transition-all group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-15 transition-opacity">
-                                    <Users className="w-24 h-24 text-k9-orange" />
+                            <div key={comp.id} className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm hover:shadow-xl transform hover:-translate-y-1 transition-all group relative overflow-hidden flex items-center gap-4">
+                                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center text-xl font-black shrink-0 shadow-inner overflow-hidden bg-orange-50 text-orange-600 border border-orange-100">
+                                    {comp.photoUrl ? (
+                                        <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        comp.handlerName.substring(0, 2).toUpperCase()
+                                    )}
                                 </div>
 
-                                <div className="flex items-start gap-4 z-10 relative">
-                                    <div className="w-16 h-16 bg-linear-to-br from-k9-orange to-k9-black rounded-lg border-2 border-k9-orange flex items-center justify-center text-lg font-black text-white shadow-md">
-                                        #{comp.competitorNumber}
+                                {/* Details */}
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-lg md:text-xl font-black text-k9-black uppercase leading-tight tracking-tight truncate group-hover:text-k9-orange transition-colors">
+                                        {comp.handlerName}
+                                    </h3>
+                                    
+                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                        <Flame className="w-3.5 h-3.5 text-k9-orange shrink-0" />
+                                        <span className="text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-tighter">Cão:</span>
+                                        <span className="text-[11px] md:text-sm font-bold text-gray-800 truncate uppercase">{comp.dogName}</span>
                                     </div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-k9-black uppercase leading-tight tracking-tight">{comp.handlerName}</h3>
-                                        <div className="text-k9-orange text-sm font-bold mt-2 flex items-center gap-2">
-                                            <span className="w-2 h-2 bg-k9-orange rounded-full"></span>
-                                            CÃO: <span className="text-k9-black">{comp.dogName}</span>
-                                        </div>
-                                        <div className="text-gray-600 text-xs uppercase tracking-wider mt-3 bg-gray-100 inline-block px-3 py-1 rounded-full border border-gray-200 font-semibold">
-                                            {comp.dogBreed}
+
+                                    <div className="mt-3 flex items-center">
+                                        <div className="text-[9px] md:text-[10px] text-gray-500 uppercase font-black px-2.5 py-1 bg-gray-50 rounded-full border border-gray-100 tracking-widest truncate">
+                                            {comp.dogBreed || 'RAÇA NÃO DEFINIDA'}
                                         </div>
                                     </div>
+                                </div>
+
+                                <div className="absolute -bottom-2 -right-2 opacity-5 group-hover:opacity-10 transition-opacity">
+                                    <Flame className="w-20 h-20 text-k9-orange rotate-12" />
                                 </div>
                             </div>
                         ))}
 
                         {filtered.length === 0 && (
-                            <div className="col-span-full text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 text-gray-500">
-                                NENHUM COMPETIDOR ENCONTRADO
+                            <div className="col-span-full text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                                <Users className="w-16 h-16 text-gray-200 mx-auto mb-4" />
+                                <div className="text-gray-400 font-black uppercase tracking-widest">NENHUM COMPETIDOR ENCONTRADO</div>
                             </div>
                         )}
                     </div>

@@ -17,8 +17,10 @@ import {
     Wand2,
     Pencil,
     X,
-    Gavel
+    Gavel,
+    Camera
 } from 'lucide-react';
+import { CldUploadWidget } from 'next-cloudinary';
 
 export default function RoomDetailsPage() {
     const params = useParams();
@@ -37,7 +39,7 @@ export default function RoomDetailsPage() {
     // Forms State
     const [showAddCompetitor, setShowAddCompetitor] = useState(false);
     const [editingCompetitorId, setEditingCompetitorId] = useState<string | null>(null);
-    const [compForm, setCompForm] = useState({ handlerName: '', dogName: '', dogBreed: '' });
+    const [compForm, setCompForm] = useState({ handlerName: '', dogName: '', dogBreed: '', photoUrl: '' });
     const [selectedCompetitorTestIds, setSelectedCompetitorTestIds] = useState<string[]>([]);
 
     // Test Form State
@@ -128,7 +130,8 @@ export default function RoomDetailsPage() {
         setCompForm({
             handlerName: comp.handlerName,
             dogName: comp.dogName,
-            dogBreed: comp.dogBreed
+            dogBreed: comp.dogBreed,
+            photoUrl: comp.photoUrl || ''
         });
         const testIds = comp.testIds || (comp.testId ? [comp.testId] : []);
         setSelectedCompetitorTestIds(testIds);
@@ -138,13 +141,15 @@ export default function RoomDetailsPage() {
 
     const saveCompetitor = async () => {
         if (!compForm.handlerName || !compForm.dogName) return;
+        console.log('Saving competitor with form data:', compForm);
         try {
             if (editingCompetitorId) {
                 await updateCompetitor(editingCompetitorId, {
                     handlerName: compForm.handlerName,
                     dogName: compForm.dogName,
                     dogBreed: compForm.dogBreed,
-                    testIds: selectedCompetitorTestIds
+                    testIds: selectedCompetitorTestIds,
+                    photoUrl: compForm.photoUrl
                 });
             } else {
                 await addCompetitor({
@@ -152,12 +157,13 @@ export default function RoomDetailsPage() {
                     handlerName: compForm.handlerName,
                     dogName: compForm.dogName,
                     dogBreed: compForm.dogBreed,
-                    competitorNumber: Math.floor(Math.random() * 900) + 100,
-                    testIds: selectedCompetitorTestIds
+                    competitorNumber: Math.floor(Math.random() * 900) + 100, 
+                    testIds: selectedCompetitorTestIds,
+                    photoUrl: compForm.photoUrl
                 });
             }
             // Reset
-            setCompForm({ handlerName: '', dogName: '', dogBreed: '' });
+            setCompForm({ handlerName: '', dogName: '', dogBreed: '', photoUrl: '' });
             setSelectedCompetitorTestIds([]);
             setEditingCompetitorId(null);
             setShowAddCompetitor(false);
@@ -356,7 +362,7 @@ export default function RoomDetailsPage() {
                             <button
                                 onClick={() => {
                                     setEditingCompetitorId(null);
-                                    setCompForm({ handlerName: '', dogName: '', dogBreed: '' });
+                                    setCompForm({ handlerName: '', dogName: '', dogBreed: '', photoUrl: '' });
                                     setSelectedCompetitorTestIds([]);
                                     setShowAddCompetitor(true);
                                 }}
@@ -374,8 +380,12 @@ export default function RoomDetailsPage() {
                                 return (
                                     <div key={comp.id} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-between group">
                                         <div className="flex items-center gap-4 flex-1">
-                                            <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center font-extrabold shadow-sm">
-                                                {comp.competitorNumber}
+                                            <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center font-extrabold shadow-sm overflow-hidden border border-orange-100">
+                                                {comp.photoUrl ? (
+                                                    <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-sm">{comp.handlerName.substring(0, 2).toUpperCase()}</span>
+                                                )}
                                             </div>
                                             <div className="flex-1">
                                                 <div className="font-bold text-k9-black uppercase text-sm">{comp.handlerName}</div>
@@ -415,6 +425,47 @@ export default function RoomDetailsPage() {
                             maxWidth="max-w-xl"
                         >
                             <div className="space-y-4">
+                                <div className="flex flex-col items-center mb-6">
+                                    <div className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden relative group shadow-inner">
+                                        {compForm.photoUrl ? (
+                                            <img key={compForm.photoUrl} src={compForm.photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Camera className="w-8 h-8 text-gray-300" />
+                                        )}
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 z-10">
+                                            <CldUploadWidget 
+                                                uploadPreset="torneiok9" 
+                                                onSuccess={(result, { widget }) => {
+                                                    if (result?.info && typeof result.info !== 'string') {
+                                                        const url = result.info.secure_url;
+                                                        setCompForm(prev => ({ ...prev, photoUrl: url }));
+                                                    }
+                                                }}
+                                            >
+                                                {({ open }) => (
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => open()}
+                                                        className="text-[9px] font-black uppercase text-white hover:text-k9-orange transition-colors cursor-pointer"
+                                                    >
+                                                        {compForm.photoUrl ? 'Trocar Foto' : 'Enviar Foto'}
+                                                    </button>
+                                                )}
+                                            </CldUploadWidget>
+                                            {compForm.photoUrl && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setCompForm(prev => ({ ...prev, photoUrl: '' }))}
+                                                    className="text-[9px] font-black uppercase text-red-400 hover:text-red-500 transition-colors cursor-pointer border-t border-white/20 pt-1 w-full"
+                                                >
+                                                    Remover
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-2 uppercase font-bold tracking-tighter">Foto do Binômio / Cão</p>
+                                </div>
+
                                 <input
                                     placeholder="Nome do Condutor"
                                     value={compForm.handlerName}

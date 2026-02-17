@@ -250,8 +250,12 @@ export default function Home() {
                     </td>
                     <td className="p-5">
                       <div className="flex items-center gap-5">
-                        <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-sm font-bold shrink-0 shadow-sm ${index < 3 ? 'bg-k9-orange text-white' : 'bg-gray-100 text-gray-500'}`}>
-                          {entry.handlerName.substring(0, 2).toUpperCase()}
+                        <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-sm font-bold shrink-0 shadow-sm overflow-hidden bg-orange-50 text-orange-600 border border-orange-100`}>
+                          {entry.photoUrl ? (
+                            <img src={entry.photoUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            entry.handlerName.substring(0, 2).toUpperCase()
+                          )}
                         </div>
                         <div>
                           <div className="font-extrabold text-k9-black uppercase tracking-tight text-base md:text-lg group-hover:text-k9-orange transition-colors">{entry.handlerName}</div>
