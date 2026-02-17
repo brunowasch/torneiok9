@@ -22,7 +22,7 @@ export interface AppUser {
   email: string;
   name: string;
   role: UserRole;
-  createdAt: number; // Timestamp (milliseconds)
+  createdAt: number;
 }
 
 export interface Room {
@@ -30,19 +30,21 @@ export interface Room {
   name: string;
   description: string;
   active: boolean;
-  createdBy: string; // Admin UID
-  judges: string[]; // Array of Judge UIDs authorized for this room
+  createdBy: string; 
+  judges: string[];
+  judgeAssignments?: Record<string, string[]>;
   createdAt: number;
 }
 
 export interface Competitor {
   id: string;
   roomId: string;
-  handlerName: string; // Nome da Condutora/Condutor
+  handlerName: string; 
   dogName: string;
   dogBreed: string;
   competitorNumber: number;
-  testId?: string; // ID da prova que o competidor vai realizar
+  testIds?: string[]; 
+  testId?: string; // Deprecated: mantido para compatibilidade
   photoUrl?: string;
   createdAt: number;
 }
@@ -67,8 +69,8 @@ export interface PenaltyOption {
 
 export interface TestTemplate {
   id: string;
-  roomId?: string; // Se null, é um template global
-  modality?: Modality; // Modalidade da prova
+  roomId?: string; 
+  modality?: Modality; 
   title: string; // ex: "Prova de Proteção 1"
   description: string;
   maxScore: number;

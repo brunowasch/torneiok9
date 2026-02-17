@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, createTestTemplate, updateTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom } from '@/services/adminService';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, createTestTemplate, updateTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments } from '@/services/adminService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, MODALITIES } from '@/types/schema'; 
 import Modal from '@/components/Modal';
@@ -37,7 +37,8 @@ export default function RoomDetailsPage() {
     // Forms State
     const [showAddCompetitor, setShowAddCompetitor] = useState(false);
     const [editingCompetitorId, setEditingCompetitorId] = useState<string | null>(null);
-    const [compForm, setCompForm] = useState({ handlerName: '', dogName: '', dogBreed: '', testId: '' });
+    const [compForm, setCompForm] = useState({ handlerName: '', dogName: '', dogBreed: '' });
+    const [selectedCompetitorTestIds, setSelectedCompetitorTestIds] = useState<string[]>([]);
 
     // Test Form State
     const [showAddTest, setShowAddTest] = useState(false);
@@ -53,6 +54,7 @@ export default function RoomDetailsPage() {
     const [selectedJudgeId, setSelectedJudgeId] = useState('');
     const [newJudgeForm, setNewJudgeForm] = useState({ name: '', email: '', password: '' });
     const [editingJudge, setEditingJudge] = useState<AppUser | null>(null);
+    const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
 
     const loadRoomData = useCallback(async () => {
         try {
@@ -125,9 +127,11 @@ export default function RoomDetailsPage() {
         setCompForm({
             handlerName: comp.handlerName,
             dogName: comp.dogName,
-            dogBreed: comp.dogBreed,
-            testId: comp.testId || ''
+            dogBreed: comp.dogBreed
         });
+        // Load test assignments with backward compatibility
+        const testIds = comp.testIds || (comp.testId ? [comp.testId] : []);
+        setSelectedCompetitorTestIds(testIds);
         setEditingCompetitorId(comp.id);
         setShowAddCompetitor(true);
     };
@@ -140,7 +144,7 @@ export default function RoomDetailsPage() {
                     handlerName: compForm.handlerName,
                     dogName: compForm.dogName,
                     dogBreed: compForm.dogBreed,
-                    testId: compForm.testId || undefined
+                    testIds: selectedCompetitorTestIds
                 });
             } else {
                 await addCompetitor({
@@ -149,11 +153,12 @@ export default function RoomDetailsPage() {
                     dogName: compForm.dogName,
                     dogBreed: compForm.dogBreed,
                     competitorNumber: Math.floor(Math.random() * 900) + 100,
-                    testId: compForm.testId || undefined
+                    testIds: selectedCompetitorTestIds
                 });
             }
             // Reset
-            setCompForm({ handlerName: '', dogName: '', dogBreed: '', testId: '' });
+            setCompForm({ handlerName: '', dogName: '', dogBreed: '' });
+            setSelectedCompetitorTestIds([]);
             setEditingCompetitorId(null);
             setShowAddCompetitor(false);
             loadRoomData(); 
@@ -237,6 +242,9 @@ export default function RoomDetailsPage() {
             email: judge.email,
             password: '' // Password not editable directly here
         });
+        // Load current test assignments for this judge
+        const currentAssignments = room?.judgeAssignments?.[judge.uid] || [];
+        setSelectedTestIds(currentAssignments);
         setJudgeMode('new'); // Reuse the form layout
         setShowAddJudge(true);
     };
@@ -246,14 +254,17 @@ export default function RoomDetailsPage() {
             if (editingJudge) {
                 if (!newJudgeForm.name) return alert('Nome é obrigatório');
                 await updateUser(editingJudge.uid, { name: newJudgeForm.name });
+                await updateJudgeTestAssignments(roomId, editingJudge.uid, selectedTestIds);
             } else {
                 if (judgeMode === 'existing') {
                     if (!selectedJudgeId) return alert('Selecione um juiz');
                     await addJudgeToRoom(roomId, selectedJudgeId);
+                    await updateJudgeTestAssignments(roomId, selectedJudgeId, []);
                 } else {
                     if (!newJudgeForm.name || !newJudgeForm.email || !newJudgeForm.password) return alert('Preencha todos os campos');
                     const newUid = await createJudgeByAdmin(newJudgeForm.email, newJudgeForm.password, newJudgeForm.name);
                     await addJudgeToRoom(roomId, newUid);
+                    await updateJudgeTestAssignments(roomId, newUid, []);
                 }
             }
             
@@ -262,6 +273,7 @@ export default function RoomDetailsPage() {
             setNewJudgeForm({ name: '', email: '', password: '' });
             setSelectedJudgeId('');
             setEditingJudge(null);
+            setSelectedTestIds([]);
             loadRoomData();
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -344,7 +356,8 @@ export default function RoomDetailsPage() {
                             <button
                                 onClick={() => {
                                     setEditingCompetitorId(null);
-                                    setCompForm({ handlerName: '', dogName: '', dogBreed: '', testId: '' });
+                                    setCompForm({ handlerName: '', dogName: '', dogBreed: '' });
+                                    setSelectedCompetitorTestIds([]);
                                     setShowAddCompetitor(true);
                                 }}
                                 className={`px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-green-50 text-green-700 border-green-100 hover:bg-green-100`}
@@ -354,34 +367,44 @@ export default function RoomDetailsPage() {
                         </div>
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {competitors.map(comp => (
-                                <div key={comp.id} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-between group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center font-extrabold shadow-sm">
-                                            {comp.competitorNumber}
+                            {competitors.map(comp => {
+                                const testIds = comp.testIds || (comp.testId ? [comp.testId] : []);
+                                const testCount = testIds.length;
+                                
+                                return (
+                                    <div key={comp.id} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-between group">
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center font-extrabold shadow-sm">
+                                                {comp.competitorNumber}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-bold text-k9-black uppercase text-sm">{comp.handlerName}</div>
+                                                <div className="text-xs text-gray-400 font-mono uppercase">Cão: {comp.dogName}</div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${testCount > 0 ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-gray-50 text-gray-400 border border-gray-200'}`}>
+                                                        {testCount > 0 ? `${testCount} ${testCount === 1 ? 'Prova' : 'Provas'}` : 'Sem Provas'}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div className="font-bold text-k9-black uppercase text-sm">{comp.handlerName}</div>
-                                            <div className="text-xs text-gray-400 font-mono uppercase">Cão: {comp.dogName}</div>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => handleEditCompetitor(comp)}
+                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                                                title="Editar"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button 
+                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                title="Remover (Não implementado)"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => handleEditCompetitor(comp)}
-                                            className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
-                                            title="Editar"
-                                        >
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
-                                        <button 
-                                            className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                            title="Remover (Não implementado)"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                             {competitors.length === 0 && <div className="text-gray-500 col-span-full text-center py-8">Nenhum competidor registrado.</div>}
                         </div>
 
@@ -415,7 +438,7 @@ export default function RoomDetailsPage() {
 
                                 {/* Test Selection */}
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Prova / Categoria <span className="text-red-500">*</span></label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Provas Atribuídas</label>
 
                                     {tests.length === 0 ? (
                                         <div className="p-3 border border-red-900/50 bg-red-900/10 rounded text-red-400 text-xs text-center">
@@ -423,17 +446,39 @@ export default function RoomDetailsPage() {
                                             <p>Crie uma prova na aba &apos;Provas&apos; antes de registrar competidores.</p>
                                         </div>
                                     ) : (
-                                        <select
-                                            value={compForm.testId}
-                                            onChange={e => setCompForm({ ...compForm, testId: e.target.value })}
-                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                        >
-                                            <option value="">-- Selecione a Prova --</option>
-                                            {tests.map(t => (
-                                                <option key={t.id} value={t.id}>{t.title}</option>
+                                        <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-50 p-3 rounded border border-gray-200">
+                                            {tests.map(test => (
+                                                <label 
+                                                    key={test.id} 
+                                                    className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer transition-colors group"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedCompetitorTestIds.includes(test.id)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setSelectedCompetitorTestIds([...selectedCompetitorTestIds, test.id]);
+                                                            } else {
+                                                                setSelectedCompetitorTestIds(selectedCompetitorTestIds.filter(id => id !== test.id));
+                                                            }
+                                                        }}
+                                                        className="w-4 h-4 text-k9-orange border-gray-300 rounded focus:ring-k9-orange focus:ring-2"
+                                                    />
+                                                    <div className="flex-1">
+                                                        <div className="text-sm font-bold text-k9-black group-hover:text-k9-orange transition-colors">
+                                                            {test.title}
+                                                        </div>
+                                                        <div className="text-xs text-gray-400 uppercase">
+                                                            {test.modality}
+                                                        </div>
+                                                    </div>
+                                                </label>
                                             ))}
-                                        </select>
+                                        </div>
                                     )}
+                                    <p className="text-xs text-gray-400 mt-2 italic">
+                                        Selecione em quais provas este competidor irá participar
+                                    </p>
                                 </div>
                                 <div className="flex gap-4 pt-4">
                                     <button onClick={() => { setShowAddCompetitor(false); setEditingCompetitorId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-800 text-gray-300 border-gray-700 transition-all">Cancelar</button>
@@ -588,26 +633,36 @@ export default function RoomDetailsPage() {
                         </div>
 
                         <div className="grid md:grid-cols-2 gap-4">
-                            {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => (
-                                <div key={j.uid} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-md transition-all flex justify-between items-center">
-                                    <div>
-                                        <div className="font-bold text-k9-black uppercase">{j.name}</div>
-                                        <div className="text-xs text-gray-400 font-mono">{j.email}</div>
+                            {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => {
+                                const assignedTests = room?.judgeAssignments?.[j.uid] || [];
+                                const assignedCount = assignedTests.length;
+                                
+                                return (
+                                    <div key={j.uid} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-md transition-all flex justify-between items-center">
+                                        <div className="flex-1">
+                                            <div className="font-bold text-k9-black uppercase">{j.name}</div>
+                                            <div className="text-xs text-gray-400 font-mono">{j.email}</div>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${assignedCount > 0 ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-gray-50 text-gray-400 border border-gray-200'}`}>
+                                                    {assignedCount > 0 ? `${assignedCount} ${assignedCount === 1 ? 'Prova' : 'Provas'}` : 'Sem Provas'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => handleEditJudge(j)}
+                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                                                title="Editar"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleRemoveJudge(j.uid)} className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => handleEditJudge(j)}
-                                            className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
-                                            title="Editar"
-                                        >
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => handleRemoveJudge(j.uid)} className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                             {(!room?.judges || room?.judges.length === 0) && (
                                 <div className="col-span-full text-center py-8 text-gray-500">Nenhum juiz atribuído a esta sala.</div>
                             )}
@@ -681,6 +736,49 @@ export default function RoomDetailsPage() {
                                                 />
                                             </div>
                                         )}
+                                        
+                                        {/* Test Assignments Section */}
+                                        <div className="border-t border-gray-200 pt-4">
+                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Provas Atribuídas</label>
+                                            {tests.length === 0 ? (
+                                                <div className="text-xs text-gray-400 text-center py-4 bg-gray-50 rounded border border-gray-200">
+                                                    Nenhuma prova disponível. Crie provas primeiro.
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-50 p-3 rounded border border-gray-200">
+                                                    {tests.map(test => (
+                                                        <label 
+                                                            key={test.id} 
+                                                            className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer transition-colors group"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedTestIds.includes(test.id)}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        setSelectedTestIds([...selectedTestIds, test.id]);
+                                                                    } else {
+                                                                        setSelectedTestIds(selectedTestIds.filter(id => id !== test.id));
+                                                                    }
+                                                                }}
+                                                                className="w-4 h-4 text-k9-orange border-gray-300 rounded focus:ring-k9-orange focus:ring-2"
+                                                            />
+                                                            <div className="flex-1">
+                                                                <div className="text-sm font-bold text-k9-black group-hover:text-k9-orange transition-colors">
+                                                                    {test.title}
+                                                                </div>
+                                                                <div className="text-xs text-gray-400 uppercase">
+                                                                    {test.modality}
+                                                                </div>
+                                                            </div>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <p className="text-xs text-gray-400 mt-2 italic">
+                                                Selecione quais provas este juiz poderá avaliar
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
 

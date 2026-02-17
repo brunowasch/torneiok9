@@ -24,7 +24,10 @@ import {
     Users,
     CheckCircle2,
     Check,
-    AlertCircle
+    AlertCircle,
+    X,
+    List,
+    Trophy
 } from 'lucide-react';
 
 export default function JudgeRoomPage() {
@@ -46,6 +49,10 @@ export default function JudgeRoomPage() {
     const [scores, setScores] = useState<Record<string, number>>({});
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    // Test Selection Modal State
+    const [showTestModal, setShowTestModal] = useState(false);
+    const [modalCompetitor, setModalCompetitor] = useState<Competitor | null>(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -79,27 +86,50 @@ export default function JudgeRoomPage() {
         }
     };
 
-    const startEvaluation = (competitor: Competitor) => {
-        if (!competitor.testId) {
-            alert('Este competidor não possui uma prova atribuída.');
-            return;
-        }
-        const test = tests.find(t => t.id === competitor.testId);
-        if (!test) {
-            alert('Prova não encontrada (ID inválido ou removida).');
-            return;
-        }
+    const isTestEvaluated = (competitorId: string, testId: string) => {
+        if (!user) return false;
+        return evaluations.some(e => 
+            e.competitorId === competitorId && 
+            e.testId === testId && 
+            e.judgeId === user.uid
+        );
+    };
 
+    const getAssignedTests = () => {
+        if (!user || !room) return tests;
+        const assignedTestIds = room.judgeAssignments?.[user.uid] || [];
+        
+        if (assignedTestIds.length === 0 && !room.judgeAssignments) {
+            return tests;
+        }
+        
+        return tests.filter(t => assignedTestIds.includes(t.id));
+    };
+
+    const getCompetitorProgress = (competitorId: string) => {
+        const assignedTests = getAssignedTests();
+        if (!assignedTests.length) return { current: 0, total: 0 };
+        const evaluatedCount = assignedTests.filter(t => isTestEvaluated(competitorId, t.id)).length;
+        return { current: evaluatedCount, total: assignedTests.length };
+    };
+
+    const handleOpenTestSelection = (competitor: Competitor) => {
+        setModalCompetitor(competitor);
+        setShowTestModal(true);
+    };
+
+    const startEvaluation = (competitor: Competitor, test: TestTemplate) => {
         // Reset form
         setScores({});
         setNotes('');
 
         setActiveTest(test);
         setSelectedCompetitor(competitor);
+        setShowTestModal(false); // Close modal if open
+        setModalCompetitor(null);
     };
 
     const handleScoreChange = (itemId: string, value: number, max: number) => {
-        // Clamp value between 0 and max
         const clamped = Math.max(0, Math.min(value, max));
         setScores(prev => ({ ...prev, [itemId]: clamped }));
     };
@@ -124,18 +154,13 @@ export default function JudgeRoomPage() {
             alert('Avaliação enviada com sucesso!');
             setSelectedCompetitor(null);
             setActiveTest(null);
-            loadData(); // Refresh to show "Evaluated" status
+            loadData(); // Refresh data
         } catch (error) {
             console.error(error);
             alert('Erro ao enviar avaliação.');
         } finally {
             setSubmitting(false);
         }
-    };
-
-    const isCompetitorEvaluated = (competitorId: string) => {
-        if (!user) return false;
-        return evaluations.some(e => e.competitorId === competitorId && e.judgeId === user.uid);
     };
 
     const calculateCurrentTotal = () => {
@@ -152,13 +177,9 @@ export default function JudgeRoomPage() {
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">[CARREGANDO DADOS DA OPERAÇÃO...]</div>;
     if (!room) return <div className="p-8 text-black">Sala não encontrada.</div>;
 
-    // ------------------------------------------------------------------
-    // EVALUATION FORM VIEW
-    // ------------------------------------------------------------------
     if (selectedCompetitor && activeTest) {
         return (
             <div className="min-h-screen bg-gray-50 text-k9-black pb-20">
-                {/* Sticky Header */}
                 <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm px-4 py-3">
                     <div className="max-w-2xl mx-auto flex items-center justify-between">
                         <button 
@@ -264,11 +285,86 @@ export default function JudgeRoomPage() {
         );
     }
 
-    // ------------------------------------------------------------------
-    // LIST VIEW
-    // ------------------------------------------------------------------
     return (
-        <div className="min-h-screen bg-k9-white text-k9-black font-sans">
+        <div className="min-h-screen bg-k9-white text-k9-black font-sans relative">
+            
+            {showTestModal && modalCompetitor && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                         <div className="bg-black text-white p-6 flex justify-between items-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-k9-orange/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                            <div>
+                                <h3 className="text-xs font-bold text-k9-orange uppercase tracking-widest mb-1">Selecionar Prova</h3>
+                                <h2 className="text-2xl font-black uppercase tracking-tight">{modalCompetitor.handlerName}</h2>
+                            </div>
+                            <button 
+                                onClick={() => setShowTestModal(false)}
+                                className="text-gray-400 hover:text-white transition-colors bg-white/10 p-2 rounded-lg hover:bg-white/20 z-10"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 max-h-[60vh] overflow-y-auto">
+                            <div className="space-y-3">
+                                {getAssignedTests().length === 0 ? (
+                                    <div className="text-center py-8 text-gray-400">
+                                        <p className="font-bold mb-2">Nenhuma prova atribuída</p>
+                                        <p className="text-xs">Entre em contato com o administrador para atribuir provas.</p>
+                                    </div>
+                                ) : (
+                                    getAssignedTests().map((test) => {
+                                        const isDone = isTestEvaluated(modalCompetitor.id, test.id);
+                                        const isAssigned = modalCompetitor.testId === test.id;
+                                        
+                                        return (
+                                            <button
+                                                key={test.id}
+                                                disabled={isDone}
+                                                onClick={() => !isDone && startEvaluation(modalCompetitor, test)}
+                                                className={`
+                                                    w-full text-left p-4 rounded-xl border-2 transition-all flex items-center justify-between group relative overflow-hidden
+                                                    ${isDone 
+                                                        ? 'bg-green-50 border-green-100 opacity-60 cursor-not-allowed' 
+                                                        : 'bg-white border-gray-200 hover:border-k9-orange hover:shadow-lg'
+                                                    }
+                                                `}
+                                            >
+                                                <div className="relative z-10">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h4 className={`font-black uppercase text-sm ${isDone ? 'text-green-800' : 'text-k9-black'}`}>
+                                                            {test.title}
+                                                        </h4>
+                                                        {isAssigned && (
+                                                            <span className="text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded font-bold uppercase tracking-wide">
+                                                                Principal
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 font-semibold uppercase">{test.modality}</p>
+                                                </div>
+
+                                                <div className="relative z-10">
+                                                    {isDone ? (
+                                                         <div className="flex items-center gap-1 text-xs font-black uppercase text-green-600 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-green-200">
+                                                            <Check className="w-3 h-3" /> Feito
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-k9-orange group-hover:text-white transition-colors">
+                                                            <ArrowLeft className="w-4 h-4 rotate-180" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="bg-black border-b-4 border-k9-orange text-white shadow-lg sticky top-0 z-30">
                 <div className="max-w-4xl mx-auto px-6 py-6">
@@ -304,32 +400,33 @@ export default function JudgeRoomPage() {
                 ) : (
                     <div className="grid md:grid-cols-2 gap-4">
                         {competitors.map(comp => {
-                            const isDone = isCompetitorEvaluated(comp.id);
-                            const canEvaluate = !isDone;
+                            const { current, total } = getCompetitorProgress(comp.id);
+                            const isFullyComplete = total > 0 && current === total;
+                            const progressPercent = total > 0 ? (current / total) * 100 : 0;
 
                             return (
                                 <div 
                                     key={comp.id} 
                                     className={`
                                         relative overflow-hidden rounded-xl border-2 transition-all group
-                                        ${isDone 
+                                        ${isFullyComplete 
                                             ? 'bg-green-50/50 border-green-100 opacity-80' 
                                             : 'bg-white border-gray-200 hover:border-k9-orange hover:shadow-md'
                                         }
                                     `}
                                 >
-                                    {isDone && (
-                                        <div className="absolute top-0 right-0 p-2 bg-green-100 rounded-bl-xl border-l border-b border-green-200">
+                                    {isFullyComplete && (
+                                        <div className="absolute top-0 right-0 p-2 bg-green-100 rounded-bl-xl border-l border-b border-green-200 z-10">
                                             <div className="flex items-center gap-1 text-[10px] font-black uppercase text-green-700">
-                                                <Check className="w-3 h-3" /> Avaliado
+                                                <Check className="w-3 h-3" /> Completo
                                             </div>
                                         </div>
                                     )}
 
                                     <div className="p-5 flex items-start gap-4">
                                         <div className={`
-                                            w-14 h-14 rounded-lg flex items-center justify-center font-black text-xl shadow-sm border-2
-                                            ${isDone 
+                                            w-14 h-14 rounded-lg flex items-center justify-center font-black text-xl shadow-sm border-2 relative z-10
+                                            ${isFullyComplete 
                                                 ? 'bg-white border-green-100 text-green-600' 
                                                 : 'bg-gray-50 border-gray-100 text-gray-500 group-hover:text-k9-orange group-hover:bg-orange-50 group-hover:border-orange-100'
                                             }
@@ -337,32 +434,47 @@ export default function JudgeRoomPage() {
                                             {comp.competitorNumber}
                                         </div>
                                         
-                                        <div className="flex-1">
-                                            <h3 className={`font-black uppercase text-sm leading-tight ${isDone ? 'text-green-900' : 'text-k9-black'}`}>
+                                        <div className="flex-1 relative z-10">
+                                            <h3 className={`font-black uppercase text-sm leading-tight ${isFullyComplete ? 'text-green-900' : 'text-k9-black'}`}>
                                                 {comp.handlerName}
                                             </h3>
                                             <p className="text-xs font-bold text-gray-400 uppercase mt-1">
                                                 Cão: {comp.dogName}
                                             </p>
-                                            <p className="text-[10px] font-bold text-gray-300 uppercase mt-2 bg-gray-50 inline-block px-2 py-1 rounded">
-                                                {comp.dogBreed}
-                                            </p>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <p className="text-[10px] font-bold text-gray-300 uppercase bg-gray-50 inline-block px-2 py-1 rounded">
+                                                    {comp.dogBreed}
+                                                </p>
+                                                 {total > 0 && (
+                                                    <div className="flex items-center gap-1 text-[10px] font-mono font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded">
+                                                        <Trophy className="w-3 h-3" />
+                                                        {current}/{total}
+                                                    </div>
+                                                 )}
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className={`p-3 border-t-2 flex justify-end ${isDone ? 'border-green-100 bg-green-50/30' : 'border-gray-50 bg-gray-50'}`}>
+                                    {!isFullyComplete && current > 0 && (
+                                        <div className="absolute bottom-0 left-0 h-1 bg-green-500/20" style={{ width: `${progressPercent}%` }}></div>
+                                    )}
+
+                                    <div className={`p-3 border-t-2 flex justify-end ${isFullyComplete ? 'border-green-100 bg-green-50/30' : 'border-gray-50 bg-gray-50'}`}>
                                         <button
-                                            onClick={() => canEvaluate && startEvaluation(comp)}
-                                            disabled={isDone}
+                                            onClick={() => handleOpenTestSelection(comp)}
                                             className={`
-                                                px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all
-                                                ${isDone
-                                                    ? 'text-green-300 cursor-not-allowed'
+                                                px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2
+                                                ${isFullyComplete
+                                                    ? 'text-green-400 cursor-pointer hover:text-green-600'
                                                     : 'bg-black text-white hover:bg-orange-500 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer'
                                                 }
                                             `}
                                         >
-                                            {isDone ? 'Concluído' : 'Iniciar Avaliação'}
+                                            {isFullyComplete ? (
+                                                <>Ver Avaliações <List className="w-3 h-3" /></>
+                                            ) : (
+                                                <>Avaliar Provas <List className="w-3 h-3" /></>
+                                            )}
                                         </button>
                                     </div>
                                 </div>

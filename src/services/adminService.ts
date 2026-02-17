@@ -143,3 +143,27 @@ export const getRoomsWhereJudge = async (judgeUid: string) => {
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
 };
+
+export const updateJudgeTestAssignments = async (roomId: string, judgeUid: string, testIds: string[]) => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+    
+    if (!roomSnap.exists()) {
+      throw new Error('Sala não encontrada');
+    }
+    
+    const currentAssignments = roomSnap.data().judgeAssignments || {};
+    
+    await updateDoc(roomRef, {
+      judgeAssignments: {
+        ...currentAssignments,
+        [judgeUid]: testIds
+      }
+    });
+  } catch (error) {
+    console.error("Error updating judge test assignments: ", error);
+    throw error;
+  }
+};
+
