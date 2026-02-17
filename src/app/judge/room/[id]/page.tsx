@@ -48,7 +48,15 @@ export default function JudgeRoomPage() {
     const [activeTest, setActiveTest] = useState<TestTemplate | null>(null);
     const [scores, setScores] = useState<Record<string, number>>({});
     const [notes, setNotes] = useState('');
+    const [penalties, setPenalties] = useState<{ penaltyId: string; value: number; description: string }[]>([]);
     const [submitting, setSubmitting] = useState(false);
+    
+    // Add Penalty State
+    const [showPenaltyAdd, setShowPenaltyAdd] = useState(false);
+    const [tempPenalty, setTempPenalty] = useState<{ id: string; label: string; value: number } | null>(null);
+    const [tempPenaltyDescription, setTempPenaltyDescription] = useState('');
+    const [isCustomPenalty, setIsCustomPenalty] = useState(false);
+    const [customValue, setCustomValue] = useState('-1.0');
 
     // Test Selection Modal State
     const [showTestModal, setShowTestModal] = useState(false);
@@ -122,6 +130,10 @@ export default function JudgeRoomPage() {
         // Reset form
         setScores({});
         setNotes('');
+        setPenalties([]);
+        setShowPenaltyAdd(false);
+        setTempPenalty(null);
+        setTempPenaltyDescription('');
 
         setActiveTest(test);
         setSelectedCompetitor(competitor);
@@ -139,21 +151,22 @@ export default function JudgeRoomPage() {
         setSubmitting(true);
 
         try {
-            const penaltiesApplied: any[] = [];
-
             await saveEvaluation({
                 roomId,
                 testId: activeTest.id,
                 competitorId: selectedCompetitor.id,
                 judgeId: user.uid,
                 scores,
-                penaltiesApplied,
+                penaltiesApplied: penalties,
                 notes
             }, activeTest);
 
             alert('Avaliação enviada com sucesso!');
             setSelectedCompetitor(null);
             setActiveTest(null);
+            setShowPenaltyAdd(false);
+            setTempPenalty(null);
+            setTempPenaltyDescription('');
             loadData(); // Refresh data
         } catch (error) {
             console.error(error);
@@ -161,6 +174,44 @@ export default function JudgeRoomPage() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleAddPenalty = () => {
+        if (isCustomPenalty) {
+            const val = parseFloat(customValue);
+            if (isNaN(val) || val >= 0) {
+                alert('O valor da penalidade deve ser um número negativo (ex: -1.0)');
+                return;
+            }
+            if (!tempPenaltyDescription.trim()) {
+                alert('A descrição da penalidade é obrigatória!');
+                return;
+            }
+
+            setPenalties([...penalties, {
+                penaltyId: 'custom',
+                value: val,
+                description: tempPenaltyDescription.trim()
+            }]);
+        } else {
+            if (!tempPenalty || !tempPenaltyDescription.trim()) {
+                alert('A descrição da penalidade é obrigatória!');
+                return;
+            }
+
+            setPenalties([...penalties, {
+                penaltyId: tempPenalty.id,
+                value: tempPenalty.value,
+                description: tempPenaltyDescription.trim()
+            }]);
+        }
+
+        // Reset temp state
+        setTempPenalty(null);
+        setTempPenaltyDescription('');
+        setShowPenaltyAdd(false);
+        setIsCustomPenalty(false);
+        setCustomValue('-1.0');
     };
 
     const calculateCurrentTotal = () => {
@@ -171,7 +222,12 @@ export default function JudgeRoomPage() {
                 total += scores[item.id] || 0;
             });
         });
-        return Math.max(0, total);
+        
+        penalties.forEach(p => {
+            total += p.value;
+        });
+        
+        return total;
     };
 
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">[CARREGANDO DADOS DA OPERAÇÃO...]</div>;
@@ -189,6 +245,11 @@ export default function JudgeRoomPage() {
                             <ArrowLeft className="w-4 h-4" /> Cancelar
                         </button>
                         <div className="text-right">
+                            {penalties.length > 0 && (
+                                <div className="text-[10px] text-red-500 font-mono uppercase font-bold mb-1">
+                                    {penalties.length} {penalties.length === 1 ? 'Penalidade' : 'Penalidades'} ({penalties.reduce((sum, p) => sum + p.value, 0).toFixed(1)} pts)
+                                </div>
+                            )}
                             <div className="text-[10px] text-gray-400 font-mono uppercase font-bold">Total Parcial</div>
                             <div className="text-2xl font-black text-k9-orange leading-none">{calculateCurrentTotal().toFixed(1)} <span className="text-sm text-gray-300">/ {activeTest.maxScore}</span></div>
                         </div>
@@ -253,6 +314,131 @@ export default function JudgeRoomPage() {
                             </div>
                         </div>
                     ))}
+
+                    {/* Penalties Section */}
+                    {(activeTest.penalties && activeTest.penalties.length > 0 || true) && (
+                        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5 shadow-sm">
+                            <label className="block text-xs font-bold text-red-600 uppercase mb-3 flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4" /> Penalidades
+                            </label>
+                            
+                            {/* Applied Penalties List */}
+                            {penalties.length > 0 && (
+                                <div className="space-y-3 mb-4">
+                                    {penalties.map((penalty, index) => {
+                                        const penaltyOption = activeTest.penalties?.find(p => p.id === penalty.penaltyId);
+                                        const label = penaltyOption?.label || (penalty.penaltyId === 'custom' ? 'Penalidade Manual' : 'Penalidade');
+                                        return (
+                                            <div key={index} className="bg-white border-2 border-red-300 rounded-lg p-3">
+                                                <div className="flex items-start justify-between gap-3 mb-2">
+                                                    <div className="flex-1">
+                                                        <div className="font-bold text-sm text-red-700">{label}</div>
+                                                        <div className="text-xs text-red-500 font-mono">{penalty.value} pontos</div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setPenalties(penalties.filter((_, i) => i !== index))}
+                                                        className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-colors"
+                                                        title="Remover penalidade"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                                <div className="text-xs text-gray-700 bg-gray-50 p-2 rounded border border-gray-200">
+                                                    <span className="font-bold text-gray-500">Justificativa:</span> {penalty.description}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Add Penalty UI */}
+                            {!showPenaltyAdd ? (
+                                <button
+                                    onClick={() => setShowPenaltyAdd(true)}
+                                    className="w-full bg-white border-2 border-red-300 text-red-600 p-3 rounded-lg hover:bg-red-50 transition-colors font-bold uppercase text-xs flex items-center justify-center gap-2"
+                                >
+                                    + Adicionar Penalidade
+                                </button>
+                            ) : (
+                                <div className="bg-white border-2 border-red-400 rounded-lg p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="flex gap-4">
+                                        <div className="flex-1">
+                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Tipo de Penalidade</label>
+                                            <select
+                                                value={isCustomPenalty ? 'custom' : (tempPenalty?.id || '')}
+                                                onChange={(e) => {
+                                                    if (e.target.value === 'custom') {
+                                                        setIsCustomPenalty(true);
+                                                        setTempPenalty(null);
+                                                    } else {
+                                                        setIsCustomPenalty(false);
+                                                        const p = activeTest.penalties?.find(opt => opt.id === e.target.value);
+                                                        if (p) setTempPenalty(p);
+                                                    }
+                                                }}
+                                                className="w-full bg-gray-50 border border-gray-200 text-k9-black p-2 rounded-md focus:outline-none focus:border-red-400 font-semibold"
+                                            >
+                                                <option value="" disabled>Selecione...</option>
+                                                {activeTest.penalties?.map(p => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.label} ({p.value} pts)
+                                                    </option>
+                                                ))}
+                                                <option value="custom">+ Penalidade Manual</option>
+                                            </select>
+                                        </div>
+                                        {isCustomPenalty && (
+                                            <div className="w-24">
+                                                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Valor</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.5"
+                                                    max="-0.1"
+                                                    value={customValue}
+                                                    onChange={(e) => setCustomValue(e.target.value)}
+                                                    className="w-full bg-gray-50 border border-gray-200 text-red-600 p-2 rounded-md focus:outline-none focus:border-red-400 font-bold"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {(tempPenalty || isCustomPenalty) && (
+                                        <div className="animate-in fade-in duration-300">
+                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Motivo / Justificativa (Obrigatório)</label>
+                                            <textarea
+                                                value={tempPenaltyDescription}
+                                                onChange={(e) => setTempPenaltyDescription(e.target.value)}
+                                                className="w-full bg-gray-50 border border-gray-200 text-k9-black p-2 rounded-md focus:outline-none focus:border-red-400 min-h-[80px] text-sm"
+                                                placeholder="Descreva detalhadamente o motivo desta penalidade..."
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setShowPenaltyAdd(false);
+                                                setTempPenalty(null);
+                                                setTempPenaltyDescription('');
+                                                setIsCustomPenalty(false);
+                                            }}
+                                            className="flex-1 px-4 py-2 text-xs font-bold uppercase text-gray-500 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleAddPenalty}
+                                            disabled={(!tempPenalty && !isCustomPenalty) || !tempPenaltyDescription.trim()}
+                                            className="flex-1 px-4 py-2 text-xs font-bold uppercase bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                        >
+                                            Confirmar
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Notes & Actions */}
                     <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">

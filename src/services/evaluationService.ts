@@ -8,32 +8,25 @@ import {
 } from 'firebase/firestore';
 import { Evaluation, TestTemplate } from '../types/schema';
 
-// Helper to calculate score safely
 export const calculateFinalScore = (
   template: TestTemplate,
   scores: Record<string, number>,
-  penaltiesApplied: { penaltyId: string }[]
+  penaltiesApplied: { penaltyId: string; value: number }[]
 ): number => {
   let total = 0;
 
-  // Sum scores (ensuring we don't exceed maxPoints per item)
   template.groups.forEach(group => {
     group.items.forEach(item => {
       const score = scores[item.id] || 0;
-      // Clamp score to maxPoints if needed, but assuming UI sends valid data
       total += Math.min(score, item.maxPoints);
     });
   });
 
-  // Apply penalties
   penaltiesApplied.forEach(p => {
-    const penaltyDef = template.penalties.find(pd => pd.id === p.penaltyId);
-    if (penaltyDef) {
-      total += penaltyDef.value; // Value is negative
-    }
+    total += p.value; 
   });
 
-  return Math.max(0, total); 
+  return total; 
 };
 
 export const saveEvaluation = async (
@@ -41,7 +34,6 @@ export const saveEvaluation = async (
   template: TestTemplate
 ) => {
   try {
-    // Calculate final score server-side/service-side for integrity
     const finalScore = calculateFinalScore(
         template, 
         evaluationData.scores, 

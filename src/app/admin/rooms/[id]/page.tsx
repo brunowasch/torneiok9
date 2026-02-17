@@ -43,6 +43,7 @@ export default function RoomDetailsPage() {
     // Test Form State
     const [showAddTest, setShowAddTest] = useState(false);
     const [scoreItems, setScoreItems] = useState<ScoreOption[]>([]);
+    const [penaltyItems, setPenaltyItems] = useState<PenaltyOption[]>([]);
     const [templateTitle, setTemplateTitle] = useState('');
     const [selectedModality, setSelectedModality] = useState<Modality | ''>('');
     const [genMsg, setGenMsg] = useState('');
@@ -129,7 +130,6 @@ export default function RoomDetailsPage() {
             dogName: comp.dogName,
             dogBreed: comp.dogBreed
         });
-        // Load test assignments with backward compatibility
         const testIds = comp.testIds || (comp.testId ? [comp.testId] : []);
         setSelectedCompetitorTestIds(testIds);
         setEditingCompetitorId(comp.id);
@@ -185,6 +185,7 @@ export default function RoomDetailsPage() {
         const allItems = test.groups.flatMap(g => g.items);
         
         setScoreItems(allItems);
+        setPenaltyItems(test.penalties || []);
         setEditingTestId(test.id);
         setShowAddTest(true);
     };
@@ -199,15 +200,14 @@ export default function RoomDetailsPage() {
             const groups: ScoreGroup[] = [
                 { name: "Critérios de Avaliação", items: scoreItems }
             ];
-            const penalties: PenaltyOption[] = []; 
 
             if (editingTestId) {
-                await updateTestTemplate(editingTestId, {
+                await updateTestTemplate(editingTestId as string, {
                     title: templateTitle || "Nova Prova",
                     modality: selectedModality,
                     maxScore: totalScore,
                     groups,
-                    penalties
+                    penalties: penaltyItems
                 });
             } else {
                 await createTestTemplate({
@@ -216,13 +216,14 @@ export default function RoomDetailsPage() {
                     description: "Prova Unificada",
                     maxScore: totalScore,
                     groups,
-                    penalties,
+                    penalties: penaltyItems,
                     roomId
                 });
             }
 
             // Reset
             setScoreItems([]);
+            setPenaltyItems([]);
             setTemplateTitle('');
             setSelectedModality('');
             setEditingTestId(null);
@@ -240,12 +241,11 @@ export default function RoomDetailsPage() {
         setNewJudgeForm({
             name: judge.name,
             email: judge.email,
-            password: '' // Password not editable directly here
+            password: '' 
         });
-        // Load current test assignments for this judge
         const currentAssignments = room?.judgeAssignments?.[judge.uid] || [];
         setSelectedTestIds(currentAssignments);
-        setJudgeMode('new'); // Reuse the form layout
+        setJudgeMode('new'); 
         setShowAddJudge(true);
     };
 
@@ -595,6 +595,47 @@ export default function RoomDetailsPage() {
                                                 if (l && p) { addScoreItem(l, p); (document.getElementById('score-lbl') as HTMLInputElement).value = ''; (document.getElementById('score-pts') as HTMLInputElement).value = ''; }
                                             }}
                                             className="bg-gray-100 text-k9-black px-3 rounded text-xs uppercase font-bold cursor-pointer"
+                                        >Add</button>
+                                    </div>
+                                </div>
+
+                                {/* Penalty Items */}
+                                <div className="mb-6 p-4 bg-red-50 rounded border border-red-100">
+                                    <div className="flex justify-between mb-2">
+                                        <h3 className="text-sm font-bold text-red-900 uppercase">Penalidades Padrão</h3>
+                                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded text-red-600 bg-white border border-red-100">{penaltyItems.length} itens</span>
+                                    </div>
+                                    <div className="space-y-2 mb-3">
+                                        {penaltyItems.map((item, i) => (
+                                            <div key={i} className="flex justify-between items-center text-xs bg-white p-2 rounded border border-red-100">
+                                                <span className="text-red-900 font-bold">{item.label}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-red-600 font-mono font-bold">{item.value} pts</span>
+                                                    <button 
+                                                        onClick={() => setPenaltyItems(penaltyItems.filter((_, idx) => idx !== i))} 
+                                                        className="text-red-400 hover:text-red-600 cursor-pointer"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {penaltyItems.length === 0 && <div className="text-xs text-red-400 font-mono text-center py-2">Nenhuma penalidade configurada.</div>}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input id="penalty-lbl" placeholder="Ex: Mordida faltosa" className="flex-1 bg-white border border-red-200 text-k9-black text-xs p-2 rounded" />
+                                        <input id="penalty-pts" placeholder="Pts" type="number" step="0.5" defaultValue={-2.0} className="w-16 bg-white border border-red-200 text-red-600 text-xs p-2 rounded font-bold" />
+                                        <button
+                                            onClick={() => {
+                                                const l = (document.getElementById('penalty-lbl') as HTMLInputElement).value;
+                                                const v = parseFloat((document.getElementById('penalty-pts') as HTMLInputElement).value);
+                                                if (l && !isNaN(v)) { 
+                                                    setPenaltyItems([...penaltyItems, { id: `penalty-${Date.now()}`, label: l, value: v }]); 
+                                                    (document.getElementById('penalty-lbl') as HTMLInputElement).value = ''; 
+                                                    (document.getElementById('penalty-pts') as HTMLInputElement).value = '-2.0'; 
+                                                }
+                                            }}
+                                            className="bg-red-100 text-red-700 px-3 rounded text-xs uppercase font-black cursor-pointer hover:bg-red-200 transition-colors"
                                         >Add</button>
                                     </div>
                                 </div>

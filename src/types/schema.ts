@@ -85,13 +85,12 @@ export interface Evaluation {
   competitorId: string;
   judgeId: string;
 
-  // Mapa de IDs dos critérios de nota -> valor atribuído
   scores: Record<string, number>;
 
-  // Lista de penalidades aplicadas
   penaltiesApplied: {
     penaltyId: string;
     value: number;
+    description: string;
   }[];
 
   finalScore: number;
