@@ -77,6 +77,7 @@ export interface TestTemplate {
   maxScore: number;
   groups: ScoreGroup[];
   penalties: PenaltyOption[];
+  testNumber?: number;
 }
 
 export interface Evaluation {

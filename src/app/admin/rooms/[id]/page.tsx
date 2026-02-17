@@ -236,14 +236,23 @@ export default function RoomDetailsPage() {
             ];
 
             if (editingTestId) {
+                const currentTest = tests.find(t => t.id === editingTestId);
+                let testNumber = currentTest?.testNumber;
+                
+                if (currentTest?.modality !== selectedModality) {
+                    testNumber = tests.filter(t => t.modality === selectedModality).length + 1;
+                }
+
                 await updateTestTemplate(editingTestId as string, {
                     title: templateTitle || "Nova Prova",
                     modality: selectedModality,
                     maxScore: totalScore,
                     groups,
-                    penalties: penaltyItems
+                    penalties: penaltyItems,
+                    testNumber
                 });
             } else {
+                const testNumber = tests.filter(t => t.modality === selectedModality).length + 1;
                 await createTestTemplate({
                     title: templateTitle || "Nova Prova",
                     modality: selectedModality,
@@ -251,7 +260,8 @@ export default function RoomDetailsPage() {
                     maxScore: totalScore,
                     groups,
                     penalties: penaltyItems,
-                    roomId
+                    roomId,
+                    testNumber
                 });
             }
 
@@ -589,7 +599,39 @@ export default function RoomDetailsPage() {
                 {/* TESTS VIEW */}
                 {activeTab === 'tests' && (
                     <div>
-                        <div className="flex justify-end mb-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <button
+                                onClick={async () => {
+                                    if (!confirm('Deseja numerar automaticamente todas as provas desta sala?')) return;
+                                    try {
+                                        const grouped: Record<string, TestTemplate[]> = {};
+                                        tests.forEach(t => {
+                                            const mod = t.modality || 'SEM_MODALIDADE';
+                                            if (!grouped[mod]) grouped[mod] = [];
+                                            grouped[mod].push(t);
+                                        });
+
+                                        for (const mod in grouped) {
+                                            const modTests = grouped[mod];
+                                            for (let i = 0; i < modTests.length; i++) {
+                                                await updateTestTemplate(modTests[i].id, {
+                                                    ...modTests[i],
+                                                    testNumber: i + 1
+                                                });
+                                            }
+                                        }
+                                        alert('Provas numeradas com sucesso!');
+                                        loadRoomData();
+                                    } catch (err) {
+                                        console.error(err);
+                                        alert('Erro ao numerar provas.');
+                                    }
+                                }}
+                                className="px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg border-2 border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition-all flex items-center gap-2"
+                            >
+                                <ShieldCheck className="w-4 h-4" /> Numerar Automaticamente
+                            </button>
+
                             <button
                                 onClick={() => {
                                     setEditingTestId(null);
@@ -605,13 +647,22 @@ export default function RoomDetailsPage() {
                         </div>
 
                         <div className="space-y-4">
-                            {tests.map(test => (
+                            {[...tests].sort((a, b) => {
+                                if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
+                                return (a.testNumber || 0) - (b.testNumber || 0);
+                            }).map(test => (
                                 <div key={test.id} className="bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all flex justify-between items-center group">
-                                    <div>
-                                        <h3 className="font-bold text-k9-black uppercase">{test.title}</h3>
-                                        <div className="text-xs text-gray-400 mt-2 flex gap-3">
-                                            <span className="px-2 py-1 bg-gray-50 rounded text-[11px]">Grupos: {test.groups.length}</span>
-                                            <span className="px-2 py-1 bg-gray-50 rounded text-[11px]">Max: {test.maxScore}</span>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-gray-900 text-white rounded-lg flex items-center justify-center font-black text-sm shrink-0 border border-gray-800 shadow-sm">
+                                            {test.testNumber ? test.testNumber.toString().padStart(2, '0') : '--'}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-k9-black uppercase">{test.title}</h3>
+                                            <div className="text-[10px] text-gray-400 mt-1 flex gap-2 font-bold items-center">
+                                                <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-600 uppercase tracking-tighter">{test.modality}</span>
+                                                <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                                                <span className="text-gray-400">Max: {test.maxScore} pts</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">

@@ -58,9 +58,8 @@ export default function JudgeRoomPage() {
     const [isCustomPenalty, setIsCustomPenalty] = useState(false);
     const [customValue, setCustomValue] = useState('-1.0');
 
-    // Test Selection Modal State
-    const [showTestModal, setShowTestModal] = useState(false);
-    const [modalCompetitor, setModalCompetitor] = useState<Competitor | null>(null);
+    // View Selection State
+    const [selectedTestView, setSelectedTestView] = useState<TestTemplate | null>(null);
 
     const [authDetermined, setAuthDetermined] = useState(false);
 
@@ -111,13 +110,13 @@ export default function JudgeRoomPage() {
     };
 
     const getAssignedTests = (competitor?: Competitor | null) => {
-        if (!user || !room) return tests;
-        const assignedTestIds = room.judgeAssignments?.[user.uid] || [];
+        if (!user || !room) return [];
         
         let filteredTests = tests;
         
-        if (assignedTestIds.length > 0 || room.judgeAssignments) {
-            filteredTests = filteredTests.filter(t => assignedTestIds.includes(t.id));
+        if (room.judgeAssignments && room.judgeAssignments[user.uid] && room.judgeAssignments[user.uid].length > 0) {
+            const judgeTestIds = room.judgeAssignments[user.uid];
+            filteredTests = filteredTests.filter(t => judgeTestIds.includes(t.id));
         }
 
         if (competitor) {
@@ -134,9 +133,12 @@ export default function JudgeRoomPage() {
         return { current: evaluatedCount, total: assignedTests.length };
     };
 
-    const handleOpenTestSelection = (competitor: Competitor) => {
-        setModalCompetitor(competitor);
-        setShowTestModal(true);
+    const handleSelectTest = (test: TestTemplate) => {
+        setSelectedTestView(test);
+    };
+
+    const handleBackToTests = () => {
+        setSelectedTestView(null);
     };
 
     const startEvaluation = (competitor: Competitor, test: TestTemplate) => {
@@ -150,8 +152,6 @@ export default function JudgeRoomPage() {
 
         setActiveTest(test);
         setSelectedCompetitor(competitor);
-        setShowTestModal(false); // Close modal if open
-        setModalCompetitor(null);
     };
 
     const handleScoreChange = (itemId: string, value: number, max: number) => {
@@ -487,99 +487,26 @@ export default function JudgeRoomPage() {
     return (
         <div className="min-h-screen bg-k9-white text-k9-black font-sans relative">
             
-            {showTestModal && modalCompetitor && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                         <div className="bg-black text-white p-6 flex justify-between items-center relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-k9-orange/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
-                            <div>
-                                <h3 className="text-xs font-bold text-k9-orange uppercase tracking-widest mb-1">Selecionar Prova</h3>
-                                <h2 className="text-2xl font-black uppercase tracking-tight">{modalCompetitor.handlerName}</h2>
-                            </div>
-                            <button 
-                                onClick={() => setShowTestModal(false)}
-                                className="text-gray-400 hover:text-white transition-colors bg-white/10 p-2 rounded-lg hover:bg-white/20 z-10"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-                        
-                        <div className="p-6 max-h-[60vh] overflow-y-auto">
-                            <div className="space-y-3">
-                                {getAssignedTests(modalCompetitor).length === 0 ? (
-                                    <div className="text-center py-8 text-gray-400">
-                                        <p className="font-bold mb-2">Nenhuma prova atribuída</p>
-                                        <p className="text-xs">Este competidor pertence à modalidade:</p>
-                                        <p className="text-k9-orange font-black uppercase text-sm mt-1">{modalCompetitor.modality}</p>
-                                    </div>
-                                ) : (
-                                    getAssignedTests(modalCompetitor).map((test) => {
-                                        const isDone = isTestEvaluated(modalCompetitor.id, test.id);
-                                        const isAssigned = modalCompetitor.testId === test.id;
-                                        
-                                        return (
-                                            <button
-                                                key={test.id}
-                                                disabled={isDone}
-                                                onClick={() => !isDone && startEvaluation(modalCompetitor, test)}
-                                                className={`
-                                                    w-full text-left p-4 rounded-xl border-2 transition-all flex items-center justify-between group relative overflow-hidden
-                                                    ${isDone 
-                                                        ? 'bg-green-50 border-green-100 opacity-60 cursor-not-allowed' 
-                                                        : 'bg-white border-gray-200 hover:border-k9-orange hover:shadow-lg'
-                                                    }
-                                                `}
-                                            >
-                                                <div className="relative z-10">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h4 className={`font-black uppercase text-sm ${isDone ? 'text-green-800' : 'text-k9-black'}`}>
-                                                            {test.title}
-                                                        </h4>
-                                                        {isAssigned && (
-                                                            <span className="text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded font-bold uppercase tracking-wide">
-                                                                Principal
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-xs text-gray-500 font-semibold uppercase">{test.modality}</p>
-                                                </div>
-
-                                                <div className="relative z-10">
-                                                    {isDone ? (
-                                                         <div className="flex items-center gap-1 text-xs font-black uppercase text-green-600 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-green-200">
-                                                            <Check className="w-3 h-3" /> Feito
-                                                        </div>
-                                                    ) : (
-                                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-k9-orange group-hover:text-white transition-colors">
-                                                            <ArrowLeft className="w-4 h-4 rotate-180" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Header */}
             <div className="bg-black border-b-4 border-k9-orange text-white shadow-lg sticky top-0 z-30">
                 <div className="max-w-4xl mx-auto px-6 py-6">
                     <div className="flex items-center justify-between">
                         <div>
-                             <button onClick={() => router.push('/judge')} className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer">
-                                <ArrowLeft className="w-3 h-3" /> Voltar
+                             <button 
+                                onClick={() => selectedTestView ? handleBackToTests() : router.push('/judge')} 
+                                className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer"
+                             >
+                                <ArrowLeft className="w-3 h-3" /> {selectedTestView ? 'Voltar para Provas' : 'Voltar'}
                             </button>
                             <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter leading-none flex items-center gap-4">
                                 <div className="w-10 h-10 relative flex items-center justify-center shrink-0">
                                     <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
                                 </div>
-                                {room.name}
+                                {selectedTestView ? selectedTestView.title : room.name}
                             </h1>
-                            <p className="text-k9-orange text-[10px] md:text-xs uppercase tracking-[0.2em] mt-1 font-bold">Seleção de Operador</p>
+                            <p className="text-k9-orange text-[10px] md:text-xs uppercase tracking-[0.2em] mt-1 font-bold">
+                                {selectedTestView ? `AVALIANDO: ${selectedTestView.modality}` : 'Painel de Avaliação'}
+                            </p>
                         </div>
                         <div className="hidden md:block">
                             <div className="bg-gray-900 border border-gray-800 px-4 py-2 rounded-lg text-center">
@@ -592,97 +519,164 @@ export default function JudgeRoomPage() {
             </div>
 
             <div className="max-w-4xl mx-auto p-6 md:p-8">
-                {competitors.length === 0 ? (
-                    <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                        <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                        <p className="uppercase font-bold text-sm tracking-wide">Nenhum competidor na lista</p>
+                {/* 1. SELEÇÃO DE PROVA */}
+                {!selectedTestView ? (
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-orange-100 rounded-lg">
+                                <List className="w-5 h-5 text-orange-600" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black uppercase text-k9-black leading-tight">Selecione uma Prova</h2>
+                                <p className="text-xs text-gray-400 font-bold uppercase">Escolha qual prova deseja avaliar agora</p>
+                            </div>
+                        </div>
+
+                        {getAssignedTests().length === 0 ? (
+                            <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                                <p className="uppercase font-bold text-sm tracking-wide">Nenhuma prova disponível nesta sala</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-3">
+                                {getAssignedTests()
+                                    .sort((a, b) => {
+                                        if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
+                                        return (a.testNumber || 0) - (b.testNumber || 0);
+                                    })
+                                    .map(test => {
+                                        const testCompetitors = competitors.filter(c => c.modality === test.modality);
+                                        const doneCount = testCompetitors.filter(c => isTestEvaluated(c.id, test.id)).length;
+                                        const isAllDone = testCompetitors.length > 0 && doneCount === testCompetitors.length;
+
+                                        return (
+                                            <button
+                                                key={test.id}
+                                                onClick={() => handleSelectTest(test)}
+                                                className={`
+                                                    group relative w-full text-left p-5 rounded-2xl border transition-all flex items-center justify-between
+                                                    ${isAllDone 
+                                                        ? 'bg-green-50 border-green-100' 
+                                                        : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg'
+                                                    }
+                                                `}
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black transition-all shadow-sm border ${isAllDone ? 'bg-green-100 border-green-200 text-green-600' : 'bg-gray-900 border-gray-800 text-white group-hover:bg-k9-orange group-hover:border-k9-orange'}`}>
+                                                        <span className="text-[8px] opacity-60 leading-none mb-0.5">Nº</span>
+                                                        <span className="text-lg leading-none">{test.testNumber ? test.testNumber.toString().padStart(2, '0') : '--'}</span>
+                                                    </div>
+                                                    <div>
+                                                        <h3 className={`font-black uppercase text-base ${isAllDone ? 'text-green-900' : 'text-k9-black'}`}>{test.title}</h3>
+                                                        <div className="flex items-center gap-2 mt-0.5 font-bold uppercase text-[9px]">
+                                                            <span className={`px-2 py-0.5 rounded ${isAllDone ? 'bg-green-200/50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>{test.modality}</span>
+                                                            <span className="text-gray-300">•</span>
+                                                            <span className={isAllDone ? 'text-green-600' : 'text-gray-400'}>{doneCount}/{testCompetitors.length} AVALIADOS</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {isAllDone ? (
+                                                    <div className="bg-green-100 text-green-600 p-2 rounded-full">
+                                                        <Check className="w-5 h-5" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-orange-50 group-hover:text-k9-orange transition-all">
+                                                        <ArrowLeft className="w-5 h-5 rotate-180" />
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })
+                                }
+                            </div>
+                        )}
                     </div>
                 ) : (
-                    <div className="grid md:grid-cols-2 gap-4">
-                        {competitors.map(comp => {
-                            const { current, total } = getCompetitorProgress(comp);
-                            const isFullyComplete = total > 0 && current === total;
-                            const progressPercent = total > 0 ? (current / total) * 100 : 0;
+                    /* 2. LISTA DE COMPETIDORES PARA A PROVA SELECIONADA */
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-purple-100 rounded-lg">
+                                    <Users className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black uppercase text-k9-black leading-tight">Fila de Competição</h2>
+                                    <p className="text-xs text-gray-400 font-bold uppercase">Competidores inscritos nesta modalidade</p>
+                                </div>
+                            </div>
+                        </div>
 
-                            return (
-                                <div 
-                                    key={comp.id} 
-                                    className={`
-                                        relative overflow-hidden rounded-xl border-2 transition-all group
-                                        ${isFullyComplete 
-                                            ? 'bg-green-50/50 border-green-100 opacity-80' 
-                                            : 'bg-white border-gray-200 hover:border-k9-orange hover:shadow-md'
-                                        }
-                                    `}
-                                >
-                                    {isFullyComplete && (
-                                        <div className="absolute top-0 right-0 p-2 bg-green-100 rounded-bl-xl border-l border-b border-green-200 z-10">
-                                            <div className="flex items-center gap-1 text-[10px] font-black uppercase text-green-700">
-                                                <Check className="w-3 h-3" /> Completo
-                                            </div>
-                                        </div>
-                                    )}
+                        <div className="grid md:grid-cols-2 gap-4">
+                            {competitors
+                                .filter(c => c.modality === selectedTestView.modality)
+                                .map(comp => {
+                                    const isDone = isTestEvaluated(comp.id, selectedTestView.id);
 
-                                    <div className="p-5 flex items-start gap-4">
-                                        <div className={`
-                                            w-14 h-14 rounded-lg flex items-center justify-center font-black text-xl shadow-sm border-2 relative z-10
-                                            ${isFullyComplete 
-                                                ? 'bg-white border-green-100 text-green-600' 
-                                                : 'bg-gray-50 border-gray-100 text-gray-500 group-hover:text-k9-orange group-hover:bg-orange-50 group-hover:border-orange-100'
-                                            }
-                                        `}>
-                                            {comp.competitorNumber}
-                                        </div>
-                                        
-                                        <div className="flex-1 relative z-10">
-                                            <h3 className={`font-black uppercase text-sm leading-tight ${isFullyComplete ? 'text-green-900' : 'text-k9-black'}`}>
-                                                {comp.handlerName}
-                                            </h3>
-                                            <p className="text-xs font-bold text-gray-400 uppercase mt-1">
-                                                Cão: {comp.dogName}
-                                            </p>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <p className="text-[10px] font-bold text-gray-300 uppercase bg-gray-50 inline-block px-2 py-1 rounded">
-                                                    {comp.dogBreed}
-                                                </p>
-                                                <p className="text-[10px] font-black text-white uppercase bg-gray-900 inline-block px-2 py-1 rounded">
-                                                    {comp.modality}
-                                                </p>
-                                                 {total > 0 && (
-                                                    <div className="flex items-center gap-1 text-[10px] font-mono font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded">
-                                                        <Trophy className="w-3 h-3" />
-                                                        {current}/{total}
-                                                    </div>
-                                                 )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {!isFullyComplete && current > 0 && (
-                                        <div className="absolute bottom-0 left-0 h-1 bg-green-500/20" style={{ width: `${progressPercent}%` }}></div>
-                                    )}
-
-                                    <div className={`p-3 border-t-2 flex justify-end ${isFullyComplete ? 'border-green-100 bg-green-50/30' : 'border-gray-50 bg-gray-50'}`}>
-                                        <button
-                                            onClick={() => handleOpenTestSelection(comp)}
+                                    return (
+                                        <div 
+                                            key={comp.id} 
                                             className={`
-                                                px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2
-                                                ${isFullyComplete
-                                                    ? 'text-green-400 cursor-pointer hover:text-green-600'
-                                                    : 'bg-black text-white hover:bg-orange-500 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer'
+                                                relative overflow-hidden rounded-2xl border transition-all group
+                                                ${isDone 
+                                                    ? 'bg-green-50/30 border-green-100 opacity-90' 
+                                                    : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg transform hover:-translate-y-1'
                                                 }
                                             `}
                                         >
-                                            {isFullyComplete ? (
-                                                <>Ver Avaliações <List className="w-3 h-3" /></>
-                                            ) : (
-                                                <>Avaliar Provas <List className="w-3 h-3" /></>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                            <div className="p-5 pl-8 flex items-start justify-between gap-6 h-full min-h-[140px]">
+                                                <div className="flex items-start gap-4 flex-1 min-w-0">
+                                                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border shrink-0 relative z-10 ${isDone ? 'bg-green-100 border-green-200 text-green-600' : 'bg-orange-50 border-orange-100 text-orange-600'}`}>
+                                                        {comp.photoUrl ? (
+                                                            <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-xs leading-none">{comp.handlerName.substring(0, 2).toUpperCase()}</span>
+                                                                <span className="text-[10px] opacity-40 mt-0.5">#{comp.competitorNumber}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    <div className="flex-1 relative z-10 pt-0.5 min-w-0">
+                                                        <h3 className={`font-black uppercase text-sm leading-tight truncate ${isDone ? 'text-green-900' : 'text-k9-black'}`}>
+                                                            {comp.handlerName}
+                                                        </h3>
+                                                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Condutor</div>
+                                                        
+                                                        <p className="text-xs font-bold text-k9-orange uppercase mt-1 font-mono truncate">
+                                                            Cão: {comp.dogName}
+                                                        </p>
+                                                        
+                                                        {isDone && (
+                                                            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-black text-green-600 uppercase">
+                                                                <CheckCircle2 className="w-3.5 h-3.5" /> Avaliado
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-col pb-1 shrink-0 self-end">
+                                                    <button
+                                                        onClick={() => !isDone && startEvaluation(comp, selectedTestView)}
+                                                        className={`
+                                                            w-12 h-12 flex flex-col items-center justify-center rounded-xl transition-all shadow-sm border group/btn
+                                                            ${isDone
+                                                                ? 'bg-green-50 border-green-100 text-green-500 cursor-default'
+                                                                : 'bg-orange-50 border-orange-100 text-orange-600 hover:bg-orange-100 hover:border-orange-200 active:scale-95'
+                                                            }
+                                                        `}
+                                                        title={isDone ? "Já Avaliado" : "Avaliar"}
+                                                    >
+                                                        {isDone ? <CheckCircle2 className="w-6 h-6" /> : <Trophy className="w-6 h-6" />}
+                                                        <span className="text-[7px] font-black uppercase text-center leading-none mt-1">
+                                                            {isDone ? 'Feito' : 'Avaliar'}
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                        </div>
                     </div>
                 )}
             </div>
