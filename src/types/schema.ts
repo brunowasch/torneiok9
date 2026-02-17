@@ -42,6 +42,7 @@ export interface Competitor {
   handlerName: string; 
   dogName: string;
   dogBreed: string;
+  modality: Modality;
   competitorNumber: number;
   testIds?: string[]; 
   testId?: string; // Deprecated: mantido para compatibilidade

@@ -110,21 +110,27 @@ export default function JudgeRoomPage() {
         );
     };
 
-    const getAssignedTests = () => {
+    const getAssignedTests = (competitor?: Competitor | null) => {
         if (!user || !room) return tests;
         const assignedTestIds = room.judgeAssignments?.[user.uid] || [];
         
-        if (assignedTestIds.length === 0 && !room.judgeAssignments) {
-            return tests;
+        let filteredTests = tests;
+        
+        if (assignedTestIds.length > 0 || room.judgeAssignments) {
+            filteredTests = filteredTests.filter(t => assignedTestIds.includes(t.id));
+        }
+
+        if (competitor) {
+            filteredTests = filteredTests.filter(t => t.modality === competitor.modality);
         }
         
-        return tests.filter(t => assignedTestIds.includes(t.id));
+        return filteredTests;
     };
 
-    const getCompetitorProgress = (competitorId: string) => {
-        const assignedTests = getAssignedTests();
+    const getCompetitorProgress = (competitor: Competitor) => {
+        const assignedTests = getAssignedTests(competitor);
         if (!assignedTests.length) return { current: 0, total: 0 };
-        const evaluatedCount = assignedTests.filter(t => isTestEvaluated(competitorId, t.id)).length;
+        const evaluatedCount = assignedTests.filter(t => isTestEvaluated(competitor.id, t.id)).length;
         return { current: evaluatedCount, total: assignedTests.length };
     };
 
@@ -500,13 +506,14 @@ export default function JudgeRoomPage() {
                         
                         <div className="p-6 max-h-[60vh] overflow-y-auto">
                             <div className="space-y-3">
-                                {getAssignedTests().length === 0 ? (
+                                {getAssignedTests(modalCompetitor).length === 0 ? (
                                     <div className="text-center py-8 text-gray-400">
                                         <p className="font-bold mb-2">Nenhuma prova atribuída</p>
-                                        <p className="text-xs">Entre em contato com o administrador para atribuir provas.</p>
+                                        <p className="text-xs">Este competidor pertence à modalidade:</p>
+                                        <p className="text-k9-orange font-black uppercase text-sm mt-1">{modalCompetitor.modality}</p>
                                     </div>
                                 ) : (
-                                    getAssignedTests().map((test) => {
+                                    getAssignedTests(modalCompetitor).map((test) => {
                                         const isDone = isTestEvaluated(modalCompetitor.id, test.id);
                                         const isAssigned = modalCompetitor.testId === test.id;
                                         
@@ -593,7 +600,7 @@ export default function JudgeRoomPage() {
                 ) : (
                     <div className="grid md:grid-cols-2 gap-4">
                         {competitors.map(comp => {
-                            const { current, total } = getCompetitorProgress(comp.id);
+                            const { current, total } = getCompetitorProgress(comp);
                             const isFullyComplete = total > 0 && current === total;
                             const progressPercent = total > 0 ? (current / total) * 100 : 0;
 
@@ -637,6 +644,9 @@ export default function JudgeRoomPage() {
                                             <div className="flex items-center gap-2 mt-2">
                                                 <p className="text-[10px] font-bold text-gray-300 uppercase bg-gray-50 inline-block px-2 py-1 rounded">
                                                     {comp.dogBreed}
+                                                </p>
+                                                <p className="text-[10px] font-black text-white uppercase bg-gray-900 inline-block px-2 py-1 rounded">
+                                                    {comp.modality}
                                                 </p>
                                                  {total > 0 && (
                                                     <div className="flex items-center gap-1 text-[10px] font-mono font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded">

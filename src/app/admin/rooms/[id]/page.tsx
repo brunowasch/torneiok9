@@ -48,7 +48,7 @@ export default function RoomDetailsPage() {
     // Forms State
     const [showAddCompetitor, setShowAddCompetitor] = useState(false);
     const [editingCompetitorId, setEditingCompetitorId] = useState<string | null>(null);
-    const [compForm, setCompForm] = useState({ handlerName: '', dogName: '', dogBreed: '', photoUrl: '' });
+    const [compForm, setCompForm] = useState({ handlerName: '', dogName: '', dogBreed: '', photoUrl: '', modality: '' as Modality | '' });
     const [selectedCompetitorTestIds, setSelectedCompetitorTestIds] = useState<string[]>([]);
 
     // Test Form State
@@ -155,7 +155,8 @@ export default function RoomDetailsPage() {
             handlerName: comp.handlerName,
             dogName: comp.dogName,
             dogBreed: comp.dogBreed,
-            photoUrl: comp.photoUrl || ''
+            photoUrl: comp.photoUrl || '',
+            modality: comp.modality || ''
         });
         const testIds = comp.testIds || (comp.testId ? [comp.testId] : []);
         setSelectedCompetitorTestIds(testIds);
@@ -164,7 +165,10 @@ export default function RoomDetailsPage() {
     };
 
     const saveCompetitor = async () => {
-        if (!compForm.handlerName || !compForm.dogName) return;
+        if (!compForm.handlerName || !compForm.dogName || !compForm.modality) {
+            alert('Preencha os campos obrigatórios, incluindo a modalidade.');
+            return;
+        }
         console.log('Saving competitor with form data:', compForm);
         try {
             if (editingCompetitorId) {
@@ -172,7 +176,7 @@ export default function RoomDetailsPage() {
                     handlerName: compForm.handlerName,
                     dogName: compForm.dogName,
                     dogBreed: compForm.dogBreed,
-                    testIds: selectedCompetitorTestIds,
+                    modality: compForm.modality as Modality,
                     photoUrl: compForm.photoUrl
                 });
             } else {
@@ -181,13 +185,13 @@ export default function RoomDetailsPage() {
                     handlerName: compForm.handlerName,
                     dogName: compForm.dogName,
                     dogBreed: compForm.dogBreed,
+                    modality: compForm.modality as Modality,
                     competitorNumber: Math.floor(Math.random() * 900) + 100, 
-                    testIds: selectedCompetitorTestIds,
                     photoUrl: compForm.photoUrl
                 });
             }
             // Reset
-            setCompForm({ handlerName: '', dogName: '', dogBreed: '', photoUrl: '' });
+            setCompForm({ handlerName: '', dogName: '', dogBreed: '', photoUrl: '', modality: '' });
             setSelectedCompetitorTestIds([]);
             setEditingCompetitorId(null);
             setShowAddCompetitor(false);
@@ -411,7 +415,7 @@ export default function RoomDetailsPage() {
                             <button
                                 onClick={() => {
                                     setEditingCompetitorId(null);
-                                    setCompForm({ handlerName: '', dogName: '', dogBreed: '', photoUrl: '' });
+                                    setCompForm({ handlerName: '', dogName: '', dogBreed: '', photoUrl: '', modality: '' });
                                     setSelectedCompetitorTestIds([]);
                                     setShowAddCompetitor(true);
                                 }}
@@ -423,40 +427,47 @@ export default function RoomDetailsPage() {
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {competitors.map(comp => {
-                                const testIds = comp.testIds || (comp.testId ? [comp.testId] : []);
-                                const testCount = testIds.length;
+                                const testCount = tests.filter(t => t.modality === comp.modality).length;
                                 
                                 return (
-                                    <div key={comp.id} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-between group">
-                                        <div className="flex items-center gap-4 flex-1">
-                                            <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center font-extrabold shadow-sm overflow-hidden border border-orange-100">
+                                    <div key={comp.id} className="bg-white border border-gray-100 p-5 pl-8 rounded-2xl hover:shadow-lg transform hover:-translate-y-1 transition-all flex items-start justify-between gap-6 group min-h-[130px]">
+                                        <div className="flex items-start gap-4 flex-1 min-w-0">
+                                            <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border border-orange-100 shrink-0">
                                                 {comp.photoUrl ? (
                                                     <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <span className="text-sm">{comp.handlerName.substring(0, 2).toUpperCase()}</span>
                                                 )}
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="font-bold text-k9-black uppercase text-sm">{comp.handlerName}</div>
-                                                <div className="text-xs text-gray-400 font-mono uppercase">Cão: {comp.dogName}</div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${testCount > 0 ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-gray-50 text-gray-400 border border-gray-200'}`}>
-                                                        {testCount > 0 ? `${testCount} ${testCount === 1 ? 'Prova' : 'Provas'}` : 'Sem Provas'}
-                                                    </span>
+                                            <div className="flex-1 pt-0.5 min-w-0">
+                                                <div className="font-black text-k9-black uppercase text-sm leading-tight truncate">{comp.handlerName}</div>
+                                                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Condutor</div>
+                                                <div className="text-xs text-k9-orange font-mono uppercase mt-1 font-bold truncate">Cão: {comp.dogName}</div>
+                                                <div className="flex flex-col gap-1.5 mt-3">
+                                                    <div className="flex items-center">
+                                                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-100 inline-block">
+                                                            {comp.modality}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded inline-block ${testCount > 0 ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-gray-50 text-gray-400 border border-gray-200'}`}>
+                                                            {testCount > 0 ? `${testCount} ${testCount === 1 ? 'Prova' : 'Provas'}` : 'Sem Provas'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-col gap-2 pt-0.5 shrink-0">
                                             <button 
                                                 onClick={() => handleEditCompetitor(comp)}
-                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                                                className="inline-flex items-center justify-center w-8 h-8 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors shadow-sm"
                                                 title="Editar"
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </button>
                                             <button 
                                                 onClick={() => handleDeleteCompetitor(comp.id, comp.handlerName)}
-                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                                                className="inline-flex items-center justify-center w-8 h-8 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer shadow-sm"
                                                 title="Remover Competidor"
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -471,7 +482,7 @@ export default function RoomDetailsPage() {
                         <Modal
                             isOpen={showAddCompetitor}
                             onClose={() => { setShowAddCompetitor(false); setEditingCompetitorId(null); }}
-                            title={<div className="flex items-center gap-2"><UserPlus className="text-police-gold w-5 h-5" /> {editingCompetitorId ? 'Editar Competidor' : 'Novo Registro'}</div>}
+                            title={<div className="flex items-center gap-2 text-green-700"><UserPlus className="w-5 h-5" /> {editingCompetitorId ? 'Editar Competidor' : 'Novo Registro de Competidor'}</div>}
                             maxWidth="max-w-xl"
                         >
                             <div className="space-y-4">
@@ -516,75 +527,58 @@ export default function RoomDetailsPage() {
                                     <p className="text-[10px] text-gray-400 mt-2 uppercase font-bold tracking-tighter">Foto do Binômio / Cão</p>
                                 </div>
 
-                                <input
-                                    placeholder="Nome do Condutor"
-                                    value={compForm.handlerName}
-                                    onChange={e => setCompForm({ ...compForm, handlerName: e.target.value })}
-                                    className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                />
                                 <div className="grid grid-cols-2 gap-4">
-                                    <input
-                                        placeholder="Nome do Cão"
-                                        value={compForm.dogName}
-                                        onChange={e => setCompForm({ ...compForm, dogName: e.target.value })}
-                                        className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                    />
-                                    <input
-                                        placeholder="Raça"
-                                        value={compForm.dogBreed}
-                                        onChange={e => setCompForm({ ...compForm, dogBreed: e.target.value })}
-                                        className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                    />
-                                </div>
-
-                                {/* Test Selection */}
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Provas Atribuídas</label>
-
-                                    {tests.length === 0 ? (
-                                        <div className="p-3 border border-red-900/50 bg-red-900/10 rounded text-red-400 text-xs text-center">
-                                            <p className="font-bold mb-2">⚠ NENHUMA PROVA DISPONÍVEL</p>
-                                            <p>Crie uma prova na aba &apos;Provas&apos; antes de registrar competidores.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-50 p-3 rounded border border-gray-200">
-                                            {tests.map(test => (
-                                                <label 
-                                                    key={test.id} 
-                                                    className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer transition-colors group"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedCompetitorTestIds.includes(test.id)}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                setSelectedCompetitorTestIds([...selectedCompetitorTestIds, test.id]);
-                                                            } else {
-                                                                setSelectedCompetitorTestIds(selectedCompetitorTestIds.filter(id => id !== test.id));
-                                                            }
-                                                        }}
-                                                        className="w-4 h-4 text-k9-orange border-gray-300 rounded focus:ring-k9-orange focus:ring-2"
-                                                    />
-                                                    <div className="flex-1">
-                                                        <div className="text-sm font-bold text-k9-black group-hover:text-k9-orange transition-colors">
-                                                            {test.title}
-                                                        </div>
-                                                        <div className="text-xs text-gray-400 uppercase">
-                                                            {test.modality}
-                                                        </div>
-                                                    </div>
-                                                </label>
+                                    <div className="col-span-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Nome do Condutor</label>
+                                        <input
+                                            placeholder="Nome do Condutor"
+                                            value={compForm.handlerName}
+                                            onChange={e => setCompForm({ ...compForm, handlerName: e.target.value })}
+                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Nome do Cão</label>
+                                        <input
+                                            placeholder="Nome do Cão"
+                                            value={compForm.dogName}
+                                            onChange={e => setCompForm({ ...compForm, dogName: e.target.value })}
+                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Raça</label>
+                                        <input
+                                            placeholder="Raça"
+                                            value={compForm.dogBreed}
+                                            onChange={e => setCompForm({ ...compForm, dogBreed: e.target.value })}
+                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Modalidade Principal</label>
+                                        <select
+                                            value={compForm.modality}
+                                            onChange={e => setCompForm({ ...compForm, modality: e.target.value as Modality })}
+                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
+                                        >
+                                            <option value="">-- Selecione a Modalidade --</option>
+                                            {MODALITIES.map(m => (
+                                                <option key={m} value={m}>{m}</option>
                                             ))}
-                                        </div>
-                                    )}
-                                    <p className="text-xs text-gray-400 mt-2 italic">
-                                        Selecione em quais provas este competidor irá participar
-                                    </p>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div className="flex gap-4 pt-4">
-                                    <button onClick={() => { setShowAddCompetitor(false); setEditingCompetitorId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-800 text-gray-300 border-gray-700 transition-all">Cancelar</button>
-                                    <button onClick={saveCompetitor} className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-black border-gray-200 hover:bg-gray-100 transition-all">
-                                        {editingCompetitorId ? 'Atualizar' : 'Salvar'}
+
+                                {/* Test Selection (Optional/Override) */}
+                                <div className="hidden"> 
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Provas Atribuídas (Manual)</label>
+                                    {/* Mantido invisível por agora conforme nova regra de modalidade */}
+                                </div>
+                                <div className="flex gap-4 pt-6 mt-4 border-t border-gray-100">
+                                    <button onClick={() => { setShowAddCompetitor(false); setEditingCompetitorId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-50 text-gray-400 border-gray-100 transition-all hover:bg-gray-100">Cancelar</button>
+                                    <button onClick={saveCompetitor} className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-green-600 text-white border-green-600 hover:bg-green-700 transition-all shadow-md active:scale-95">
+                                        {editingCompetitorId ? 'ATUALIZAR DADOS' : 'SALVAR COMPETIDOR'}
                                     </button>
                                 </div>
                             </div>
