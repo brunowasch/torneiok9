@@ -17,7 +17,8 @@ import {
     Room,
     Competitor,
     TestTemplate,
-    Evaluation
+    Evaluation,
+    Modality
 } from '@/types/schema';
 import {
     ArrowLeft,
@@ -27,7 +28,8 @@ import {
     AlertCircle,
     X,
     List,
-    Trophy
+    Trophy,
+    Search
 } from 'lucide-react';
 
 export default function JudgeRoomPage() {
@@ -60,6 +62,7 @@ export default function JudgeRoomPage() {
 
     // View Selection State
     const [selectedTestView, setSelectedTestView] = useState<TestTemplate | null>(null);
+    const [testSearch, setTestSearch] = useState('');
 
     const [authDetermined, setAuthDetermined] = useState(false);
 
@@ -114,7 +117,10 @@ export default function JudgeRoomPage() {
         
         let filteredTests = tests;
         
-        if (room.judgeAssignments && room.judgeAssignments[user.uid] && room.judgeAssignments[user.uid].length > 0) {
+        if (room.judgeModalities && room.judgeModalities[user.uid] && room.judgeModalities[user.uid].length > 0) {
+            const judgeModalities = room.judgeModalities[user.uid];
+            filteredTests = filteredTests.filter(t => judgeModalities.includes(t.modality as Modality));
+        } else if (room.judgeAssignments && room.judgeAssignments[user.uid] && room.judgeAssignments[user.uid].length > 0) {
             const judgeTestIds = room.judgeAssignments[user.uid];
             filteredTests = filteredTests.filter(t => judgeTestIds.includes(t.id));
         }
@@ -532,6 +538,17 @@ export default function JudgeRoomPage() {
                             </div>
                         </div>
 
+                        <div className="relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Pesquisar prova por nome ou número..."
+                                value={testSearch}
+                                onChange={e => setTestSearch(e.target.value)}
+                                className="w-full bg-white border-2 border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-k9-black focus:outline-none focus:border-k9-orange focus:ring-4 focus:ring-orange-50 transition-all shadow-sm placeholder:text-gray-300"
+                            />
+                        </div>
+
                         {getAssignedTests().length === 0 ? (
                             <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
                                 <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
@@ -540,6 +557,12 @@ export default function JudgeRoomPage() {
                         ) : (
                             <div className="grid gap-3">
                                 {getAssignedTests()
+                                    .filter(t => {
+                                        if (!testSearch) return true;
+                                        const s = testSearch.toLowerCase();
+                                        return t.title.toLowerCase().includes(s) || 
+                                               (t.testNumber && t.testNumber.toString().includes(s));
+                                    })
                                     .sort((a, b) => {
                                         if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
                                         return (a.testNumber || 0) - (b.testNumber || 0);

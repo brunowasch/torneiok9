@@ -168,6 +168,29 @@ export const updateJudgeTestAssignments = async (roomId: string, judgeUid: strin
   }
 };
 
+export const updateJudgeModalityAssignments = async (roomId: string, judgeUid: string, modalities: string[]) => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+    
+    if (!roomSnap.exists()) {
+      throw new Error('Sala não encontrada');
+    }
+    
+    const currentModalities = roomSnap.data().judgeModalities || {};
+    
+    await updateDoc(roomRef, {
+      judgeModalities: {
+        ...currentModalities,
+        [judgeUid]: modalities
+      }
+    });
+  } catch (error) {
+    console.error("Error updating judge modality assignments: ", error);
+    throw error;
+  }
+};
+
 
 export const deleteRoom = async (roomId: string) => {
   try {

@@ -32,7 +32,8 @@ export interface Room {
   active: boolean;
   createdBy: string; 
   judges: string[];
-  judgeAssignments?: Record<string, string[]>;
+  judgeAssignments?: Record<string, string[]>; // Deprecated: use judgeModalities
+  judgeModalities?: Record<string, Modality[]>;
   createdAt: number;
 }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments } from '@/services/adminService';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments } from '@/services/adminService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, MODALITIES } from '@/types/schema'; 
 import Modal from '@/components/Modal';
@@ -66,7 +66,7 @@ export default function RoomDetailsPage() {
     const [selectedJudgeId, setSelectedJudgeId] = useState('');
     const [newJudgeForm, setNewJudgeForm] = useState({ name: '', email: '', password: '' });
     const [editingJudge, setEditingJudge] = useState<AppUser | null>(null);
-    const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+    const [selectedModalities, setSelectedModalities] = useState<Modality[]>([]);
     const [user, setUser] = useState<any>(null);
 
     // Deletion Modal State
@@ -287,8 +287,8 @@ export default function RoomDetailsPage() {
             email: judge.email,
             password: '' 
         });
-        const currentAssignments = room?.judgeAssignments?.[judge.uid] || [];
-        setSelectedTestIds(currentAssignments);
+        const currentModalities = room?.judgeModalities?.[judge.uid] || [];
+        setSelectedModalities(currentModalities as Modality[]);
         setJudgeMode('new'); 
         setShowAddJudge(true);
     };
@@ -298,17 +298,17 @@ export default function RoomDetailsPage() {
             if (editingJudge) {
                 if (!newJudgeForm.name) return alert('Nome é obrigatório');
                 await updateUser(editingJudge.uid, { name: newJudgeForm.name });
-                await updateJudgeTestAssignments(roomId, editingJudge.uid, selectedTestIds);
+                await updateJudgeModalityAssignments(roomId, editingJudge.uid, selectedModalities);
             } else {
                 if (judgeMode === 'existing') {
                     if (!selectedJudgeId) return alert('Selecione um juiz');
                     await addJudgeToRoom(roomId, selectedJudgeId);
-                    await updateJudgeTestAssignments(roomId, selectedJudgeId, []);
+                    await updateJudgeModalityAssignments(roomId, selectedJudgeId, []);
                 } else {
                     if (!newJudgeForm.name || !newJudgeForm.email || !newJudgeForm.password) return alert('Preencha todos os campos');
                     const newUid = await createJudgeByAdmin(newJudgeForm.email, newJudgeForm.password, newJudgeForm.name);
                     await addJudgeToRoom(roomId, newUid);
-                    await updateJudgeTestAssignments(roomId, newUid, []);
+                    await updateJudgeModalityAssignments(roomId, newUid, []);
                 }
             }
             
@@ -317,7 +317,7 @@ export default function RoomDetailsPage() {
             setNewJudgeForm({ name: '', email: '', password: '' });
             setSelectedJudgeId('');
             setEditingJudge(null);
-            setSelectedTestIds([]);
+            setSelectedModalities([]);
             loadRoomData();
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -828,18 +828,24 @@ export default function RoomDetailsPage() {
 
                         <div className="grid md:grid-cols-2 gap-4">
                             {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => {
-                                const assignedTests = room?.judgeAssignments?.[j.uid] || [];
-                                const assignedCount = assignedTests.length;
+                                const assignedMods = room?.judgeModalities?.[j.uid] || [];
+                                const assignedCount = assignedMods.length;
                                 
                                 return (
                                     <div key={j.uid} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-md transition-all flex justify-between items-center">
                                         <div className="flex-1">
                                             <div className="font-bold text-k9-black uppercase">{j.name}</div>
                                             <div className="text-xs text-gray-400 font-mono">{j.email}</div>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${assignedCount > 0 ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-gray-50 text-gray-400 border border-gray-200'}`}>
-                                                    {assignedCount > 0 ? `${assignedCount} ${assignedCount === 1 ? 'Prova' : 'Provas'}` : 'Sem Provas'}
-                                                </span>
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                {assignedMods.length > 0 ? assignedMods.map(m => (
+                                                    <span key={m} className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
+                                                        {m}
+                                                    </span>
+                                                )) : (
+                                                    <span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200">
+                                                        Sem Modalidades
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
@@ -935,46 +941,36 @@ export default function RoomDetailsPage() {
                                             </div>
                                         )}
                                         
-                                        {/* Test Assignments Section */}
                                         <div className="border-t border-gray-200 pt-4">
-                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Provas Atribuídas</label>
-                                            {tests.length === 0 ? (
-                                                <div className="text-xs text-gray-400 text-center py-4 bg-gray-50 rounded border border-gray-200">
-                                                    Nenhuma prova disponível. Crie provas primeiro.
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-50 p-3 rounded border border-gray-200">
-                                                    {tests.map(test => (
-                                                        <label 
-                                                            key={test.id} 
-                                                            className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer transition-colors group"
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedTestIds.includes(test.id)}
-                                                                onChange={(e) => {
-                                                                    if (e.target.checked) {
-                                                                        setSelectedTestIds([...selectedTestIds, test.id]);
-                                                                    } else {
-                                                                        setSelectedTestIds(selectedTestIds.filter(id => id !== test.id));
-                                                                    }
-                                                                }}
-                                                                className="w-4 h-4 text-k9-orange border-gray-300 rounded focus:ring-k9-orange focus:ring-2"
-                                                            />
-                                                            <div className="flex-1">
-                                                                <div className="text-sm font-bold text-k9-black group-hover:text-k9-orange transition-colors">
-                                                                    {test.title}
-                                                                </div>
-                                                                <div className="text-xs text-gray-400 uppercase">
-                                                                    {test.modality}
-                                                                </div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Modalidades Atribuídas</label>
+                                            <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-50 p-3 rounded border border-gray-200">
+                                                {MODALITIES.map(modality => (
+                                                    <label 
+                                                        key={modality} 
+                                                        className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer transition-colors group"
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedModalities.includes(modality)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedModalities([...selectedModalities, modality]);
+                                                                } else {
+                                                                    setSelectedModalities(selectedModalities.filter(m => m !== modality));
+                                                                }
+                                                            }}
+                                                            className="w-4 h-4 text-k9-orange border-gray-300 rounded focus:ring-k9-orange focus:ring-2"
+                                                        />
+                                                        <div className="flex-1">
+                                                            <div className="text-sm font-bold text-k9-black group-hover:text-k9-orange transition-colors">
+                                                                {modality}
                                                             </div>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                        </div>
+                                                    </label>
+                                                ))}
+                                            </div>
                                             <p className="text-xs text-gray-400 mt-2 italic">
-                                                Selecione quais provas este juiz poderá avaliar
+                                                Selecione quais modalidades este juiz poderá avaliar
                                             </p>
                                         </div>
                                     </div>
