@@ -63,3 +63,33 @@ export const getEvaluationsByCompetitor = async (competitorId: string) => {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evaluation));
   };
+
+export const deleteEvaluation = async (evaluationId: string) => {
+    try {
+        const { deleteDoc, doc } = await import('firebase/firestore');
+        await deleteDoc(doc(db, 'evaluations', evaluationId));
+    } catch (error) {
+        console.error("Error deleting evaluation: ", error);
+        throw error;
+    }
+};
+
+export const setDidNotParticipate = async (roomId: string, testId: string, competitorId: string, adminId: string) => {
+    try {
+        await addDoc(collection(db, 'evaluations'), {
+            roomId,
+            testId,
+            competitorId,
+            judgeId: adminId,
+            scores: {},
+            penaltiesApplied: [],
+            finalScore: 0,
+            status: 'did_not_participate',
+            notes: 'Não participou (DNS)',
+            createdAt: Date.now()
+        });
+    } catch (error) {
+        console.error("Error setting DNS: ", error);
+        throw error;
+    }
+};

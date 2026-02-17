@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments } from '@/services/adminService';
+import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
-import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, MODALITIES } from '@/types/schema'; 
+import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, MODALITIES, Evaluation } from '@/types/schema'; 
 import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -21,7 +22,10 @@ import {
     X,
     Gavel,
     Camera,
-    LogOut
+    LogOut,
+    Trophy,
+    CheckCircle2,
+    AlertCircle
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -38,12 +42,15 @@ export default function RoomDetailsPage() {
         await signOut(auth);
         router.push('/secret-access');
     };
-    const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges'>('competitors');
+    const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges' | 'rankings'>('competitors');
+    const [compToMarkNC, setCompToMarkNC] = useState<{ test: TestTemplate, comp: Competitor } | null>(null);
+    const [evalToDelete, setEvalToDelete] = useState<{ id: string, name: string, testTitle: string, isNC: boolean, photoUrl?: string } | null>(null);
     const [allJudges, setAllJudges] = useState<AppUser[]>([]);
 
     // Data Lists
     const [competitors, setCompetitors] = useState<Competitor[]>([]);
     const [tests, setTests] = useState<TestTemplate[]>([]);
+    const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
 
     // Forms State
     const [showAddCompetitor, setShowAddCompetitor] = useState(false);
@@ -77,14 +84,16 @@ export default function RoomDetailsPage() {
             const r = await getRoomById(roomId);
             setRoom(r);
 
-            const [c, t, j] = await Promise.all([
+            const [c, t, j, e] = await Promise.all([
                 getCompetitorsByRoom(roomId),
                 getTestTemplates(roomId),
-                getJudgesList()
+                getJudgesList(),
+                getEvaluationsByRoom(roomId)
             ]);
             setCompetitors(c);
             setTests(t);
             setAllJudges(j);
+            setEvaluations(e);
         } catch (err) {
             console.error("Failed to load room", err);
         } finally {
@@ -109,6 +118,7 @@ export default function RoomDetailsPage() {
         let unsubRoom: (() => void) | undefined;
         let unsubCompetitors: (() => void) | undefined;
         let unsubTests: (() => void) | undefined;
+        let unsubEvaluations: (() => void) | undefined;
 
         const setupListeners = async () => {
             try {
@@ -130,6 +140,11 @@ export default function RoomDetailsPage() {
                     setTests(snap.docs.map(d => ({ id: d.id, ...d.data() } as TestTemplate)));
                 }, (err) => console.error('tests snapshot error', err));
 
+                const qEval = query(collection(db, 'evaluations'), where('roomId', '==', roomId));
+                unsubEvaluations = onSnapshot(qEval, (snap) => {
+                    setEvaluations(snap.docs.map(d => ({ id: d.id, ...d.data() } as Evaluation)));
+                }, (err) => console.error('evaluations snapshot error', err));
+
                 const j = await getJudgesList();
                 setAllJudges(j);
             } catch (err) {
@@ -146,6 +161,7 @@ export default function RoomDetailsPage() {
             if (unsubRoom) unsubRoom();
             if (unsubCompetitors) unsubCompetitors();
             if (unsubTests) unsubTests();
+            if (unsubEvaluations) unsubEvaluations();
         };
     }, [roomId, loadRoomData]);
 
@@ -416,6 +432,13 @@ export default function RoomDetailsPage() {
                         className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'judges' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
                         <ShieldCheck className="w-4 h-4" /> Juízes ({room?.judges?.length || 0})
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('rankings')}
+                        className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'rankings' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
+                    >
+                        <Trophy className="w-4 h-4" /> Resultados
                     </button>
                 </div>
 
@@ -987,6 +1010,90 @@ export default function RoomDetailsPage() {
                     </div>
                 )}
 
+                {activeTab === 'rankings' && (
+                    <div className="space-y-12">
+                        {tests.sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0)).map(test => {
+                            const testCompetitors = competitors.filter(c => c.modality === test.modality);
+                            
+                            return (
+                                <div key={test.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                                    <div className="bg-gray-900 p-4 flex justify-between items-center">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-orange-400 flex items-center justify-center text-white font-black text-xs">
+                                                {test.testNumber?.toString().padStart(2, '0')}
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-black text-white uppercase tracking-tight">{test.title}</h3>
+                                                <div className="text-[10px] text-orange-400 font-bold uppercase">{test.modality}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 font-bold uppercase">
+                                            Total: {testCompetitors.length}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="divide-y divide-gray-50">
+                                        {testCompetitors.map(comp => {
+                                            const evaluation = evaluations.find(e => e.testId === test.id && e.competitorId === comp.id);
+                                            const isDNS = evaluation?.status === 'did_not_participate';
+                                            
+                                            return (
+                                                <div key={comp.id} className="p-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-400 text-xs overflow-hidden border border-gray-100 shadow-inner">
+                                                            {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-black text-k9-black uppercase">{comp.handlerName}</div>
+                                                            <div className="text-[10px] text-gray-400 font-bold uppercase">Cão: {comp.dogName}</div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center gap-4">
+                                                        {evaluation ? (
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`text-right ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
+                                                                    <div className="text-xs font-black uppercase leading-none">{isDNS ? 'NC' : evaluation.finalScore.toFixed(1)}</div>
+                                                                    <div className="text-[8px] font-bold uppercase opacity-60">Status</div>
+                                                                </div>
+                                                                <button 
+                                                                    onClick={() => setEvalToDelete({ 
+                                                                        id: evaluation.id, 
+                                                                        name: comp.handlerName, 
+                                                                        testTitle: test.title, 
+                                                                        isNC: isDNS,
+                                                                        photoUrl: comp.photoUrl 
+                                                                    })}
+                                                                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                                    title="Remover"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button 
+                                                                onClick={() => setCompToMarkNC({ test, comp })}
+                                                                className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-600 text-[10px] font-black uppercase rounded-lg border border-gray-200 hover:border-red-100 transition-all flex items-center gap-2"
+                                                            >
+                                                                <AlertCircle className="w-3.5 h-3.5" /> Marcar Falta
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {testCompetitors.length === 0 && (
+                                            <div className="p-8 text-center text-gray-300 text-[10px] font-bold uppercase italic">
+                                                Nenhum competidor nesta modalidade
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
                 {/* Confirm Deletion Modal */}
                 {itemToDelete && (
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-md">
@@ -1026,6 +1133,171 @@ export default function RoomDetailsPage() {
                         </div>
                     </div>
                 )}
+                {/* Deletion Modal ... skipped for brevity ... */}
+
+                {/* MODAL DE CONFIRMAÇÃO DE FALTA (NC) */}
+                <Modal
+                    isOpen={!!compToMarkNC}
+                    onClose={() => setCompToMarkNC(null)}
+                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><AlertCircle className="w-5 h-5" /> Confirmar Falta (NC)</div>}
+                    maxWidth="max-w-md"
+                >
+                    <div className="flex flex-col items-center text-center p-2">
+                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 border-2 border-red-100 shadow-sm">
+                            {compToMarkNC?.comp.photoUrl ? (
+                                <img src={compToMarkNC.comp.photoUrl} className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                                <Users className="w-10 h-10 text-red-400" />
+                            )}
+                        </div>
+                        
+                        <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
+                            Você está marcando falta para:
+                        </p>
+                        <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">
+                            {compToMarkNC?.comp.handlerName}
+                        </h3>
+                        <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+                            Prova: {compToMarkNC?.test.title}
+                        </p>
+                        
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
+                            <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
+                                O competidor receberá <span className="text-red-600">ZERO</span> pontos nesta prova. 
+                                Esta ação poderá ser revertida na aba de resultados se necessário.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-4 w-full">
+                            <button
+                                onClick={() => setCompToMarkNC(null)}
+                                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (compToMarkNC) {
+                                        await setDidNotParticipate(roomId, compToMarkNC.test.id, compToMarkNC.comp.id, user?.uid || 'admin');
+                                        setCompToMarkNC(null);
+                                    }
+                                }}
+                                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
+                            >
+                                Confirmar NC
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+                {/* MODAL DE REMOÇÃO DE AVALIAÇÃO/NC */}
+                <Modal
+                    isOpen={!!evalToDelete}
+                    onClose={() => setEvalToDelete(null)}
+                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><Trash2 className="w-5 h-5" /> Confirmar Remoção</div>}
+                    maxWidth="max-w-md"
+                >
+                    <div className="flex flex-col items-center text-center p-2">
+                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 border-2 border-red-100 shadow-sm overflow-hidden">
+                            {evalToDelete?.photoUrl ? (
+                                <img src={evalToDelete.photoUrl} className="w-full h-full object-cover" />
+                            ) : (
+                                <Users className="w-10 h-10 text-red-400" />
+                            )}
+                        </div>
+                        
+                        <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
+                            Você está removendo {evalToDelete?.isNC ? 'a falta (NC)' : 'a pontuação'} de:
+                        </p>
+                        <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">
+                            {evalToDelete?.name}
+                        </h3>
+                        <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+                            Prova: {evalToDelete?.testTitle}
+                        </p>
+                        
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
+                            <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
+                                Esta ação irá excluir permanentemente {evalToDelete?.isNC ? 'o registro de falta' : 'esta avaliação'} do banco de dados. 
+                                O competidor poderá ser avaliado novamente se necessário.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-4 w-full">
+                            <button
+                                onClick={() => setEvalToDelete(null)}
+                                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (evalToDelete) {
+                                        await deleteEvaluation(evalToDelete.id);
+                                        setEvalToDelete(null);
+                                    }
+                                }}
+                                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
+                            >
+                                Confirmar Exclusão
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+
+                {/* MODAL DE CONFIRMAÇÃO DE FALTA (NC) */}
+                <Modal
+                    isOpen={!!compToMarkNC}
+                    onClose={() => setCompToMarkNC(null)}
+                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><AlertCircle className="w-5 h-5" /> Confirmar Falta (NC)</div>}
+                    maxWidth="max-w-md"
+                >
+                    <div className="flex flex-col items-center text-center p-2">
+                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 border-2 border-red-100 shadow-sm overflow-hidden">
+                            {compToMarkNC?.comp.photoUrl ? (
+                                <img src={compToMarkNC.comp.photoUrl} className="w-full h-full object-cover" />
+                            ) : (
+                                <Users className="w-10 h-10 text-red-400" />
+                            )}
+                        </div>
+                        
+                        <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
+                            Você está marcando falta para:
+                        </p>
+                        <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">
+                            {compToMarkNC?.comp.handlerName}
+                        </h3>
+                        <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+                            Prova: {compToMarkNC?.test.title}
+                        </p>
+                        
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
+                            <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
+                                O competidor receberá <span className="text-red-600">ZERO</span> pontos nesta prova. 
+                                Esta ação poderá ser revertida na aba de resultados se necessário.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-4 w-full">
+                            <button
+                                onClick={() => setCompToMarkNC(null)}
+                                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (compToMarkNC) {
+                                        await setDidNotParticipate(roomId, compToMarkNC.test.id, compToMarkNC.comp.id, user?.uid || 'admin');
+                                        setCompToMarkNC(null);
+                                    }
+                                }}
+                                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
+                            >
+                                Confirmar NC
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
             </div>
         </div>
     );

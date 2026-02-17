@@ -98,5 +98,6 @@ export interface Evaluation {
 
   finalScore: number;
   notes?: string;
+  status?: 'evaluated' | 'did_not_participate';
   createdAt: number;
 }

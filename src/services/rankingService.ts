@@ -2,11 +2,10 @@ import { db } from '../lib/firebase';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { Competitor, Evaluation } from '../types/schema';
 
-// Update type to include detailed evaluation data
 export interface LeaderboardEntry extends Competitor {
     totalScore: number;
     evaluationsCount: number;
-    evaluations: Evaluation[]; // Included to allow client-side filtering by Test/Modality
+    evaluations: Evaluation[]; 
     scoresByTest: Record<string, number>;
 }
 
@@ -21,24 +20,39 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
 
         const leaderboard: LeaderboardEntry[] = competitors.map(comp => {
             const compEvals = evaluations.filter(e => e.competitorId === comp.id);
-            const totalScore = compEvals.reduce((sum, e) => sum + e.finalScore, 0);
+            
+            const evalsByTest: Record<string, Evaluation[]> = {};
+            compEvals.forEach(e => {
+                if (!evalsByTest[e.testId]) evalsByTest[e.testId] = [];
+                evalsByTest[e.testId].push(e);
+            });
 
             const scoresByTest: Record<string, number> = {};
-            compEvals.forEach(e => {
-                scoresByTest[e.testId] = e.finalScore;
+            let totalScore = 0;
+
+            Object.entries(evalsByTest).forEach(([testId, testEvals]) => {
+                const ncEval = testEvals.find(e => e.status === 'did_not_participate');
+                if (ncEval) {
+                    scoresByTest[testId] = 0;
+                } else {
+                    const sorted = [...testEvals].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+                    const top3 = sorted.slice(0, 3);
+                    const avg = top3.reduce((sum, e) => sum + e.finalScore, 0) / top3.length;
+                    scoresByTest[testId] = avg;
+                }
+                totalScore += scoresByTest[testId];
             });
 
             return {
                 ...comp,
                 totalScore,
-                evaluationsCount: compEvals.length,
+                evaluationsCount: Object.keys(evalsByTest).length,
                 evaluations: compEvals,
                 scoresByTest
             };
         });
 
         leaderboard.sort((a, b) => b.totalScore - a.totalScore);
-
         callback(leaderboard);
     });
 

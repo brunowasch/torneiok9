@@ -106,25 +106,31 @@ export default function Home() {
       .map(entry => {
         let score = 0;
         let count = 0;
+        let hasNC = false;
 
         if (selectedTestId === 'geral') {
           modalityTestIds.forEach(tId => {
-            if (entry.scoresByTest[tId]) {
+            if (entry.scoresByTest[tId] !== undefined) {
               score += entry.scoresByTest[tId];
               count++;
             }
           });
         } else {
-          if (entry.scoresByTest[selectedTestId]) {
+          if (entry.scoresByTest[selectedTestId] !== undefined) {
             score = entry.scoresByTest[selectedTestId];
-            count = entry.scoresByTest[selectedTestId] !== undefined ? 1 : 0;
+            count = 1;
+            const ev = entry.evaluations.find(e => e.testId === selectedTestId);
+            if (ev?.status === 'did_not_participate') hasNC = true;
           }
         }
 
-        return { ...entry, currentScore: score, currentCount: count };
+        return { ...entry, currentScore: score, currentCount: count, isNC: hasNC };
       })
-      .filter(e => e.currentScore > 0 || e.currentCount > 0)
-      .sort((a, b) => b.currentScore - a.currentScore);
+      .filter(e => e.currentCount > 0)
+      .sort((a, b) => {
+        if (b.currentScore !== a.currentScore) return b.currentScore - a.currentScore;
+        return a.handlerName.localeCompare(b.handlerName); 
+      });
   };
 
   const filteredData = getFilteredLeaderboard();
@@ -240,12 +246,18 @@ export default function Home() {
                 {filteredData.map((entry, index) => (
                   <tr key={entry.id} className={`hover:bg-orange-50/50 transition-colors group ${index < 3 ? 'bg-orange-50/10' : ''}`}>
                     <td className="p-5 text-center">
-                      <div className={`font-black text-2xl md:text-3xl ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-amber-700' : 'text-gray-300'} flex justify-center items-center`}>
-                        {index < 3 ? (
-                          index === 0 ? <Crown className="w-8 h-8 md:w-10 md:h-10 fill-current opacity-80" /> : <Medal className="w-8 h-8 md:w-10 md:h-10 fill-current opacity-80" />
-                        ) : (
-                          <span className="text-gray-400 group-hover:text-k9-orange transition-colors">#{index + 1}</span>
-                        )}
+                      <div className="flex flex-col items-center justify-center">
+                        <div className={`font-black text-2xl md:text-3xl ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-amber-700' : 'text-gray-300'} flex justify-center items-center relative`}>
+                          {index < 3 ? (
+                            <>
+                              {index === 0 ? <Crown className="w-8 h-8 md:w-10 md:h-10 fill-current opacity-60" /> : <Medal className="w-8 h-8 md:w-10 md:h-10 fill-current opacity-60" />}
+                              <span className="absolute text-sm md:text-base font-black text-k9-black pt-2">{index + 1}º</span>
+                            </>
+                          ) : (
+                            <span className="text-gray-400 group-hover:text-k9-orange transition-colors text-xl md:text-2xl">{index + 1}º</span>
+                          )}
+                        </div>
+                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-1">Lugar</span>
                       </div>
                     </td>
                     <td className="p-5">
@@ -277,10 +289,10 @@ export default function Home() {
                     </td>
                     <td className="p-5 text-right">
                       <div className="flex flex-col items-end">
-                        <span className="text-2xl md:text-4xl font-black text-k9-black tracking-tighter leading-none group-hover:scale-110 transition-transform origin-right">
-                          {entry.currentScore.toFixed(1)}
+                        <span className={`text-2xl md:text-4xl font-black tracking-tighter leading-none group-hover:scale-110 transition-transform origin-right ${entry.isNC ? 'text-red-500' : 'text-k9-black'}`}>
+                          {entry.isNC ? 'NC' : entry.currentScore.toFixed(1)}
                         </span>
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Pontos</span>
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{entry.isNC ? 'Falta' : 'Pontos'}</span>
                       </div>
                     </td>
                   </tr>
