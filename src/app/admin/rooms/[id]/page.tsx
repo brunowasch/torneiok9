@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, createTestTemplate, updateTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments } from '@/services/adminService';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments } from '@/services/adminService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, MODALITIES } from '@/types/schema'; 
 import Modal from '@/components/Modal';
@@ -58,6 +58,9 @@ export default function RoomDetailsPage() {
     const [newJudgeForm, setNewJudgeForm] = useState({ name: '', email: '', password: '' });
     const [editingJudge, setEditingJudge] = useState<AppUser | null>(null);
     const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+
+    // Deletion Modal State
+    const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string, type: 'competitor' | 'test' | 'judge' } | null>(null);
 
     const loadRoomData = useCallback(async () => {
         try {
@@ -287,16 +290,35 @@ export default function RoomDetailsPage() {
         }
     };
 
-    const handleRemoveJudge = async (uid: string) => {
-        if (!confirm('Remover este juiz da sala?')) return;
+    const handleDeleteCompetitor = (id: string, name: string) => {
+        setItemToDelete({ id, name, type: 'competitor' });
+    };
+
+    const handleDeleteTest = (id: string, name: string) => {
+        setItemToDelete({ id, name, type: 'test' });
+    };
+
+    const handleRemoveJudgeRequest = (uid: string, name: string) => {
+        setItemToDelete({ id: uid, name, type: 'judge' });
+    };
+
+    const confirmDeletion = async () => {
+        if (!itemToDelete) return;
         try {
-            await removeJudgeFromRoom(roomId, uid);
+            if (itemToDelete.type === 'competitor') {
+                await deleteCompetitor(itemToDelete.id);
+            } else if (itemToDelete.type === 'test') {
+                await deleteTestTemplate(itemToDelete.id);
+            } else if (itemToDelete.type === 'judge') {
+                await removeJudgeFromRoom(roomId, itemToDelete.id);
+            }
+            setItemToDelete(null);
             loadRoomData();
         } catch (err) {
             console.error(err);
-            alert('Erro ao remover juiz');
+            alert(`Erro ao remover ${itemToDelete.type}`);
         }
-    }
+    };
 
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">[CARREGANDO DADOS TÁTICOS...]</div>;
     if (!room) return <div className="p-8 text-k9-black">Sala não encontrada.</div>;
@@ -406,8 +428,9 @@ export default function RoomDetailsPage() {
                                                 <Pencil className="w-4 h-4" />
                                             </button>
                                             <button 
-                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                                title="Remover (Não implementado)"
+                                                onClick={() => handleDeleteCompetitor(comp.id, comp.handlerName)}
+                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                                                title="Remover Competidor"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -573,10 +596,17 @@ export default function RoomDetailsPage() {
                                     <div className="flex items-center gap-3">
                                         <button
                                             onClick={() => editTest(test)}
-                                            className="p-2 bg-gray-50 rounded-md text-gray-400 hover:bg-orange-50 hover:text-orange-500 transition-colors"
+                                            className="p-2 bg-gray-50 rounded-md text-gray-400 hover:bg-orange-50 hover:text-orange-500 transition-colors cursor-pointer"
                                             title="Editar Prova"
                                         >
                                             <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteTest(test.id, test.title)}
+                                            className="p-2 bg-gray-50 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors cursor-pointer"
+                                            title="Excluir Prova"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
                                         </button>
                                         <div className="px-3 py-1 bg-orange-50 text-orange-600 text-xs font-bold rounded uppercase border border-orange-100">
                                             Ativo
@@ -743,12 +773,16 @@ export default function RoomDetailsPage() {
                                         <div className="flex gap-2">
                                             <button 
                                                 onClick={() => handleEditJudge(j)}
-                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer"
                                                 title="Editar"
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => handleRemoveJudge(j.uid)} className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors">
+                                            <button 
+                                                onClick={() => handleRemoveJudgeRequest(j.uid, j.name)} 
+                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                                                title="Remover Juiz desta Sala"
+                                            >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
                                         </div>
@@ -885,6 +919,45 @@ export default function RoomDetailsPage() {
                     </div>
                 )}
 
+                {/* Confirm Deletion Modal */}
+                {itemToDelete && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-md">
+                        <div className="bg-white border-2 border-red-200 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden text-black">
+                            <div className="absolute top-0 left-0 w-full h-2 bg-red-500"></div>
+                            
+                            <div className="flex flex-col items-center text-center">
+                                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 border-2 border-red-100">
+                                    <Trash2 className="w-8 h-8 text-red-500" />
+                                </div>
+                                
+                                <h2 className="text-2xl font-black text-k9-black uppercase mb-2 tracking-tighter leading-tight">
+                                    Confirmar Remoção
+                                </h2>
+                                
+                                <p className="text-gray-500 text-sm font-semibold mb-6 uppercase tracking-tight">
+                                    Deseja realmente remover {itemToDelete.type === 'competitor' ? 'o competidor' : itemToDelete.type === 'test' ? 'a prova' : 'o juiz'}<br/>
+                                    <span className="text-red-600 font-bold">"{itemToDelete.name.toUpperCase()}"</span>?<br/>
+                                    {itemToDelete.type === 'judge' ? 'Ele perderá acesso a esta sala.' : 'Esta ação não pode ser desfeita.'}
+                                </p>
+
+                                <div className="flex gap-4 w-full">
+                                    <button
+                                        onClick={() => setItemToDelete(null)}
+                                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={confirmDeletion}
+                                        className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
+                                    >
+                                        Confirmar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

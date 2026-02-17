@@ -8,6 +8,7 @@ import {
   query,
   where,
   updateDoc,
+  deleteDoc,
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
@@ -167,3 +168,33 @@ export const updateJudgeTestAssignments = async (roomId: string, judgeUid: strin
   }
 };
 
+
+export const deleteRoom = async (roomId: string) => {
+  try {
+    const docRef = doc(db, 'rooms', roomId);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting room: ", error);
+    throw error;
+  }
+};
+
+export const deleteCompetitor = async (competitorId: string) => {
+  try {
+    const docRef = doc(db, 'competitors', competitorId);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting competitor: ", error);
+    throw error;
+  }
+};
+
+export const deleteTestTemplate = async (testId: string) => {
+  try {
+    const docRef = doc(db, 'tests', testId);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting test: ", error);
+    throw error;
+  }
+};

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createRoom, getRooms } from '@/services/adminService';
+import { createRoom, getRooms, deleteRoom } from '@/services/adminService';
 import { auth } from '@/lib/firebase';
 import {
     PlusCircle,
@@ -13,7 +13,8 @@ import {
     Calendar,
     Users,
     LogOut,
-    Menu
+    Menu,
+    Trash2
 } from 'lucide-react';
 import { Room } from '@/types/schema';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
@@ -28,6 +29,8 @@ export default function AdminDashboard() {
 
     const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
     const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '' });
+
+    const [roomToDelete, setRoomToDelete] = useState<{ id: string, name: string } | null>(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -97,6 +100,22 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleDeleteRoom = (roomId: string, roomName: string) => {
+        setRoomToDelete({ id: roomId, name: roomName });
+    };
+
+    const confirmDeleteRoom = async () => {
+        if (!user || !roomToDelete) return;
+        try {
+            await deleteRoom(roomToDelete.id);
+            setRoomToDelete(null);
+            fetchRooms(user.uid);
+        } catch (err) {
+            console.error('Error deleting room', err);
+            alert('Erro ao excluir sala.');
+        }
+    };
+
     if (!user && !loading) {
         return (
             <div className="min-h-screen bg-k9-white flex items-center justify-center p-4 text-k9-black">
@@ -156,37 +175,51 @@ export default function AdminDashboard() {
                 ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {rooms.map(room => (
-                            <Link href={`/admin/rooms/${room.id}`} key={room.id} className="group">
-                                <div className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-k9-orange hover:shadow-lg transition-all relative overflow-hidden h-full flex flex-col">
-                                    <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-bl from-k9-orange/5 to-transparent"></div>
+                            <div key={room.id} className="relative group/card">
+                                <Link href={`/admin/rooms/${room.id}`} className="group">
+                                    <div className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-k9-orange hover:shadow-lg transition-all relative overflow-hidden h-full flex flex-col">
+                                        <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-bl from-k9-orange/5 to-transparent"></div>
 
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="p-3 bg-k9-orange/10 rounded-lg text-k9-orange group-hover:scale-110 transition-transform border-2 border-k9-orange/30">
-                                            <MapPin className="w-6 h-6" />
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div className="p-3 bg-k9-orange/10 rounded-lg text-k9-orange group-hover:scale-110 transition-transform border-2 border-k9-orange/30">
+                                                <MapPin className="w-6 h-6" />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider border-2 ${room.active ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
+                                                    {room.active ? 'Em Progresso' : 'Finalizada'}
+                                                </span>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        handleDeleteRoom(room.id, room.name);
+                                                    }}
+                                                    className="p-1.5 text-black hover:text-red-500 border-2 border-black hover:border-red-500 rounded-lg transition-all cursor-pointer z-10 bg-white shadow-sm"
+                                                    title="Excluir Sala"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                         </div>
-                                        <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider border-2 ${room.active ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
-                                            {room.active ? 'Em Progresso' : 'Finalizada'}
-                                        </span>
+
+                                        <h2 className="text-xl font-black text-k9-black uppercase leading-tight mb-2 group-hover:text-k9-orange transition-colors tracking-tight">
+                                            {room.name}
+                                        </h2>
+                                        <p className="text-xs text-gray-600 uppercase tracking-wide mb-6 font-semibold">
+                                            {room.description}
+                                        </p>
+
+                                        <div className="mt-auto flex items-center justify-between text-xs text-gray-500 border-t-2 border-gray-200 pt-4 font-bold">
+                                            <div className="flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" />
+                                                <span>{new Date(room.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-k9-orange group-hover:translate-x-1 transition-transform">
+                                                GERENCIAR <ChevronRight className="w-3 h-3" />
+                                            </div>
+                                        </div>
                                     </div>
-
-                                    <h2 className="text-xl font-black text-k9-black uppercase leading-tight mb-2 group-hover:text-k9-orange transition-colors tracking-tight">
-                                        {room.name}
-                                    </h2>
-                                    <p className="text-xs text-gray-600 uppercase tracking-wide mb-6 font-semibold">
-                                        {room.description}
-                                    </p>
-
-                                    <div className="mt-auto flex items-center justify-between text-xs text-gray-500 border-t-2 border-gray-200 pt-4 font-bold">
-                                        <div className="flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" />
-                                            <span>{new Date(room.createdAt).toLocaleDateString()}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-k9-orange group-hover:translate-x-1 transition-transform">
-                                            GERENCIAR <ChevronRight className="w-3 h-3" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
+                                </Link>
+                            </div>
                         ))}
 
                         {rooms.length === 0 && (
@@ -283,6 +316,46 @@ export default function AdminDashboard() {
                                 >
                                     Criar Usuário
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {/* Delete Confirmation Modal */}
+                {roomToDelete && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-md">
+                        <div className="bg-white border-2 border-red-200 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden text-black">
+                            {/* Warning Strip */}
+                            <div className="absolute top-0 left-0 w-full h-2 bg-red-500"></div>
+                            
+                            <div className="flex flex-col items-center text-center">
+                                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 border-2 border-red-100">
+                                    <Trash2 className="w-8 h-8 text-red-500" />
+                                </div>
+                                
+                                <h2 className="text-2xl font-black text-k9-black uppercase mb-2 tracking-tighter">
+                                    Confirmar Exclusão
+                                </h2>
+                                
+                                <p className="text-gray-500 text-sm font-semibold mb-6 uppercase tracking-tight">
+                                    Você está prestes a apagar a operação<br/>
+                                    <span className="text-red-600 font-bold">"{roomToDelete.name.toUpperCase()}"</span><br/>
+                                    Esta ação é permanente e irreversível.
+                                </p>
+
+                                <div className="flex gap-4 w-full">
+                                    <button
+                                        onClick={() => setRoomToDelete(null)}
+                                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={confirmDeleteRoom}
+                                        className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
+                                    >
+                                        Excluir Agora
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
