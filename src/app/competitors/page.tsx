@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { getAllCompetitors } from '@/services/rankingService';
-import { Competitor } from '@/types/schema';
+import { getModalities } from '@/services/adminService';
+import { Competitor, ModalityConfig } from '@/types/schema';
 import { Users, Search, Flame } from 'lucide-react';
 
 export default function CompetitorsPage() {
@@ -15,9 +16,14 @@ export default function CompetitorsPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const data = await getAllCompetitors();
-                setCompetitors(data);
-                setFiltered(data);
+                const [comps, mods] = await Promise.all([
+                    getAllCompetitors(),
+                    getModalities()
+                ]);
+                const validModalityNames = mods.map(m => m.name);
+                const validComps = comps.filter(c => validModalityNames.includes(c.modality));
+                setCompetitors(validComps);
+                setFiltered(validComps);
             } catch (e) {
                 console.error("Error fetching competitors", e);
             } finally {

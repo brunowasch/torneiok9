@@ -10,7 +10,8 @@ import {
   updateDoc,
   deleteDoc,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  writeBatch
 } from 'firebase/firestore';
 import { Room, Competitor, TestTemplate, AppUser, ModalityConfig } from '../types/schema';
 
@@ -194,10 +195,26 @@ export const updateJudgeModalityAssignments = async (roomId: string, judgeUid: s
 
 export const deleteRoom = async (roomId: string) => {
   try {
+    const batch = writeBatch(db);
+    
+    const qComp = query(collection(db, 'competitors'), where('roomId', '==', roomId));
+    const compSnap = await getDocs(qComp);
+    compSnap.forEach(d => batch.delete(d.ref));
+
+    const qTests = query(collection(db, 'tests'), where('roomId', '==', roomId));
+    const testsSnap = await getDocs(qTests);
+    testsSnap.forEach(d => batch.delete(d.ref));
+
+    const qEval = query(collection(db, 'evaluations'), where('roomId', '==', roomId));
+    const evalSnap = await getDocs(qEval);
+    evalSnap.forEach(d => batch.delete(d.ref));
+
     const docRef = doc(db, 'rooms', roomId);
-    await deleteDoc(docRef);
+    batch.delete(docRef);
+
+    await batch.commit();
   } catch (error) {
-    console.error("Error deleting room: ", error);
+    console.error("Error deleting room and its contents: ", error);
     throw error;
   }
 };

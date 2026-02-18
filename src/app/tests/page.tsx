@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
-import { getTestTemplates } from '@/services/adminService';
+import { getTestTemplates, getModalities } from '@/services/adminService';
 import { TestTemplate } from '@/types/schema';
 import { FileText, ClipboardCheck, Info } from 'lucide-react';
 
@@ -13,8 +13,13 @@ export default function TestsPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const data = await getTestTemplates();
-                setTests(data);
+                const [allTests, mods] = await Promise.all([
+                    getTestTemplates(),
+                    getModalities()
+                ]);
+                const validModalityNames = mods.map(m => m.name);
+                const validTests = allTests.filter(t => validModalityNames.includes(t.modality as string));
+                setTests(validTests);
             } catch (e) {
                 console.error("Error fetching tests", e);
             } finally {

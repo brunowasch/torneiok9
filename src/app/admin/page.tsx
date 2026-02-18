@@ -37,7 +37,7 @@ export default function AdminDashboard() {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             if (currentUser) {
-                fetchRooms(currentUser.uid);
+                fetchRooms();
             } else {
                 console.log("No user logged in in Admin Dashboard");
                 setLoading(false);
@@ -46,16 +46,10 @@ export default function AdminDashboard() {
         return () => unsubscribe();
     }, []);
 
-    const fetchRooms = async (uid: string) => {
+    const fetchRooms = async () => {
         try {
-            const data = await getRooms(uid);
-            if (data.length === 0) {
-                const all = await getRooms();
-                const owned = all.filter(r => r.createdBy === uid);
-                setRooms(owned.length > 0 ? owned : data);
-            } else {
-                setRooms(data);
-            }
+            const data = await getRooms();
+            setRooms(data);
         } catch (e) {
             console.error("Error loading rooms", e);
         } finally {
@@ -80,7 +74,7 @@ export default function AdminDashboard() {
             });
             setNewRoomName('');
             setShowCreateModal(false);
-            fetchRooms(user.uid);
+            fetchRooms();
         } catch (err) {
             console.error('Error creating room', err);
             alert('Erro ao criar sala. Verifique permissões.');
@@ -110,7 +104,7 @@ export default function AdminDashboard() {
         try {
             await deleteRoom(roomToDelete.id);
             setRoomToDelete(null);
-            fetchRooms(user.uid);
+            fetchRooms();
         } catch (err) {
             console.error('Error deleting room', err);
             alert('Erro ao excluir sala.');
