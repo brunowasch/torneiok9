@@ -7,8 +7,11 @@ import { Room, TestTemplate, Modality, INITIAL_MODALITIES, ModalityConfig } from
 import { getModalities } from '@/services/adminService';
 import { Trophy, Medal, Crown, ListFilter, Target, Flame } from 'lucide-react';
 import { LeaderboardEntry, subscribeToLeaderboard } from '@/services/rankingService';
+import { useTranslation } from 'react-i18next';
+import '@/i18n/config';
 
 export default function Home() {
+  const { t } = useTranslation();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -25,10 +28,10 @@ export default function Home() {
       try {
         const { collection, query, onSnapshot } = await import('firebase/firestore');
         const { db } = await import('@/lib/firebase');
-        
+
         const fetchedModalities = await getModalities();
-        const modalityNames = fetchedModalities.length > 0 
-          ? fetchedModalities.map(m => m.name) 
+        const modalityNames = fetchedModalities.length > 0
+          ? fetchedModalities.map(m => m.name)
           : INITIAL_MODALITIES;
         setModalities(modalityNames);
         if (modalityNames.length > 0) setSelectedModality(modalityNames[0]);
@@ -139,7 +142,7 @@ export default function Home() {
       .filter(e => e.currentCount > 0)
       .sort((a, b) => {
         if (b.currentScore !== a.currentScore) return b.currentScore - a.currentScore;
-        return a.handlerName.localeCompare(b.handlerName); 
+        return a.handlerName.localeCompare(b.handlerName);
       });
   };
 
@@ -156,9 +159,9 @@ export default function Home() {
           <div className="text-center md:text-left">
             <h1 className="text-5xl font-black text-k9-black uppercase tracking-tighter flex items-center gap-3 justify-center md:justify-start">
               <Crown className="w-12 h-12 text-k9-orange" />
-              Classificação
+              {t('home.title')}
             </h1>
-            <p className="text-gray-500 text-sm font-semibold uppercase tracking-widest pl-0 md:pl-16 mt-1">Tempo Real • Torneio K9</p>
+            <p className="text-gray-500 text-sm font-semibold uppercase tracking-widest pl-0 md:pl-16 mt-1">{t('home.subtitle')}</p>
           </div>
 
           <div className="w-full md:w-auto">
@@ -180,9 +183,9 @@ export default function Home() {
                 className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 
                 origin-left transition-all duration-200 whitespace-nowrap shadow-sm
                 ${selectedModality === mod
-                  ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
-                  : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
-                }`}
+                    ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
+                    : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
+                  }`}
               >
                 {mod}
               </button>
@@ -198,12 +201,12 @@ export default function Home() {
               className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm ${selectedTestId === 'geral'
                 ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                 : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
-              }`}
+                }`}
             >
-              <Trophy className="w-3 h-3" /> Campeão da Modalidade
+              <Trophy className="w-3 h-3" /> {t('home.modalityChampion')}
             </button>
             <div className="w-px h-6 bg-gray-200 mx-2"></div>
-            {modalityTests.length === 0 && <span className="text-xs text-gray-400 px-2">NENHUMA PROVA CADASTRADA</span>}
+            {modalityTests.length === 0 && <span className="text-xs text-gray-400 px-2">{t('home.noTestsRegistered')}</span>}
             {modalityTests.map(test => (
               <button
                 key={test.id}
@@ -211,7 +214,7 @@ export default function Home() {
                 className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm ${selectedTestId === test.id
                   ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                   : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
-                }`}
+                  }`}
               >
                 <Target className="w-3 h-3" /> {test.title}
               </button>
@@ -228,17 +231,17 @@ export default function Home() {
             <table className="w-full text-left">
               <thead className="bg-gray-50 text-gray-500 uppercase text-[0.65rem] tracking-[0.2em] font-black border-b border-gray-100">
                 <tr>
-                  <th className="p-5 text-center w-24">Pos</th>
-                  <th className="p-5">Competidor (Binômio)</th>
-                  <th className="p-5">Raça</th>
-                  <th className="p-5 text-center">Provas</th>
-                  <th className="p-5 text-right">Pontuação</th>
+                  <th className="p-5 text-center w-24">{t('home.table.position')}</th>
+                  <th className="p-5">{t('home.table.competitor')}</th>
+                  <th className="p-5">{t('home.table.breed')}</th>
+                  <th className="p-5 text-center">{t('home.table.tests')}</th>
+                  <th className="p-5 text-right">{t('home.table.score')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading && (
                   <tr>
-                    <td colSpan={5} className="p-12 text-center text-gray-400 font-mono animate-pulse">CARREGANDO DADOS...</td>
+                    <td colSpan={5} className="p-12 text-center text-gray-400 font-mono animate-pulse">{t('home.loadingData')}</td>
                   </tr>
                 )}
 
@@ -247,7 +250,7 @@ export default function Home() {
                     <td colSpan={5} className="p-16 text-center text-gray-400 font-mono">
                       <div className="flex flex-col items-center gap-3">
                         <ListFilter className="w-10 h-10 opacity-20" />
-                        <span>SEM COMPETIDORES NESTA CATEGORIA</span>
+                        <span>{t('home.noCompetitorsInCategory')}</span>
                       </div>
                     </td>
                   </tr>
@@ -267,7 +270,7 @@ export default function Home() {
                             <span className="text-gray-400 group-hover:text-k9-orange transition-colors text-xl md:text-2xl">{index + 1}º</span>
                           )}
                         </div>
-                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-1">Lugar</span>
+                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-1">{t('home.table.place')}</span>
                       </div>
                     </td>
                     <td className="p-5">
@@ -282,7 +285,7 @@ export default function Home() {
                         <div>
                           <div className="font-extrabold text-k9-black uppercase tracking-tight text-base md:text-lg group-hover:text-k9-orange transition-colors">{entry.handlerName}</div>
                           <div className="text-[11px] md:text-xs text-gray-500 uppercase font-bold flex items-center gap-1 mt-0.5">
-                            <Flame className="w-3 h-3 text-k9-orange" /> Cão: <span className="text-gray-800">{entry.dogName}</span>
+                            <Flame className="w-3 h-3 text-k9-orange" /> {t('home.table.dog')}: <span className="text-gray-800">{entry.dogName}</span>
                           </div>
                         </div>
                       </div>
@@ -292,9 +295,9 @@ export default function Home() {
                     </td>
                     <td className="p-5 text-center text-xs md:text-sm font-bold text-gray-400">
                       {selectedTestId === 'geral' ? (
-                         <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded">{entry.currentCount}</span>
+                        <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded">{entry.currentCount}</span>
                       ) : (
-                        entry.currentCount > 0 ? <span className="text-green-600">Concluída</span> : <span className="text-gray-300">-</span>
+                        entry.currentCount > 0 ? <span className="text-green-600">{t('home.table.completed')}</span> : <span className="text-gray-300">-</span>
                       )}
                     </td>
                     <td className="p-5 text-right">
@@ -302,7 +305,7 @@ export default function Home() {
                         <span className={`text-2xl md:text-4xl font-black tracking-tighter leading-none group-hover:scale-110 transition-transform origin-right ${entry.isNC ? 'text-red-500' : 'text-k9-black'}`}>
                           {entry.isNC ? 'NC' : entry.currentScore.toFixed(1)}
                         </span>
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{entry.isNC ? 'Falta' : 'Pontos'}</span>
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{entry.isNC ? t('home.table.absence') : t('home.table.points')}</span>
                       </div>
                     </td>
                   </tr>

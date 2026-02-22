@@ -33,10 +33,13 @@ import {
     Search,
     Shield
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function JudgeRoomPage() {
     const params = useParams();
     const router = useRouter();
+    const { t } = useTranslation();
     const roomId = params.id as string;
     const [user, setUser] = useState<any>(null);
 
@@ -55,7 +58,7 @@ export default function JudgeRoomPage() {
     const [notes, setNotes] = useState('');
     const [penalties, setPenalties] = useState<{ penaltyId: string; value: number; description: string }[]>([]);
     const [submitting, setSubmitting] = useState(false);
-    
+
     // Add Penalty State
     const [showPenaltyAdd, setShowPenaltyAdd] = useState(false);
     const [tempPenalty, setTempPenalty] = useState<{ id: string; label: string; value: number } | null>(null);
@@ -78,7 +81,7 @@ export default function JudgeRoomPage() {
                 setAuthDetermined(true);
                 return;
             }
-            
+
             setAuthDetermined(true);
             setUser(currentUser);
             loadData();
@@ -88,7 +91,7 @@ export default function JudgeRoomPage() {
 
     const loadData = async () => {
         try {
-            const [r, c, t, e, m] = await Promise.all([
+            const [r, c, t2, e, m] = await Promise.all([
                 getRoomById(roomId),
                 getCompetitorsByRoom(roomId),
                 getTestTemplates(roomId),
@@ -97,12 +100,12 @@ export default function JudgeRoomPage() {
             ]);
             setRoom(r);
             setCompetitors(c);
-            setTests(t);
+            setTests(t2);
             setEvaluations(e);
             setModalities(m.map(mod => mod.name));
         } catch (error) {
             console.error(error);
-            alert('Erro ao carregar dados da sala.');
+            alert(t('judge.room.errorLoad'));
         } finally {
             setLoading(false);
         }
@@ -110,18 +113,18 @@ export default function JudgeRoomPage() {
 
     const isTestEvaluated = (competitorId: string, testId: string) => {
         if (!user) return false;
-        return evaluations.some(e => 
-            e.competitorId === competitorId && 
-            e.testId === testId && 
+        return evaluations.some(e =>
+            e.competitorId === competitorId &&
+            e.testId === testId &&
             e.judgeId === user.uid
         );
     };
 
     const getAssignedTests = (competitor?: Competitor | null) => {
         if (!user || !room) return [];
-        
+
         let filteredTests = tests;
-        
+
         if (room.judgeModalities && room.judgeModalities[user.uid] && room.judgeModalities[user.uid].length > 0) {
             const judgeModalities = room.judgeModalities[user.uid].filter(m => modalities.includes(m));
             filteredTests = filteredTests.filter(t => judgeModalities.includes(t.modality as Modality));
@@ -133,7 +136,7 @@ export default function JudgeRoomPage() {
         if (competitor) {
             filteredTests = filteredTests.filter(t => t.modality === competitor.modality);
         }
-        
+
         return filteredTests;
     };
 
@@ -185,7 +188,7 @@ export default function JudgeRoomPage() {
                 notes
             }, activeTest);
 
-            alert('Avaliação enviada com sucesso!');
+            alert(t('judge.room.successSubmit'));
             setSelectedCompetitor(null);
             setActiveTest(null);
             setShowPenaltyAdd(false);
@@ -194,7 +197,7 @@ export default function JudgeRoomPage() {
             loadData(); // Refresh data
         } catch (error) {
             console.error(error);
-            alert('Erro ao enviar avaliação.');
+            alert(t('judge.room.errorSubmit'));
         } finally {
             setSubmitting(false);
         }
@@ -204,11 +207,11 @@ export default function JudgeRoomPage() {
         if (isCustomPenalty) {
             const val = parseFloat(customValue);
             if (isNaN(val) || val >= 0) {
-                alert('O valor da penalidade deve ser um número negativo (ex: -1.0)');
+                alert(t('judge.room.penaltyMustBeNegative'));
                 return;
             }
             if (!tempPenaltyDescription.trim()) {
-                alert('A descrição da penalidade é obrigatória!');
+                alert(t('judge.room.penaltyDescRequired'));
                 return;
             }
 
@@ -219,7 +222,7 @@ export default function JudgeRoomPage() {
             }]);
         } else {
             if (!tempPenalty || !tempPenaltyDescription.trim()) {
-                alert('A descrição da penalidade é obrigatória!');
+                alert(t('judge.room.penaltyDescRequired'));
                 return;
             }
 
@@ -246,35 +249,35 @@ export default function JudgeRoomPage() {
                 total += scores[item.id] || 0;
             });
         });
-        
+
         penalties.forEach(p => {
             total += p.value;
         });
-        
+
         return total;
     };
 
-    if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">[CARREGANDO DADOS DA OPERAÇÃO...]</div>;
-    if (!room) return <div className="p-8 text-black">Sala não encontrada.</div>;
+    if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">{t('judge.room.loading')}</div>;
+    if (!room) return <div className="p-8 text-black">{t('judge.room.notFound')}</div>;
 
     if (selectedCompetitor && activeTest) {
         return (
             <div className="min-h-screen bg-gray-50 text-k9-black pb-20">
                 <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm px-4 py-3">
                     <div className="max-w-2xl mx-auto flex items-center justify-between">
-                        <button 
-                            onClick={() => setSelectedCompetitor(null)} 
+                        <button
+                            onClick={() => setSelectedCompetitor(null)}
                             className="text-gray-500 hover:text-black flex items-center gap-2 text-xs font-bold uppercase transition-colors"
                         >
-                            <ArrowLeft className="w-4 h-4" /> Cancelar
+                            <ArrowLeft className="w-4 h-4" /> {t('judge.room.cancel')}
                         </button>
                         <div className="text-right">
                             {penalties.length > 0 && (
                                 <div className="text-[10px] text-red-500 font-mono uppercase font-bold mb-1">
-                                    {penalties.length} {penalties.length === 1 ? 'Penalidade' : 'Penalidades'} ({penalties.reduce((sum, p) => sum + p.value, 0).toFixed(1)} pts)
+                                    {penalties.length} {penalties.length === 1 ? t('judge.room.penalty') : t('judge.room.penalties')} ({penalties.reduce((sum, p) => sum + p.value, 0).toFixed(1)} pts)
                                 </div>
                             )}
-                            <div className="text-[10px] text-gray-400 font-mono uppercase font-bold">Total Parcial</div>
+                            <div className="text-[10px] text-gray-400 font-mono uppercase font-bold">{t('judge.room.partialTotal')}</div>
                             <div className="text-2xl font-black text-k9-orange leading-none">{calculateCurrentTotal().toFixed(1)} <span className="text-sm text-gray-300">/ {activeTest.maxScore}</span></div>
                         </div>
                     </div>
@@ -289,7 +292,7 @@ export default function JudgeRoomPage() {
                         <div>
                             <h1 className="font-black text-xl uppercase text-k9-black leading-tight">{selectedCompetitor.handlerName}</h1>
                             <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase mt-1">
-                                <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">Cão: {selectedCompetitor.dogName}</span>
+                                <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{t('judge.room.dog')}: {selectedCompetitor.dogName}</span>
                                 <span className="text-orange-400">•</span>
                                 <span>{activeTest.title}</span>
                             </div>
@@ -301,7 +304,7 @@ export default function JudgeRoomPage() {
                         <div key={gIdx} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                             <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex justify-between items-center">
                                 <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">{group.name}</h3>
-                                <div className="text-xs font-mono font-bold text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">Ref: {group.items.reduce((a, b) => a + b.maxPoints, 0)} pts</div>
+                                <div className="text-xs font-mono font-bold text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">{t('judge.room.criteriaRef')}: {group.items.reduce((a, b) => a + b.maxPoints, 0)} pts</div>
                             </div>
                             <div className="p-5 space-y-8">
                                 {group.items.map(item => (
@@ -310,7 +313,7 @@ export default function JudgeRoomPage() {
                                             <label className="text-sm font-bold text-k9-black w-3/4">{item.label}</label>
                                             <span className="text-xs font-mono font-bold text-k9-orange bg-orange-50 px-2 py-1 rounded border border-orange-100">Max: {item.maxPoints}</span>
                                         </div>
-                                        
+
                                         <div className="flex items-center gap-4">
                                             <input
                                                 type="range"
@@ -343,32 +346,32 @@ export default function JudgeRoomPage() {
                     {(activeTest.penalties && activeTest.penalties.length > 0 || true) && (
                         <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5 shadow-sm">
                             <label className="block text-xs font-bold text-red-600 uppercase mb-3 flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4" /> Penalidades
+                                <AlertCircle className="w-4 h-4" /> {t('judge.room.penaltiesSection')}
                             </label>
-                            
+
                             {/* Applied Penalties List */}
                             {penalties.length > 0 && (
                                 <div className="space-y-3 mb-4">
                                     {penalties.map((penalty, index) => {
                                         const penaltyOption = activeTest.penalties?.find(p => p.id === penalty.penaltyId);
-                                        const label = penaltyOption?.label || (penalty.penaltyId === 'custom' ? 'Penalidade Manual' : 'Penalidade');
+                                        const label = penaltyOption?.label || (penalty.penaltyId === 'custom' ? t('judge.room.manualPenalty') : t('judge.room.penalty'));
                                         return (
                                             <div key={index} className="bg-white border-2 border-red-300 rounded-lg p-3">
                                                 <div className="flex items-start justify-between gap-3 mb-2">
                                                     <div className="flex-1">
                                                         <div className="font-bold text-sm text-red-700">{label}</div>
-                                                        <div className="text-xs text-red-500 font-mono">{penalty.value} pontos</div>
+                                                        <div className="text-xs text-red-500 font-mono">{penalty.value} {t('judge.room.penaltyPoints')}</div>
                                                     </div>
                                                     <button
                                                         onClick={() => setPenalties(penalties.filter((_, i) => i !== index))}
                                                         className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-colors"
-                                                        title="Remover penalidade"
+                                                        title={t('judge.room.cancel')}
                                                     >
                                                         <X className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                                 <div className="text-xs text-gray-700 bg-gray-50 p-2 rounded border border-gray-200">
-                                                    <span className="font-bold text-gray-500">Justificativa:</span> {penalty.description}
+                                                    <span className="font-bold text-gray-500">{t('judge.room.justification')}:</span> {penalty.description}
                                                 </div>
                                             </div>
                                         );
@@ -382,13 +385,13 @@ export default function JudgeRoomPage() {
                                     onClick={() => setShowPenaltyAdd(true)}
                                     className="w-full bg-white border-2 border-red-300 text-red-600 p-3 rounded-lg hover:bg-red-50 transition-colors font-bold uppercase text-xs flex items-center justify-center gap-2"
                                 >
-                                    + Adicionar Penalidade
+                                    {t('judge.room.addPenalty')}
                                 </button>
                             ) : (
                                 <div className="bg-white border-2 border-red-400 rounded-lg p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
                                     <div className="flex gap-4">
                                         <div className="flex-1">
-                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Tipo de Penalidade</label>
+                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">{t('judge.room.penaltyType')}</label>
                                             <select
                                                 value={isCustomPenalty ? 'custom' : (tempPenalty?.id || '')}
                                                 onChange={(e) => {
@@ -403,18 +406,18 @@ export default function JudgeRoomPage() {
                                                 }}
                                                 className="w-full bg-gray-50 border border-gray-200 text-k9-black p-2 rounded-md focus:outline-none focus:border-red-400 font-semibold"
                                             >
-                                                <option value="" disabled>Selecione...</option>
+                                                <option value="" disabled>{t('judge.room.penaltySelect')}</option>
                                                 {activeTest.penalties?.map(p => (
                                                     <option key={p.id} value={p.id}>
                                                         {p.label} ({p.value} pts)
                                                     </option>
                                                 ))}
-                                                <option value="custom">+ Penalidade Manual</option>
+                                                <option value="custom">{t('judge.room.penaltyCustom')}</option>
                                             </select>
                                         </div>
                                         {isCustomPenalty && (
                                             <div className="w-24">
-                                                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Valor</label>
+                                                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">{t('judge.room.penaltyValue')}</label>
                                                 <input
                                                     type="number"
                                                     step="0.5"
@@ -429,12 +432,12 @@ export default function JudgeRoomPage() {
 
                                     {(tempPenalty || isCustomPenalty) && (
                                         <div className="animate-in fade-in duration-300">
-                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Motivo / Justificativa (Obrigatório)</label>
+                                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">{t('judge.room.penaltyReason')}</label>
                                             <textarea
                                                 value={tempPenaltyDescription}
                                                 onChange={(e) => setTempPenaltyDescription(e.target.value)}
                                                 className="w-full bg-gray-50 border border-gray-200 text-k9-black p-2 rounded-md focus:outline-none focus:border-red-400 min-h-[80px] text-sm"
-                                                placeholder="Descreva detalhadamente o motivo desta penalidade..."
+                                                placeholder={t('judge.room.penaltyReasonPlaceholder')}
                                             />
                                         </div>
                                     )}
@@ -449,14 +452,14 @@ export default function JudgeRoomPage() {
                                             }}
                                             className="flex-1 px-4 py-2 text-xs font-bold uppercase text-gray-500 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
                                         >
-                                            Cancelar
+                                            {t('judge.room.penaltyCancel')}
                                         </button>
                                         <button
                                             onClick={handleAddPenalty}
                                             disabled={(!tempPenalty && !isCustomPenalty) || !tempPenaltyDescription.trim()}
                                             className="flex-1 px-4 py-2 text-xs font-bold uppercase bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
                                         >
-                                            Confirmar
+                                            {t('judge.room.penaltyConfirm')}
                                         </button>
                                     </div>
                                 </div>
@@ -467,13 +470,13 @@ export default function JudgeRoomPage() {
                     {/* Notes & Actions */}
                     <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4" /> Observações Técnicas
+                            <AlertCircle className="w-4 h-4" /> {t('judge.room.technicalNotes')}
                         </label>
                         <textarea
                             value={notes}
                             onChange={e => setNotes(e.target.value)}
                             className="w-full bg-gray-50 border-2 border-gray-200 text-k9-black p-4 rounded-xl focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 min-h-[120px] font-sans text-sm"
-                            placeholder="Insira detalhes adicionais, justificativas ou comentários sobre a performance..."
+                            placeholder={t('judge.room.notesPlaceholder')}
                         ></textarea>
                     </div>
 
@@ -483,9 +486,9 @@ export default function JudgeRoomPage() {
                             disabled={submitting}
                             className="w-full bg-black hover:bg-gray-900 text-white font-black uppercase py-5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:shadow-2xl hover:-translate-y-1 flex items-center justify-center gap-3 text-lg border-2 border-transparent"
                         >
-                            {submitting ? 'Processando envio...' : (
+                            {submitting ? t('judge.room.submitting') : (
                                 <>
-                                    <CheckCircle2 className="w-6 h-6 text-green-400" /> Confirmar Avaliação
+                                    <CheckCircle2 className="w-6 h-6 text-green-400" /> {t('judge.room.confirmEvaluation')}
                                 </>
                             )}
                         </button>
@@ -497,17 +500,17 @@ export default function JudgeRoomPage() {
 
     return (
         <div className="min-h-screen bg-k9-white text-k9-black font-sans relative">
-            
+
             {/* Header */}
             <div className="bg-black border-b-4 border-k9-orange text-white shadow-lg sticky top-0 z-30">
                 <div className="max-w-4xl mx-auto px-6 py-6">
                     <div className="flex items-center justify-between">
                         <div>
-                             <button 
-                                onClick={() => selectedTestView ? handleBackToTests() : router.push('/judge')} 
+                            <button
+                                onClick={() => selectedTestView ? handleBackToTests() : router.push('/judge')}
                                 className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer"
-                             >
-                                <ArrowLeft className="w-3 h-3" /> {selectedTestView ? 'Voltar para Provas' : 'Voltar'}
+                            >
+                                <ArrowLeft className="w-3 h-3" /> {selectedTestView ? t('judge.room.backToTests') : t('judge.room.back')}
                             </button>
                             <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter leading-none flex items-center gap-4">
                                 <div className="w-10 h-10 relative flex items-center justify-center shrink-0">
@@ -516,13 +519,16 @@ export default function JudgeRoomPage() {
                                 {selectedTestView ? selectedTestView.title : room.name}
                             </h1>
                             <p className="text-k9-orange text-[10px] md:text-xs uppercase tracking-[0.2em] mt-1 font-bold">
-                                {selectedTestView ? `AVALIANDO: ${selectedTestView.modality}` : 'Painel de Avaliação'}
+                                {selectedTestView ? `${t('judge.room.evaluating')}: ${selectedTestView.modality}` : t('judge.room.evaluationPanel')}
                             </p>
                         </div>
-                        <div className="hidden md:block">
-                            <div className="bg-gray-900 border border-gray-800 px-4 py-2 rounded-lg text-center">
-                                <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Status</div>
-                                <div className="text-green-500 font-black uppercase text-xs flex items-center gap-1"><div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div> Online</div>
+                        <div className="flex items-center gap-3">
+                            <LanguageSwitcher />
+                            <div className="hidden md:block">
+                                <div className="bg-gray-900 border border-gray-800 px-4 py-2 rounded-lg text-center">
+                                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{t('judge.room.statusLabel')}</div>
+                                    <div className="text-green-500 font-black uppercase text-xs flex items-center gap-1"><div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>{t('judge.room.online')}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -538,8 +544,8 @@ export default function JudgeRoomPage() {
                                 <List className="w-5 h-5 text-orange-600" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-black uppercase text-k9-black leading-tight">Selecione uma Prova</h2>
-                                <p className="text-xs text-gray-400 font-bold uppercase">Escolha qual prova deseja avaliar agora</p>
+                                <h2 className="text-lg font-black uppercase text-k9-black leading-tight">{t('judge.room.selectTest')}</h2>
+                                <p className="text-xs text-gray-400 font-bold uppercase">{t('judge.room.selectTestHint')}</p>
                             </div>
                         </div>
 
@@ -547,7 +553,7 @@ export default function JudgeRoomPage() {
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Pesquisar prova por nome ou número..."
+                                placeholder={t('judge.room.searchTest')}
                                 value={testSearch}
                                 onChange={e => setTestSearch(e.target.value)}
                                 className="w-full bg-white border-2 border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-k9-black focus:outline-none focus:border-k9-orange focus:ring-4 focus:ring-orange-50 transition-all shadow-sm placeholder:text-gray-300"
@@ -555,7 +561,7 @@ export default function JudgeRoomPage() {
                         </div>
 
                         {(() => {
-                            const normalize = (text: string) => 
+                            const normalize = (text: string) =>
                                 text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
 
                             const assignedTests = getAssignedTests()
@@ -565,7 +571,7 @@ export default function JudgeRoomPage() {
                                     const titleMatch = normalize(t.title).includes(s);
                                     const modalityMatch = t.modality ? normalize(t.modality).includes(s) : false;
                                     const numberMatch = t.testNumber ? t.testNumber.toString().includes(s) : false;
-                                    
+
                                     return titleMatch || modalityMatch || numberMatch;
                                 })
                                 .sort((a, b) => {
@@ -577,7 +583,7 @@ export default function JudgeRoomPage() {
                                 return (
                                     <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
                                         <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                                        <p className="uppercase font-bold text-sm tracking-wide">Nenhuma prova encontrada</p>
+                                        <p className="uppercase font-bold text-sm tracking-wide">{t('judge.room.noTestsFound')}</p>
                                     </div>
                                 );
                             }
@@ -610,8 +616,8 @@ export default function JudgeRoomPage() {
                                                                 onClick={() => handleSelectTest(test)}
                                                                 className={`
                                                                     group relative w-full text-left p-5 rounded-2xl border transition-all flex items-center justify-between shadow-sm
-                                                                    ${isAllDone 
-                                                                        ? 'bg-green-50/50 border-green-200' 
+                                                                    ${isAllDone
+                                                                        ? 'bg-green-50/50 border-green-200'
                                                                         : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg'
                                                                     }
                                                                 `}
@@ -624,7 +630,7 @@ export default function JudgeRoomPage() {
                                                                     <div>
                                                                         <h4 className={`font-black uppercase text-base ${isAllDone ? 'text-green-900' : 'text-k9-black'}`}>{test.title}</h4>
                                                                         <div className="flex items-center gap-2 mt-0.5 font-bold uppercase text-[9px]">
-                                                                            <span className={isAllDone ? 'text-green-600' : 'text-gray-400'}>{doneCount}/{testCompetitors.length} AVALIADOS</span>
+                                                                            <span className={isAllDone ? 'text-green-600' : 'text-gray-400'}>{doneCount}/{testCompetitors.length} {t('judge.room.evaluated')}</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -657,8 +663,8 @@ export default function JudgeRoomPage() {
                                     <Users className="w-5 h-5 text-purple-600" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-black uppercase text-k9-black leading-tight">Fila de Competição</h2>
-                                    <p className="text-xs text-gray-400 font-bold uppercase">Competidores inscritos nesta modalidade</p>
+                                    <h2 className="text-lg font-black uppercase text-k9-black leading-tight">{t('judge.room.competitorQueue')}</h2>
+                                    <p className="text-xs text-gray-400 font-bold uppercase">{t('judge.room.competitorQueueHint')}</p>
                                 </div>
                             </div>
                         </div>
@@ -670,12 +676,12 @@ export default function JudgeRoomPage() {
                                     const isDone = isTestEvaluated(comp.id, selectedTestView.id);
 
                                     return (
-                                        <div 
-                                            key={comp.id} 
+                                        <div
+                                            key={comp.id}
                                             className={`
                                                 relative overflow-hidden rounded-2xl border transition-all group
-                                                ${isDone 
-                                                    ? 'bg-green-50/30 border-green-100 opacity-90' 
+                                                ${isDone
+                                                    ? 'bg-green-50/30 border-green-100 opacity-90'
                                                     : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg transform hover:-translate-y-1'
                                                 }
                                             `}
@@ -692,20 +698,20 @@ export default function JudgeRoomPage() {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    
+
                                                     <div className="flex-1 relative z-10 pt-0.5 min-w-0">
                                                         <h3 className={`font-black uppercase text-sm leading-tight truncate ${isDone ? 'text-green-900' : 'text-k9-black'}`}>
                                                             {comp.handlerName}
                                                         </h3>
-                                                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Condutor</div>
-                                                        
+                                                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{t('judge.room.conductor')}</div>
+
                                                         <p className="text-xs font-bold text-k9-orange uppercase mt-1 font-mono truncate">
-                                                            Cão: {comp.dogName}
+                                                            {t('judge.room.dog')}: {comp.dogName}
                                                         </p>
-                                                        
+
                                                         {isDone && (
                                                             <div className="mt-2 flex items-center gap-1.5 text-[10px] font-black text-green-600 uppercase">
-                                                                <CheckCircle2 className="w-3.5 h-3.5" /> Avaliado
+                                                                <CheckCircle2 className="w-3.5 h-3.5" /> {t('judge.room.evaluated2')}
                                                             </div>
                                                         )}
                                                     </div>
@@ -721,11 +727,11 @@ export default function JudgeRoomPage() {
                                                                 : 'bg-orange-50 border-orange-100 text-orange-600 hover:bg-orange-100 hover:border-orange-200 active:scale-95'
                                                             }
                                                         `}
-                                                        title={isDone ? "Já Avaliado" : "Avaliar"}
+                                                        title={isDone ? t('judge.room.alreadyEvaluated') : t('judge.room.evaluate')}
                                                     >
                                                         {isDone ? <CheckCircle2 className="w-6 h-6" /> : <Trophy className="w-6 h-6" />}
                                                         <span className="text-[7px] font-black uppercase text-center leading-none mt-1">
-                                                            {isDone ? 'Feito' : 'Avaliar'}
+                                                            {isDone ? t('judge.room.done') : t('judge.room.evaluate')}
                                                         </span>
                                                     </button>
                                                 </div>

@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig } from '@/types/schema'; 
+import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig } from '@/types/schema';
 import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities } from '@/services/adminService';
 import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import {
     ArrowLeft,
     Users,
@@ -32,6 +34,7 @@ import { CldUploadWidget } from 'next-cloudinary';
 export default function RoomDetailsPage() {
     const params = useParams();
     const router = useRouter();
+    const { t } = useTranslation();
     const roomId = params.id as string;
 
     const [room, setRoom] = useState<Room | null>(null);
@@ -186,7 +189,7 @@ export default function RoomDetailsPage() {
 
     const saveCompetitor = async () => {
         if (!compForm.handlerName || !compForm.dogName || !compForm.modality) {
-            alert('Preencha os campos obrigatórios, incluindo a modalidade.');
+            alert(t('admin.competitors.requiredFields'));
             return;
         }
         console.log('Saving competitor with form data:', compForm);
@@ -206,7 +209,7 @@ export default function RoomDetailsPage() {
                     dogName: compForm.dogName,
                     dogBreed: compForm.dogBreed,
                     modality: compForm.modality as Modality,
-                    competitorNumber: Math.floor(Math.random() * 900) + 100, 
+                    competitorNumber: Math.floor(Math.random() * 900) + 100,
                     photoUrl: compForm.photoUrl
                 });
             }
@@ -215,10 +218,10 @@ export default function RoomDetailsPage() {
             setSelectedCompetitorTestIds([]);
             setEditingCompetitorId(null);
             setShowAddCompetitor(false);
-            loadRoomData(); 
+            loadRoomData();
         } catch (err) {
             console.error(err);
-            alert('Erro ao salvar competidor');
+            alert(t('admin.competitors.saveError'));
         }
     };
 
@@ -235,9 +238,9 @@ export default function RoomDetailsPage() {
     const editTest = (test: TestTemplate) => {
         setTemplateTitle(test.title);
         setSelectedModality(test.modality || '');
-        
+
         const allItems = test.groups.flatMap(g => g.items);
-        
+
         setScoreItems(allItems);
         setPenaltyItems(test.penalties || []);
         setEditingTestId(test.id);
@@ -246,7 +249,7 @@ export default function RoomDetailsPage() {
 
     const saveTest = async () => {
         if (!selectedModality) {
-            setGenMsg('Selecione uma modalidade.');
+            setGenMsg(t('admin.tests.savePenaltyError'));
             return;
         }
 
@@ -258,7 +261,7 @@ export default function RoomDetailsPage() {
             if (editingTestId) {
                 const currentTest = tests.find(t => t.id === editingTestId);
                 let testNumber = currentTest?.testNumber;
-                
+
                 if (currentTest?.modality !== selectedModality) {
                     testNumber = tests.filter(t => t.modality === selectedModality).length + 1;
                 }
@@ -295,7 +298,7 @@ export default function RoomDetailsPage() {
             loadRoomData();
         } catch (e) {
             console.error(e);
-            setGenMsg('Erro ao salvar prova.');
+            setGenMsg(t('admin.tests.saveError'));
         }
     };
 
@@ -305,33 +308,33 @@ export default function RoomDetailsPage() {
         setNewJudgeForm({
             name: judge.name,
             email: judge.email,
-            password: '' 
+            password: ''
         });
         const currentModalities = room?.judgeModalities?.[judge.uid] || [];
         setSelectedModalities(currentModalities as Modality[]);
-        setJudgeMode('new'); 
+        setJudgeMode('new');
         setShowAddJudge(true);
     };
 
     const handleAddJudge = async () => {
         try {
             if (editingJudge) {
-                if (!newJudgeForm.name) return alert('Nome é obrigatório');
+                if (!newJudgeForm.name) return alert(t('admin.judges.nameRequired'));
                 await updateUser(editingJudge.uid, { name: newJudgeForm.name });
                 await updateJudgeModalityAssignments(roomId, editingJudge.uid, selectedModalities);
             } else {
                 if (judgeMode === 'existing') {
-                    if (!selectedJudgeId) return alert('Selecione um juiz');
+                    if (!selectedJudgeId) return alert(t('admin.judges.selectJudgeRequired'));
                     await addJudgeToRoom(roomId, selectedJudgeId);
                     await updateJudgeModalityAssignments(roomId, selectedJudgeId, []);
                 } else {
-                    if (!newJudgeForm.name || !newJudgeForm.email || !newJudgeForm.password) return alert('Preencha todos os campos');
+                    if (!newJudgeForm.name || !newJudgeForm.email || !newJudgeForm.password) return alert(t('admin.judges.allFieldsRequired'));
                     const newUid = await createJudgeByAdmin(newJudgeForm.email, newJudgeForm.password, newJudgeForm.name);
                     await addJudgeToRoom(roomId, newUid);
                     await updateJudgeModalityAssignments(roomId, newUid, []);
                 }
             }
-            
+
             // Reset
             setShowAddJudge(false);
             setNewJudgeForm({ name: '', email: '', password: '' });
@@ -341,7 +344,7 @@ export default function RoomDetailsPage() {
             loadRoomData();
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            alert(msg || "Erro ao salvar juiz");
+            alert(msg || t('admin.judges.saveError'));
         }
     };
 
@@ -375,8 +378,8 @@ export default function RoomDetailsPage() {
         }
     };
 
-    if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">[CARREGANDO DADOS TÁTICOS...]</div>;
-    if (!room) return <div className="p-8 text-k9-black">Sala não encontrada.</div>;
+    if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">{t('admin.loading')}</div>;
+    if (!room) return <div className="p-8 text-k9-black">{t('admin.roomNotFound')}</div>;
 
     return (
         <div className="min-h-screen bg-k9-white text-k9-black">
@@ -385,7 +388,7 @@ export default function RoomDetailsPage() {
                 <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
                 <div className="max-w-6xl mx-auto px-6 py-8 relative z-10">
                     <button onClick={() => router.push('/admin')} className="inline-flex items-center gap-2 px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-md bg-gray-900 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-white transition-colors cursor-pointer mb-6">
-                        <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
+                        <ArrowLeft className="w-4 h-4" /> {t('admin.back')}
                     </button>
                     <div className="flex items-center justify-between">
                         <div>
@@ -399,16 +402,19 @@ export default function RoomDetailsPage() {
                                 <span className="text-xs font-mono text-k9-orange bg-orange-900/20 px-3 py-1 rounded border border-orange-900/50">ID: {room.id}</span>
                                 <span className={`text-xs font-bold uppercase flex items-center gap-2 px-3 py-1 rounded-full border ${room.active ? 'bg-green-900/20 text-green-400 border-green-900/30' : 'bg-red-900/20 text-red-400 border-red-900/30'}`}>
                                     <div className={`w-2 h-2 rounded-full ${room.active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                                    {room.active ? 'Operação Ativa' : 'Finalizada'}
+                                    {room.active ? t('admin.active') : t('admin.finished')}
                                 </span>
                             </div>
                         </div>
-                        <button
-                            onClick={handleLogout}
-                            className="text-white hover:text-red-400 text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-4 py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 relative z-10 shadow-sm"
-                        >
-                            <LogOut className="w-4 h-4" /> Sair
-                        </button>
+                        <div className="flex items-center gap-3 relative z-10">
+                            <LanguageSwitcher />
+                            <button
+                                onClick={handleLogout}
+                                className="text-white hover:text-red-400 text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-4 py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 shadow-sm"
+                            >
+                                <LogOut className="w-4 h-4" /> {t('admin.logout')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -421,28 +427,28 @@ export default function RoomDetailsPage() {
                         onClick={() => setActiveTab('tests')}
                         className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'tests' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
-                        <FileText className="w-4 h-4" /> Provas ({tests.length})
+                        <FileText className="w-4 h-4" /> {t('admin.tabs.tests')} ({tests.length})
                     </button>
 
                     <button
                         onClick={() => setActiveTab('competitors')}
                         className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'competitors' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
-                        <Users className="w-4 h-4" /> Competidores ({competitors.length})
+                        <Users className="w-4 h-4" /> {t('admin.tabs.competitors')} ({competitors.length})
                     </button>
 
                     <button
                         onClick={() => setActiveTab('judges')}
                         className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'judges' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
-                        <ShieldCheck className="w-4 h-4" /> Juízes ({room?.judges?.length || 0})
+                        <ShieldCheck className="w-4 h-4" /> {t('admin.tabs.judges')} ({room?.judges?.length || 0})
                     </button>
 
                     <button
                         onClick={() => setActiveTab('rankings')}
                         className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'rankings' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
-                        <Trophy className="w-4 h-4" /> Resultados
+                        <Trophy className="w-4 h-4" /> {t('admin.tabs.results')}
                     </button>
                 </div>
 
@@ -458,14 +464,14 @@ export default function RoomDetailsPage() {
                                 }}
                                 className={`px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-green-50 text-green-700 border-green-100 hover:bg-green-100`}
                             >
-                                <Plus className="w-4 h-4 text-green-700" /> Registar Novo Competidor
+                                <Plus className="w-4 h-4 text-green-700" /> {t('admin.competitors.addNew')}
                             </button>
                         </div>
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {competitors.map(comp => {
                                 const testCount = tests.filter(t => t.modality === comp.modality).length;
-                                
+
                                 return (
                                     <div key={comp.id} className="bg-white border border-gray-100 p-5 pl-8 rounded-2xl hover:shadow-lg transform hover:-translate-y-1 transition-all flex items-start justify-between gap-6 group min-h-[130px]">
                                         <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -478,31 +484,31 @@ export default function RoomDetailsPage() {
                                             </div>
                                             <div className="flex-1 pt-0.5 min-w-0">
                                                 <div className="font-black text-k9-black uppercase text-sm leading-tight truncate">{comp.handlerName}</div>
-                                                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Condutor</div>
-                                                <div className="text-xs text-k9-orange font-mono uppercase mt-1 font-bold truncate">Cão: {comp.dogName}</div>
+                                                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{t('admin.competitors.handler')}</div>
+                                                <div className="text-xs text-k9-orange font-mono uppercase mt-1 font-bold truncate">{t('admin.competitors.dog')}: {comp.dogName}</div>
                                                 <div className="flex flex-col gap-1.5 mt-3">
-                                                        {modalities.includes(comp.modality) && (
-                                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-100 inline-block">
-                                                                {comp.modality}
-                                                            </span>
-                                                        )}
+                                                    {modalities.includes(comp.modality) && (
+                                                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-100 inline-block">
+                                                            {comp.modality}
+                                                        </span>
+                                                    )}
                                                     <div className="flex items-center">
                                                         <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded inline-block ${testCount > 0 ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-gray-50 text-gray-400 border border-gray-200'}`}>
-                                                            {testCount > 0 ? `${testCount} ${testCount === 1 ? 'Prova' : 'Provas'}` : 'Sem Provas'}
+                                                            {testCount > 0 ? `${testCount} ${testCount === 1 ? t('admin.competitors.withTest') : t('admin.competitors.withTests')}` : t('admin.competitors.noTests')}
                                                         </span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-2 pt-0.5 shrink-0">
-                                            <button 
+                                            <button
                                                 onClick={() => handleEditCompetitor(comp)}
                                                 className="inline-flex items-center justify-center w-8 h-8 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors shadow-sm"
                                                 title="Editar"
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={() => handleDeleteCompetitor(comp.id, comp.handlerName)}
                                                 className="inline-flex items-center justify-center w-8 h-8 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer shadow-sm"
                                                 title="Remover Competidor"
@@ -513,13 +519,13 @@ export default function RoomDetailsPage() {
                                     </div>
                                 );
                             })}
-                            {competitors.length === 0 && <div className="text-gray-500 col-span-full text-center py-8">Nenhum competidor registrado.</div>}
+                            {competitors.length === 0 && <div className="text-gray-500 col-span-full text-center py-8">{t('admin.competitors.noCompetitors')}</div>}
                         </div>
 
                         <Modal
                             isOpen={showAddCompetitor}
                             onClose={() => { setShowAddCompetitor(false); setEditingCompetitorId(null); }}
-                            title={<div className="flex items-center gap-2 text-green-700"><UserPlus className="w-5 h-5" /> {editingCompetitorId ? 'Editar Competidor' : 'Novo Registro de Competidor'}</div>}
+                            title={<div className="flex items-center gap-2 text-green-700"><UserPlus className="w-5 h-5" /> {editingCompetitorId ? t('admin.competitors.edit') : t('admin.competitors.newRegistration')}</div>}
                             maxWidth="max-w-xl"
                         >
                             <div className="space-y-4">
@@ -531,8 +537,8 @@ export default function RoomDetailsPage() {
                                             <Camera className="w-8 h-8 text-gray-300" />
                                         )}
                                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 z-10">
-                                            <CldUploadWidget 
-                                                uploadPreset="torneiok9" 
+                                            <CldUploadWidget
+                                                uploadPreset="torneiok9"
                                                 onSuccess={(result, { widget }) => {
                                                     if (result?.info && typeof result.info !== 'string') {
                                                         const url = result.info.secure_url;
@@ -541,65 +547,65 @@ export default function RoomDetailsPage() {
                                                 }}
                                             >
                                                 {({ open }) => (
-                                                    <button 
+                                                    <button
                                                         type="button"
                                                         onClick={() => open()}
                                                         className="text-[9px] font-black uppercase text-white hover:text-k9-orange transition-colors cursor-pointer"
                                                     >
-                                                        {compForm.photoUrl ? 'Trocar Foto' : 'Enviar Foto'}
+                                                        {compForm.photoUrl ? t('admin.competitors.changePhoto') : t('admin.competitors.uploadPhoto')}
                                                     </button>
                                                 )}
                                             </CldUploadWidget>
                                             {compForm.photoUrl && (
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={() => setCompForm(prev => ({ ...prev, photoUrl: '' }))}
                                                     className="text-[9px] font-black uppercase text-red-400 hover:text-red-500 transition-colors cursor-pointer border-t border-white/20 pt-1 w-full"
                                                 >
-                                                    Remover
+                                                    {t('admin.competitors.removePhoto')}
                                                 </button>
                                             )}
                                         </div>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 mt-2 uppercase font-bold tracking-tighter">Foto do Binômio / Cão</p>
+                                    <p className="text-[10px] text-gray-400 mt-2 uppercase font-bold tracking-tighter">{t('admin.competitors.photoLabel')}</p>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="col-span-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Nome do Condutor</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">{t('admin.competitors.handlerName')}</label>
                                         <input
-                                            placeholder="Nome do Condutor"
+                                            placeholder={t('admin.competitors.handlerName')}
                                             value={compForm.handlerName}
                                             onChange={e => setCompForm({ ...compForm, handlerName: e.target.value })}
                                             className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Nome do Cão</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">{t('admin.competitors.dogName')}</label>
                                         <input
-                                            placeholder="Nome do Cão"
+                                            placeholder={t('admin.competitors.dogName')}
                                             value={compForm.dogName}
                                             onChange={e => setCompForm({ ...compForm, dogName: e.target.value })}
                                             className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Raça</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">{t('admin.competitors.breed')}</label>
                                         <input
-                                            placeholder="Raça"
+                                            placeholder={t('admin.competitors.breed')}
                                             value={compForm.dogBreed}
                                             onChange={e => setCompForm({ ...compForm, dogBreed: e.target.value })}
                                             className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
                                         />
                                     </div>
                                     <div className="col-span-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Modalidade Principal</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">{t('admin.competitors.modalityLabel')}</label>
                                         <select
                                             value={compForm.modality}
                                             onChange={e => setCompForm({ ...compForm, modality: e.target.value as Modality })}
                                             className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
                                         >
-                                            <option value="">-- Selecione a Modalidade --</option>
+                                            <option value="">{t('admin.competitors.selectModality')}</option>
                                             {modalities.map(m => (
                                                 <option key={m} value={m}>{m}</option>
                                             ))}
@@ -608,14 +614,14 @@ export default function RoomDetailsPage() {
                                 </div>
 
                                 {/* Test Selection (Optional/Override) */}
-                                <div className="hidden"> 
+                                <div className="hidden">
                                     <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Provas Atribuídas (Manual)</label>
                                     {/* Mantido invisível por agora conforme nova regra de modalidade */}
                                 </div>
                                 <div className="flex gap-4 pt-6 mt-4 border-t border-gray-100">
-                                    <button onClick={() => { setShowAddCompetitor(false); setEditingCompetitorId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-50 text-gray-400 border-gray-100 transition-all hover:bg-gray-100">Cancelar</button>
+                                    <button onClick={() => { setShowAddCompetitor(false); setEditingCompetitorId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-50 text-gray-400 border-gray-100 transition-all hover:bg-gray-100">{t('admin.competitors.cancel')}</button>
                                     <button onClick={saveCompetitor} className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-green-600 text-white border-green-600 hover:bg-green-700 transition-all shadow-md active:scale-95">
-                                        {editingCompetitorId ? 'ATUALIZAR DADOS' : 'SALVAR COMPETIDOR'}
+                                        {editingCompetitorId ? t('admin.competitors.update') : t('admin.competitors.save')}
                                     </button>
                                 </div>
                             </div>
@@ -629,7 +635,7 @@ export default function RoomDetailsPage() {
                         <div className="flex justify-between items-center mb-6">
                             <button
                                 onClick={async () => {
-                                    if (!confirm('Deseja numerar automaticamente todas as provas desta sala?')) return;
+                                    if (!confirm(t('admin.tests.autoNumberConfirm'))) return;
                                     try {
                                         const grouped: Record<string, TestTemplate[]> = {};
                                         tests.forEach(t => {
@@ -647,16 +653,16 @@ export default function RoomDetailsPage() {
                                                 });
                                             }
                                         }
-                                        alert('Provas numeradas com sucesso!');
+                                        alert(t('admin.tests.autoNumberSuccess'));
                                         loadRoomData();
                                     } catch (err) {
                                         console.error(err);
-                                        alert('Erro ao numerar provas.');
+                                        alert(t('admin.tests.autoNumberError'));
                                     }
                                 }}
                                 className="px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg border-2 border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition-all flex items-center gap-2"
                             >
-                                <ShieldCheck className="w-4 h-4" /> Numerar Automaticamente
+                                <ShieldCheck className="w-4 h-4" /> {t('admin.tests.autoNumber')}
                             </button>
 
                             <button
@@ -669,7 +675,7 @@ export default function RoomDetailsPage() {
                                 }}
                                 className={`px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100`}
                             >
-                                <Wand2 className="w-4 h-4 text-purple-700" /> Criar Prova
+                                <Wand2 className="w-4 h-4 text-purple-700" /> {t('admin.tests.create')}
                             </button>
                         </div>
 
@@ -688,7 +694,7 @@ export default function RoomDetailsPage() {
                                             <div className="text-[10px] text-gray-400 mt-1 flex gap-2 font-bold items-center">
                                                 <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-600 uppercase tracking-tighter">{test.modality}</span>
                                                 <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                                                <span className="text-gray-400">Max: {test.maxScore} pts</span>
+                                                <span className="text-gray-400">{t('admin.tests.maxScore')}: {test.maxScore} {t('admin.tests.pts')}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -708,39 +714,39 @@ export default function RoomDetailsPage() {
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                         <div className="px-3 py-1 bg-orange-50 text-orange-600 text-xs font-bold rounded uppercase border border-orange-100">
-                                            Ativo
+                                            {t('admin.tests.active')}
                                         </div>
                                     </div>
                                 </div>
                             ))}
-                            {tests.length === 0 && <div className="text-gray-500 text-center py-8">Nenhuma prova cadastrada.</div>}
+                            {tests.length === 0 && <div className="text-gray-500 text-center py-8">{t('admin.tests.noTests')}</div>}
                         </div>
 
                         <Modal
                             isOpen={showAddTest}
                             onClose={() => { setShowAddTest(false); setEditingTestId(null); }}
-                            title={<div className="flex items-center gap-2"><Wand2 className="text-police-gold w-5 h-5" /> {editingTestId ? 'Editar Prova' : 'Criar Prova'}</div>}
+                            title={<div className="flex items-center gap-2"><Wand2 className="text-police-gold w-5 h-5" /> {editingTestId ? t('admin.tests.editTitle') : t('admin.tests.createTitle')}</div>}
                             maxWidth="max-w-2xl"
                         >
                             <div className="">
                                 <div className="mb-6">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Título</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">{t('admin.tests.title')}</label>
                                     <input
                                         value={templateTitle}
                                         onChange={e => setTemplateTitle(e.target.value)}
                                         className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1"
-                                        placeholder="Ex: Busca e Captura"
+                                        placeholder={t('admin.tests.titlePlaceholder')}
                                     />
                                 </div>
 
                                 <div className="mb-6">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Modalidade</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">{t('admin.tests.modality')}</label>
                                     <select
                                         value={selectedModality}
                                         onChange={e => setSelectedModality(e.target.value as Modality)}
                                         className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1"
                                     >
-                                        <option value="">-- Selecione a Modalidade --</option>
+                                        <option value="">{t('admin.tests.selectModality')}</option>
                                         {modalities.map(m => (
                                             <option key={m} value={m}>{m}</option>
                                         ))}
@@ -750,7 +756,7 @@ export default function RoomDetailsPage() {
                                 {/* Evaluation Items */}
                                 <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
                                     <div className="flex justify-between mb-2">
-                                        <h3 className="text-sm font-bold text-k9-black uppercase">Critérios de Avaliação</h3>
+                                        <h3 className="text-sm font-bold text-k9-black uppercase">{t('admin.tests.criteria')}</h3>
                                         <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{totalScore} pts</span>
                                     </div>
                                     <div className="space-y-2 mb-3">
@@ -763,11 +769,11 @@ export default function RoomDetailsPage() {
                                                 </div>
                                             </div>
                                         ))}
-                                        {scoreItems.length === 0 && <div className="text-xs text-gray-400 font-mono text-center">Nenhum critério adicionado. Utilize os campos abaixo.</div>}
+                                        {scoreItems.length === 0 && <div className="text-xs text-gray-400 font-mono text-center">{t('admin.tests.noCriteria')}</div>}
                                     </div>
                                     <div className="flex gap-2">
-                                        <input id="score-lbl" placeholder="Critério (ex: Obediência)" className="flex-1 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
-                                        <input id="score-pts" placeholder="Pts" type="number" step="0.5" defaultValue={10} className="w-16 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
+                                        <input id="score-lbl" placeholder={t('admin.tests.criteriaPlaceholder')} className="flex-1 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
+                                        <input id="score-pts" placeholder={t('admin.tests.ptsPh')} type="number" step="0.5" defaultValue={10} className="w-16 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
                                         <button
                                             onClick={() => {
                                                 const l = (document.getElementById('score-lbl') as HTMLInputElement).value;
@@ -775,15 +781,15 @@ export default function RoomDetailsPage() {
                                                 if (l && p) { addScoreItem(l, p); (document.getElementById('score-lbl') as HTMLInputElement).value = ''; (document.getElementById('score-pts') as HTMLInputElement).value = ''; }
                                             }}
                                             className="bg-gray-100 text-k9-black px-3 rounded text-xs uppercase font-bold cursor-pointer"
-                                        >Add</button>
+                                        >{t('admin.tests.add')}</button>
                                     </div>
                                 </div>
 
                                 {/* Penalty Items */}
                                 <div className="mb-6 p-4 bg-red-50 rounded border border-red-100">
                                     <div className="flex justify-between mb-2">
-                                        <h3 className="text-sm font-bold text-red-900 uppercase">Penalidades Padrão</h3>
-                                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded text-red-600 bg-white border border-red-100">{penaltyItems.length} itens</span>
+                                        <h3 className="text-sm font-bold text-red-900 uppercase">{t('admin.tests.penalties')}</h3>
+                                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded text-red-600 bg-white border border-red-100">{penaltyItems.length} {t('admin.tests.items')}</span>
                                     </div>
                                     <div className="space-y-2 mb-3">
                                         {penaltyItems.map((item, i) => (
@@ -791,8 +797,8 @@ export default function RoomDetailsPage() {
                                                 <span className="text-red-900 font-bold">{item.label}</span>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-red-600 font-mono font-bold">{item.value} pts</span>
-                                                    <button 
-                                                        onClick={() => setPenaltyItems(penaltyItems.filter((_, idx) => idx !== i))} 
+                                                    <button
+                                                        onClick={() => setPenaltyItems(penaltyItems.filter((_, idx) => idx !== i))}
                                                         className="text-red-400 hover:text-red-600 cursor-pointer"
                                                     >
                                                         <X className="w-4 h-4" />
@@ -800,19 +806,19 @@ export default function RoomDetailsPage() {
                                                 </div>
                                             </div>
                                         ))}
-                                        {penaltyItems.length === 0 && <div className="text-xs text-red-400 font-mono text-center py-2">Nenhuma penalidade configurada.</div>}
+                                        {penaltyItems.length === 0 && <div className="text-xs text-red-400 font-mono text-center py-2">{t('admin.tests.noPenalties')}</div>}
                                     </div>
                                     <div className="flex gap-2">
-                                        <input id="penalty-lbl" placeholder="Ex: Mordida faltosa" className="flex-1 bg-white border border-red-200 text-k9-black text-xs p-2 rounded" />
+                                        <input id="penalty-lbl" placeholder={t('admin.tests.penaltyPlaceholder')} className="flex-1 bg-white border border-red-200 text-k9-black text-xs p-2 rounded" />
                                         <input id="penalty-pts" placeholder="Pts" type="number" step="0.5" defaultValue={-2.0} className="w-16 bg-white border border-red-200 text-red-600 text-xs p-2 rounded font-bold" />
                                         <button
                                             onClick={() => {
                                                 const l = (document.getElementById('penalty-lbl') as HTMLInputElement).value;
                                                 const v = parseFloat((document.getElementById('penalty-pts') as HTMLInputElement).value);
-                                                if (l && !isNaN(v)) { 
-                                                    setPenaltyItems([...penaltyItems, { id: `penalty-${Date.now()}`, label: l, value: v }]); 
-                                                    (document.getElementById('penalty-lbl') as HTMLInputElement).value = ''; 
-                                                    (document.getElementById('penalty-pts') as HTMLInputElement).value = '-2.0'; 
+                                                if (l && !isNaN(v)) {
+                                                    setPenaltyItems([...penaltyItems, { id: `penalty-${Date.now()}`, label: l, value: v }]);
+                                                    (document.getElementById('penalty-lbl') as HTMLInputElement).value = '';
+                                                    (document.getElementById('penalty-pts') as HTMLInputElement).value = '-2.0';
                                                 }
                                             }}
                                             className="bg-red-100 text-red-700 px-3 rounded text-xs uppercase font-black cursor-pointer hover:bg-red-200 transition-colors"
@@ -823,13 +829,13 @@ export default function RoomDetailsPage() {
                                 {genMsg && <div className="text-red-400 text-xs font-mono mb-4">{genMsg}</div>}
 
                                 <div className="flex gap-4">
-                                    <button onClick={() => { setShowAddTest(false); setEditingTestId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-800 text-gray-300 border-gray-700 transition-all">Cancelar</button>
+                                    <button onClick={() => { setShowAddTest(false); setEditingTestId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-800 text-gray-300 border-gray-700 transition-all">{t('admin.tests.cancel')}</button>
                                     <button
                                         onClick={saveTest}
                                         disabled={!templateTitle || !selectedModality || scoreItems.length === 0}
                                         className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-black border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                     >
-                                        {editingTestId ? 'Atualizar Prova' : 'Salvar Prova'}
+                                        {editingTestId ? t('admin.tests.update') : t('admin.tests.save')}
                                     </button>
                                 </div>
                             </div>
@@ -849,7 +855,7 @@ export default function RoomDetailsPage() {
                                 }}
                                 className="px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-md bg-yellow-50 text-yellow-700 border border-yellow-100 hover:bg-yellow-100 flex items-center gap-2 cursor-pointer shadow-sm"
                             >
-                                <Gavel className="w-4 h-4 text-yellow-700" /> Criar Juiz
+                                <Gavel className="w-4 h-4 text-yellow-700" /> {t('admin.judges.create')}
                             </button>
                         </div>
 
@@ -857,7 +863,7 @@ export default function RoomDetailsPage() {
                             {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => {
                                 const assignedMods = (room?.judgeModalities?.[j.uid] || []).filter(m => modalities.includes(m));
                                 const assignedCount = assignedMods.length;
-                                
+
                                 return (
                                     <div key={j.uid} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-md transition-all flex justify-between items-center">
                                         <div className="flex-1">
@@ -870,21 +876,21 @@ export default function RoomDetailsPage() {
                                                     </span>
                                                 )) : (
                                                     <span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200">
-                                                        Sem Modalidades
+                                                        {t('admin.judges.noModalities')}
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button 
+                                            <button
                                                 onClick={() => handleEditJudge(j)}
                                                 className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer"
                                                 title="Editar"
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </button>
-                                            <button 
-                                                onClick={() => handleRemoveJudgeRequest(j.uid, j.name)} 
+                                            <button
+                                                onClick={() => handleRemoveJudgeRequest(j.uid, j.name)}
                                                 className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
                                                 title="Remover Juiz desta Sala"
                                             >
@@ -895,14 +901,14 @@ export default function RoomDetailsPage() {
                                 );
                             })}
                             {(!room?.judges || room?.judges.length === 0) && (
-                                <div className="col-span-full text-center py-8 text-gray-500">Nenhum juiz atribuído a esta sala.</div>
+                                <div className="col-span-full text-center py-8 text-gray-500">{t('admin.judges.noJudges')}</div>
                             )}
                         </div>
 
                         <Modal
                             isOpen={showAddJudge}
                             onClose={() => { setShowAddJudge(false); setEditingJudge(null); }}
-                            title={<div className="flex items-center gap-2"><Gavel className="text-police-gold w-5 h-5" /> {editingJudge ? 'Editar Juiz' : 'Gerenciar Juízes'}</div>}
+                            title={<div className="flex items-center gap-2"><Gavel className="text-police-gold w-5 h-5" /> {editingJudge ? t('admin.judges.editTitle') : t('admin.judges.manageTitle')}</div>}
                             maxWidth="max-w-xl"
                         >
                             <div className="">
@@ -912,26 +918,26 @@ export default function RoomDetailsPage() {
                                             onClick={() => setJudgeMode('existing')}
                                             className={`flex-1 py-2 text-xs font-bold uppercase rounded ${judgeMode === 'existing' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}
                                         >
-                                            Selecionar Existente
+                                            {t('admin.judges.selectExisting')}
                                         </button>
                                         <button
                                             onClick={() => setJudgeMode('new')}
                                             className={`flex-1 py-2 text-xs font-bold uppercase rounded ${judgeMode === 'new' ? 'bg-gray-700 text-white' : 'text-gray-500'}`}
                                         >
-                                            Criar Novo
+                                            {t('admin.judges.createNew')}
                                         </button>
                                     </div>
                                 )}
 
                                 {judgeMode === 'existing' && !editingJudge ? (
                                     <div className="mb-6">
-                                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Juiz</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">{t('admin.judges.judgeLabel')}</label>
                                         <select
                                             value={selectedJudgeId}
                                             onChange={e => setSelectedJudgeId(e.target.value)}
                                             className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
                                         >
-                                            <option value="">-- Selecione --</option>
+                                            <option value="">{t('admin.judges.selectJudge')}</option>
                                             {allJudges.filter(j => !(room?.judges?.includes(j.uid))).map(j => (
                                                 <option key={j.uid} value={j.uid}>{j.name} ({j.email})</option>
                                             ))}
@@ -940,7 +946,7 @@ export default function RoomDetailsPage() {
                                 ) : (
                                     <div className="space-y-4 mb-6">
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Nome</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">{t('admin.judges.name')}</label>
                                             <input
                                                 value={newJudgeForm.name}
                                                 onChange={e => setNewJudgeForm({ ...newJudgeForm, name: e.target.value })}
@@ -948,7 +954,7 @@ export default function RoomDetailsPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Email</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">{t('admin.judges.email')}</label>
                                             <input
                                                 value={newJudgeForm.email}
                                                 disabled={!!editingJudge}
@@ -958,7 +964,7 @@ export default function RoomDetailsPage() {
                                         </div>
                                         {!editingJudge && (
                                             <div>
-                                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Senha Provisória</label>
+                                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">{t('admin.judges.provisionalPassword')}</label>
                                                 <input
                                                     value={newJudgeForm.password}
                                                     onChange={e => setNewJudgeForm({ ...newJudgeForm, password: e.target.value })}
@@ -967,13 +973,13 @@ export default function RoomDetailsPage() {
                                                 />
                                             </div>
                                         )}
-                                        
+
                                         <div className="border-t border-gray-200 pt-4">
-                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Modalidades Atribuídas</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-3">{t('admin.judges.assignedModalities')}</label>
                                             <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-50 p-3 rounded border border-gray-200">
                                                 {modalities.map(modality => (
-                                                    <label 
-                                                        key={modality} 
+                                                    <label
+                                                        key={modality}
                                                         className="flex items-center gap-3 p-2 hover:bg-white rounded cursor-pointer transition-colors group"
                                                     >
                                                         <input
@@ -997,16 +1003,16 @@ export default function RoomDetailsPage() {
                                                 ))}
                                             </div>
                                             <p className="text-xs text-gray-400 mt-2 italic">
-                                                Selecione quais modalidades este juiz poderá avaliar
+                                                {t('admin.judges.modalitiesHint')}
                                             </p>
                                         </div>
                                     </div>
                                 )}
 
                                 <div className="flex gap-4">
-                                    <button onClick={() => { setShowAddJudge(false); setEditingJudge(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-100 text-k9-black border-gray-200 transition-all">Cancelar</button>
+                                    <button onClick={() => { setShowAddJudge(false); setEditingJudge(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-100 text-k9-black border-gray-200 transition-all">{t('admin.judges.cancel')}</button>
                                     <button onClick={handleAddJudge} className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-k9-black border-gray-200 hover:bg-gray-100 transition-all">
-                                        {editingJudge ? 'Atualizar' : 'Salvar'}
+                                        {editingJudge ? t('admin.judges.update') : t('admin.judges.save')}
                                     </button>
                                 </div>
                             </div>
@@ -1018,7 +1024,7 @@ export default function RoomDetailsPage() {
                     <div className="space-y-12">
                         {tests.sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0)).map(test => {
                             const testCompetitors = competitors.filter(c => c.modality === test.modality);
-                            
+
                             return (
                                 <div key={test.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                                     <div className="bg-gray-900 p-4 flex justify-between items-center">
@@ -1032,15 +1038,15 @@ export default function RoomDetailsPage() {
                                             </div>
                                         </div>
                                         <div className="text-[10px] text-gray-400 font-bold uppercase">
-                                            Total: {testCompetitors.length}
+                                            {t('admin.rankings.total')}: {testCompetitors.length}
                                         </div>
                                     </div>
-                                    
+
                                     <div className="divide-y divide-gray-50">
                                         {testCompetitors.map(comp => {
                                             const evaluation = evaluations.find(e => e.testId === test.id && e.competitorId === comp.id);
                                             const isDNS = evaluation?.status === 'did_not_participate';
-                                            
+
                                             return (
                                                 <div key={comp.id} className="p-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
                                                     <div className="flex items-center gap-3">
@@ -1049,24 +1055,24 @@ export default function RoomDetailsPage() {
                                                         </div>
                                                         <div>
                                                             <div className="text-sm font-black text-k9-black uppercase">{comp.handlerName}</div>
-                                                            <div className="text-[10px] text-gray-400 font-bold uppercase">Cão: {comp.dogName}</div>
+                                                            <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.rankings.dog')}: {comp.dogName}</div>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     <div className="flex items-center gap-4">
                                                         {evaluation ? (
                                                             <div className="flex items-center gap-3">
                                                                 <div className={`text-right ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
                                                                     <div className="text-xs font-black uppercase leading-none">{isDNS ? 'NC' : evaluation.finalScore.toFixed(1)}</div>
-                                                                    <div className="text-[8px] font-bold uppercase opacity-60">Status</div>
+                                                                    <div className="text-[8px] font-bold uppercase opacity-60">{t('admin.rankings.status')}</div>
                                                                 </div>
-                                                                <button 
-                                                                    onClick={() => setEvalToDelete({ 
-                                                                        id: evaluation.id, 
-                                                                        name: comp.handlerName, 
-                                                                        testTitle: test.title, 
+                                                                <button
+                                                                    onClick={() => setEvalToDelete({
+                                                                        id: evaluation.id,
+                                                                        name: comp.handlerName,
+                                                                        testTitle: test.title,
                                                                         isNC: isDNS,
-                                                                        photoUrl: comp.photoUrl 
+                                                                        photoUrl: comp.photoUrl
                                                                     })}
                                                                     className="p-2 text-gray-300 hover:text-red-500 transition-colors"
                                                                     title="Remover"
@@ -1075,11 +1081,11 @@ export default function RoomDetailsPage() {
                                                                 </button>
                                                             </div>
                                                         ) : (
-                                                            <button 
+                                                            <button
                                                                 onClick={() => setCompToMarkNC({ test, comp })}
                                                                 className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-600 text-[10px] font-black uppercase rounded-lg border border-gray-200 hover:border-red-100 transition-all flex items-center gap-2"
                                                             >
-                                                                <AlertCircle className="w-3.5 h-3.5" /> Marcar Falta
+                                                                <AlertCircle className="w-3.5 h-3.5" /> {t('admin.rankings.markAbsence')}
                                                             </button>
                                                         )}
                                                     </div>
@@ -1088,7 +1094,7 @@ export default function RoomDetailsPage() {
                                         })}
                                         {testCompetitors.length === 0 && (
                                             <div className="p-8 text-center text-gray-300 text-[10px] font-bold uppercase italic">
-                                                Nenhum competidor nesta modalidade
+                                                {t('admin.rankings.noCompetitors')}
                                             </div>
                                         )}
                                     </div>
@@ -1103,20 +1109,20 @@ export default function RoomDetailsPage() {
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-md">
                         <div className="bg-white border-2 border-red-200 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden text-black">
                             <div className="absolute top-0 left-0 w-full h-2 bg-red-500"></div>
-                            
+
                             <div className="flex flex-col items-center text-center">
                                 <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 border-2 border-red-100">
                                     <Trash2 className="w-8 h-8 text-red-500" />
                                 </div>
-                                
+
                                 <h2 className="text-2xl font-black text-k9-black uppercase mb-2 tracking-tighter leading-tight">
-                                    Confirmar Remoção
+                                    {t('admin.deletion.title')}
                                 </h2>
-                                
+
                                 <p className="text-gray-500 text-sm font-semibold mb-6 uppercase tracking-tight">
-                                    Deseja realmente remover {itemToDelete.type === 'competitor' ? 'o competidor' : itemToDelete.type === 'test' ? 'a prova' : 'o juiz'}<br/>
-                                    <span className="text-red-600 font-bold">"{itemToDelete.name.toUpperCase()}"</span>?<br/>
-                                    {itemToDelete.type === 'judge' ? 'Ele perderá acesso a esta sala.' : 'Esta ação não pode ser desfeita.'}
+                                    {t('admin.deletion.question')} {itemToDelete?.type === 'competitor' ? t('admin.deletion.competitor') : itemToDelete?.type === 'test' ? t('admin.deletion.test') : t('admin.deletion.judge')}<br />
+                                    <span className="text-red-600 font-bold">"{itemToDelete?.name.toUpperCase()}"</span>{t('admin.deletion.questionSuffix')}<br />
+                                    {itemToDelete?.type === 'judge' ? t('admin.deletion.judgeWarning') : t('admin.deletion.irreversible')}
                                 </p>
 
                                 <div className="flex gap-4 w-full">
@@ -1124,13 +1130,13 @@ export default function RoomDetailsPage() {
                                         onClick={() => setItemToDelete(null)}
                                         className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
                                     >
-                                        Cancelar
+                                        {t('admin.deletion.cancel')}
                                     </button>
                                     <button
                                         onClick={confirmDeletion}
                                         className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
                                     >
-                                        Confirmar
+                                        {t('admin.deletion.confirm')}
                                     </button>
                                 </div>
                             </div>
@@ -1143,7 +1149,7 @@ export default function RoomDetailsPage() {
                 <Modal
                     isOpen={!!compToMarkNC}
                     onClose={() => setCompToMarkNC(null)}
-                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><AlertCircle className="w-5 h-5" /> Confirmar Falta (NC)</div>}
+                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><AlertCircle className="w-5 h-5" /> {t('admin.nc.title')}</div>}
                     maxWidth="max-w-md"
                 >
                     <div className="flex flex-col items-center text-center p-2">
@@ -1154,7 +1160,7 @@ export default function RoomDetailsPage() {
                                 <Users className="w-10 h-10 text-red-400" />
                             )}
                         </div>
-                        
+
                         <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
                             Você está marcando falta para:
                         </p>
@@ -1164,10 +1170,10 @@ export default function RoomDetailsPage() {
                         <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
                             Prova: {compToMarkNC?.test.title}
                         </p>
-                        
+
                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
                             <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
-                                O competidor receberá <span className="text-red-600">ZERO</span> pontos nesta prova. 
+                                O competidor receberá <span className="text-red-600">ZERO</span> pontos nesta prova.
                                 Esta ação poderá ser revertida na aba de resultados se necessário.
                             </p>
                         </div>
@@ -1177,7 +1183,7 @@ export default function RoomDetailsPage() {
                                 onClick={() => setCompToMarkNC(null)}
                                 className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
                             >
-                                Cancelar
+                                {t('admin.nc.cancel')}
                             </button>
                             <button
                                 onClick={async () => {
@@ -1188,7 +1194,7 @@ export default function RoomDetailsPage() {
                                 }}
                                 className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
                             >
-                                Confirmar NC
+                                {t('admin.nc.confirm')}
                             </button>
                         </div>
                     </div>
@@ -1197,7 +1203,7 @@ export default function RoomDetailsPage() {
                 <Modal
                     isOpen={!!evalToDelete}
                     onClose={() => setEvalToDelete(null)}
-                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><Trash2 className="w-5 h-5" /> Confirmar Remoção</div>}
+                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><Trash2 className="w-5 h-5" /> {t('admin.deletion.title')}</div>}
                     maxWidth="max-w-md"
                 >
                     <div className="flex flex-col items-center text-center p-2">
@@ -1208,21 +1214,20 @@ export default function RoomDetailsPage() {
                                 <Users className="w-10 h-10 text-red-400" />
                             )}
                         </div>
-                        
+
                         <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
-                            Você está removendo {evalToDelete?.isNC ? 'a falta (NC)' : 'a pontuação'} de:
+                            {t('admin.evalDeletion.removing')} {evalToDelete?.isNC ? t('admin.evalDeletion.removingAbsence') : t('admin.evalDeletion.removingScore')} {t('admin.evalDeletion.of')}
                         </p>
                         <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">
                             {evalToDelete?.name}
                         </h3>
                         <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
-                            Prova: {evalToDelete?.testTitle}
+                            {t('admin.evalDeletion.test')}: {evalToDelete?.testTitle}
                         </p>
-                        
+
                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
                             <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
-                                Esta ação irá excluir permanentemente {evalToDelete?.isNC ? 'o registro de falta' : 'esta avaliação'} do banco de dados. 
-                                O competidor poderá ser avaliado novamente se necessário.
+                                {t('admin.evalDeletion.warning')} {evalToDelete?.isNC ? t('admin.evalDeletion.absenceRecord') : t('admin.evalDeletion.evaluation')} {t('admin.evalDeletion.warningEnd')}
                             </p>
                         </div>
 
@@ -1231,7 +1236,7 @@ export default function RoomDetailsPage() {
                                 onClick={() => setEvalToDelete(null)}
                                 className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
                             >
-                                Cancelar
+                                {t('admin.evalDeletion.cancel')}
                             </button>
                             <button
                                 onClick={async () => {
@@ -1242,7 +1247,7 @@ export default function RoomDetailsPage() {
                                 }}
                                 className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
                             >
-                                Confirmar Exclusão
+                                {t('admin.evalDeletion.confirm')}
                             </button>
                         </div>
                     </div>
@@ -1252,7 +1257,7 @@ export default function RoomDetailsPage() {
                 <Modal
                     isOpen={!!compToMarkNC}
                     onClose={() => setCompToMarkNC(null)}
-                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><AlertCircle className="w-5 h-5" /> Confirmar Falta (NC)</div>}
+                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><AlertCircle className="w-5 h-5" /> {t('admin.nc.title')}</div>}
                     maxWidth="max-w-md"
                 >
                     <div className="flex flex-col items-center text-center p-2">
@@ -1263,7 +1268,7 @@ export default function RoomDetailsPage() {
                                 <Users className="w-10 h-10 text-red-400" />
                             )}
                         </div>
-                        
+
                         <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
                             Você está marcando falta para:
                         </p>
@@ -1271,13 +1276,12 @@ export default function RoomDetailsPage() {
                             {compToMarkNC?.comp.handlerName}
                         </h3>
                         <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
-                            Prova: {compToMarkNC?.test.title}
+                            {t('admin.nc.test')}: {compToMarkNC?.test.title}
                         </p>
-                        
+
                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
                             <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
-                                O competidor receberá <span className="text-red-600">ZERO</span> pontos nesta prova. 
-                                Esta ação poderá ser revertida na aba de resultados se necessário.
+                                {t('admin.nc.warning')} <span className="text-red-600">{t('admin.nc.warningZero')}</span> {t('admin.nc.warningEnd')}
                             </p>
                         </div>
 
@@ -1286,7 +1290,7 @@ export default function RoomDetailsPage() {
                                 onClick={() => setCompToMarkNC(null)}
                                 className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
                             >
-                                Cancelar
+                                {t('admin.nc.cancel')}
                             </button>
                             <button
                                 onClick={async () => {
@@ -1297,7 +1301,7 @@ export default function RoomDetailsPage() {
                                 }}
                                 className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
                             >
-                                Confirmar NC
+                                {t('admin.nc.confirm')}
                             </button>
                         </div>
                     </div>

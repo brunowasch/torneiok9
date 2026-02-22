@@ -2,31 +2,34 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import '@/i18n/config';
 
 interface RoomSelectProps {
   value: string;
   onChange: (value: string) => void;
   rooms: Array<{ id: string; name: string }>;
-  buttonColor?: string; // Cor do botão
-  dropdownColor?: string; // Cor do dropdown
-  selectedColor?: string; // Cor do item selecionado
-  textColor?: string; // Cor do texto
+  buttonColor?: string;
+  dropdownColor?: string;
+  selectedColor?: string;
+  textColor?: string;
 }
 
 export default function RoomSelect({
   value,
   onChange,
   rooms,
-  buttonColor = 'bg-white', // Cor padrão do botão
-  dropdownColor = 'bg-white', // Cor padrão do dropdown
-  selectedColor = 'bg-orange-400 text-white border-orange-400 shadow-md', // Cor padrão do item selecionado (mesmo laranja do botão Campeão)
-  textColor = 'text-k9-black', // Cor padrão do texto
+  buttonColor = 'bg-white',
+  dropdownColor = 'bg-white',
+  selectedColor = 'bg-orange-400 text-white border-orange-400 shadow-md',
+  textColor = 'text-k9-black',
 }: RoomSelectProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedRoom = rooms.find(room => room.id === value);
-  const displayLabel = selectedRoom?.name || 'Selecione uma sala...';
+  const displayLabel = selectedRoom?.name || t('roomSelect.placeholder');
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -60,9 +63,8 @@ export default function RoomSelect({
       >
         <span className="truncate text-left flex-1">{displayLabel}</span>
         <ChevronDown
-          className={`w-5 h-5 text-k9-orange shrink-0 transition-transform duration-200 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
+          className={`w-5 h-5 text-k9-orange shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''
+            }`}
         />
       </button>
 
@@ -82,7 +84,7 @@ export default function RoomSelect({
               ))
             ) : (
               <div className="px-4 py-6 text-center text-gray-400 text-xs font-bold uppercase">
-                NENHUMA SALA DISPONÍVEL
+                {t('roomSelect.noRooms')}
               </div>
             )}
           </div>
