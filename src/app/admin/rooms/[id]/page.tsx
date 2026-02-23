@@ -784,9 +784,15 @@ export default function RoomDetailsPage() {
                                         <input id="score-pts" placeholder={t('admin.tests.ptsPh')} type="number" step="0.5" defaultValue={10} className="w-16 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
                                         <button
                                             onClick={() => {
-                                                const l = (document.getElementById('score-lbl') as HTMLInputElement).value;
-                                                const p = parseFloat((document.getElementById('score-pts') as HTMLInputElement).value);
-                                                if (l && p) { addScoreItem(l, p); (document.getElementById('score-lbl') as HTMLInputElement).value = ''; (document.getElementById('score-pts') as HTMLInputElement).value = ''; }
+                                                const lblEl = document.getElementById('score-lbl') as HTMLInputElement;
+                                                const ptsEl = document.getElementById('score-pts') as HTMLInputElement;
+                                                const l = lblEl.value;
+                                                const p = parseFloat(ptsEl.value) || 10;
+                                                if (l) {
+                                                    addScoreItem(l, p);
+                                                    lblEl.value = '';
+                                                    lblEl.focus();
+                                                }
                                             }}
                                             className="bg-gray-100 text-k9-black px-3 rounded text-xs uppercase font-bold cursor-pointer"
                                         >{t('admin.tests.add')}</button>
