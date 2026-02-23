@@ -14,7 +14,9 @@ import {
     Users,
     LogOut,
     Trash2,
-    Shield
+    Shield,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import { Room } from '@/types/schema';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
@@ -32,6 +34,7 @@ export default function AdminDashboard() {
 
     const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
     const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '' });
+    const [showAdminPassword, setShowAdminPassword] = useState(false);
 
     const [roomToDelete, setRoomToDelete] = useState<{ id: string, name: string } | null>(null);
 
@@ -300,14 +303,23 @@ export default function AdminDashboard() {
                                     onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
                                     className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
                                 />
-                                <input
-                                    type="password"
-                                    value={newAdmin.password}
-                                    required
-                                    placeholder={t('adminDashboard.adminPasswordPlaceholder')}
-                                    onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
-                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showAdminPassword ? "text" : "password"}
+                                        value={newAdmin.password}
+                                        required
+                                        placeholder={t('adminDashboard.adminPasswordPlaceholder')}
+                                        onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
+                                        className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 pr-10 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAdminPassword(!showAdminPassword)}
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-k9-orange cursor-pointer"
+                                    >
+                                        {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                             </div>
                             <div className="flex gap-4">
                                 <button

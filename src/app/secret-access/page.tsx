@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { loginAdmin, resetPassword } from '@/services/userService';
-import { Lock, Fingerprint, Info, ArrowLeft } from 'lucide-react';
+import { Lock, Fingerprint, Info, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
 export default function SecretLoginPage() {
     const router = useRouter();
@@ -13,6 +13,7 @@ export default function SecretLoginPage() {
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [isResetMode, setIsResetMode] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -126,12 +127,19 @@ export default function SecretLoginPage() {
                                     <Lock className="h-4 w-4 text-gray-400" />
                                 </div>
                                 <input
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black pl-10 p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange transition-all text-sm placeholder-gray-400 font-semibold"
+                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black pl-10 pr-10 p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange transition-all text-sm placeholder-gray-400 font-semibold"
                                     placeholder="••••••••"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-k9-orange cursor-pointer"
+                                >
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
                             </div>
                         </div>
                     )}

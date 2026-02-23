@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAdminUser, checkAdminExists } from '@/services/userService';
-import { ShieldCheck, Lock, Mail, User, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, User, AlertTriangle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 export default function SetupAdminPage() {
     const router = useRouter();
@@ -14,6 +14,7 @@ export default function SetupAdminPage() {
         email: '',
         password: ''
     });
+    const [showPassword, setShowPassword] = useState(false);
     const [status, setStatus] = useState<{ type: 'error' | 'success' | 'idle'; message: string }>({ type: 'idle', message: '' });
 
     useEffect(() => {
@@ -145,13 +146,22 @@ export default function SetupAdminPage() {
                             <label className="text-xs font-black text-k9-black uppercase tracking-wider flex items-center gap-2">
                                 <Lock className="w-3 h-3" /> Chave de Acesso (Senha)
                             </label>
-                            <input
-                                type="password"
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:border-k9-orange focus:ring-1 focus:ring-k9-orange focus:outline-none transition-all placeholder-gray-400 font-semibold"
-                                placeholder="••••••••"
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 pr-10 rounded-lg focus:border-k9-orange focus:ring-1 focus:ring-k9-orange focus:outline-none transition-all placeholder-gray-400 font-semibold"
+                                    placeholder="••••••••"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-k9-orange cursor-pointer"
+                                >
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                            </div>
                         </div>
 
                         <button

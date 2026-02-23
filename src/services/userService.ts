@@ -21,6 +21,20 @@ export const checkAdminExists = async () => {
     }
 };
 
+export const getUserByEmail = async (email: string): Promise<AppUser | null> => {
+    try {
+        const q = query(collection(db, 'users'), where('email', '==', email));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            return querySnapshot.docs[0].data() as AppUser;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error getting user by email", error);
+        return null;
+    }
+};
+
 export const getUserRole = async (uid: string): Promise<string | null> => {
     try {
         const docRef = doc(db, 'users', uid);
@@ -73,10 +87,11 @@ export const createAdminUser = async (email: string, password: string, name: str
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 uid = userCredential.user.uid;
             } catch (loginError) {
-                throw new Error("Este email já existe e a senha informada está incorreta.");
+                throw new Error("Este e-mail já existe e a senha informada está incorreta para vinculação.");
             }
         } else {
-            throw error;
+            console.error("Firebase Auth Error:", error);
+            throw new Error(error.message || "Erro desconhecido ao criar autenticação.");
         }
     }
 
@@ -100,6 +115,14 @@ export const createAdminUser = async (email: string, password: string, name: str
 };
 
 export const createJudgeByAdmin = async (email: string, password: string, name: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // 1. Verificamos se já existe no Firestore
+    const existingUser = await getUserByEmail(normalizedEmail);
+    if (existingUser) {
+        throw new Error(`O e-mail "${normalizedEmail}" já está sendo utilizado pelo usuário "${existingUser.name}" (${existingUser.role === 'admin' ? 'Administrador' : 'Juiz'}).`);
+    }
+
     let secondaryApp;
     try {
         secondaryApp = getApp('Secondary');
@@ -110,12 +133,12 @@ export const createJudgeByAdmin = async (email: string, password: string, name: 
     const secondaryAuth = getAuth(secondaryApp);
 
     try {
-        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, normalizedEmail, password);
         const uid = userCredential.user.uid;
 
         const userData: AppUser = {
             uid,
-            email,
+            email: normalizedEmail,
             name,
             role: 'judge',
             createdAt: Date.now(),
@@ -128,11 +151,24 @@ export const createJudgeByAdmin = async (email: string, password: string, name: 
     } catch (error: any) {
         try { await deleteApp(secondaryApp); } catch (e) { }
         console.error("Error creating judge", error);
+
+        if (error.code === 'auth/email-already-in-use') {
+            throw new Error(`O e-mail "${normalizedEmail}" já existe no sistema de autenticação Firebase. Tente usar outro.`);
+        }
+
         throw error;
     }
 };
 
 export const createNewAdminByAdmin = async (email: string, password: string, name: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // 1. Verificamos se já existe no Firestore
+    const existingUser = await getUserByEmail(normalizedEmail);
+    if (existingUser) {
+        throw new Error(`O e-mail "${normalizedEmail}" já está sendo utilizado pelo administrador "${existingUser.name}".`);
+    }
+
     let secondaryApp;
     try {
         secondaryApp = getApp('Secondary');
@@ -143,12 +179,12 @@ export const createNewAdminByAdmin = async (email: string, password: string, nam
     const secondaryAuth = getAuth(secondaryApp);
 
     try {
-        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, normalizedEmail, password);
         const uid = userCredential.user.uid;
 
         const userData: AppUser = {
             uid,
-            email,
+            email: normalizedEmail,
             name,
             role: 'admin',
             createdAt: Date.now(),
@@ -161,6 +197,11 @@ export const createNewAdminByAdmin = async (email: string, password: string, nam
     } catch (error: any) {
         try { await deleteApp(secondaryApp); } catch (e) { }
         console.error("Error creating sub-admin", error);
+
+        if (error.code === 'auth/email-already-in-use') {
+            throw new Error(`O e-mail "${normalizedEmail}" já existe no sistema de autenticação Firebase. Tente usar outro.`);
+        }
+
         throw error;
     }
 };

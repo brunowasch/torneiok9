@@ -32,7 +32,9 @@ import {
     BellOff,
     Zap,
     Check,
-    ArrowRight
+    ArrowRight,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -80,6 +82,7 @@ export default function RoomDetailsPage() {
     const [judgeMode, setJudgeMode] = useState<'existing' | 'new'>('existing');
     const [selectedJudgeId, setSelectedJudgeId] = useState('');
     const [newJudgeForm, setNewJudgeForm] = useState({ name: '', email: '', password: '' });
+    const [showJudgePassword, setShowJudgePassword] = useState(false);
     const [editingJudge, setEditingJudge] = useState<AppUser | null>(null);
     const [modalities, setModalities] = useState<Modality[]>([]);
     const [selectedModalities, setSelectedModalities] = useState<Modality[]>([]);
@@ -1008,12 +1011,21 @@ export default function RoomDetailsPage() {
                                         {!editingJudge && (
                                             <div>
                                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">{t('admin.judges.provisionalPassword')}</label>
-                                                <input
-                                                    value={newJudgeForm.password}
-                                                    onChange={e => setNewJudgeForm({ ...newJudgeForm, password: e.target.value })}
-                                                    type="text"
-                                                    className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                                />
+                                                <div className="relative">
+                                                    <input
+                                                        value={newJudgeForm.password}
+                                                        onChange={e => setNewJudgeForm({ ...newJudgeForm, password: e.target.value })}
+                                                        type={showJudgePassword ? "text" : "password"}
+                                                        className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 pr-10 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowJudgePassword(!showJudgePassword)}
+                                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-k9-orange cursor-pointer"
+                                                    >
+                                                        {showJudgePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
 
