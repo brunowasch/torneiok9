@@ -31,7 +31,10 @@ import {
     List,
     Trophy,
     Search,
-    Shield
+    Shield,
+    Bell,
+    Zap,
+    Lock as LockIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -118,6 +121,85 @@ export default function JudgeRoomPage() {
             e.testId === testId &&
             e.judgeId === user.uid
         );
+    };
+
+    /**
+     * Verifica se o usuário logado é juiz reserva nesta sala.
+     * Aceita uma modalidade opcional: se fornecida, checa apenas se é reserva
+     * naquela modalidade específica. Sem modalidade, retorna true se for reserva
+     * em QUALQUER modalidade ou globalmente (legado).
+     */
+    const isReserveJudge = (modality?: string): boolean => {
+        if (!user || !room) return false;
+        const reserveModalities: string[] = room.judgeReserveModalities?.[user.uid] || [];
+        if (modality) {
+            // Verifica reserva nessa modalidade específica
+            if (reserveModalities.length > 0) return reserveModalities.includes(modality);
+            // Fallback legado: reserva global
+            return (room.judgeReserves || []).includes(user.uid);
+        }
+        // Sem modalidade: é reserva se tiver qualquer modalidade configurada ou estiver no legado
+        return reserveModalities.length > 0 || (room.judgeReserves || []).includes(user.uid);
+    };
+
+    /**
+     * Retorna quantos juízes TITULARES (não-reserva) já avaliaram o competidor naquela prova.
+     * Titular = não é reserva naquela modalidade específica.
+     */
+    const getTitularEvalCount = (competitorId: string, testId: string, modality?: string): number => {
+        const reserves = room?.judgeReserves || [];
+        const reserveModalitiesMap = room?.judgeReserveModalities || {};
+        return evaluations.filter(e => {
+            if (e.competitorId !== competitorId || e.testId !== testId) return false;
+            // Verifica se o juiz dessa avaliação é reserva na modalidade
+            const judgeReserveMods = reserveModalitiesMap[e.judgeId] || [];
+            if (modality && judgeReserveMods.length > 0) {
+                // Novo sistema: é titular se NÃO for reserva nessa modalidade
+                return !judgeReserveMods.includes(modality);
+            }
+            // Fallback legado
+            return !reserves.includes(e.judgeId);
+        }).length;
+    };
+
+    /**
+     * Total de avaliações já lançadas (titular + reserva) para um competidor numa prova.
+     */
+    const getTotalEvalCount = (competitorId: string, testId: string): number => {
+        return evaluations.filter(e =>
+            e.competitorId === competitorId &&
+            e.testId === testId
+        ).length;
+    };
+
+    /**
+     * Verifica se o admin acionou o reserva para um competidor/prova específico.
+     */
+    const isAdminActivated = (competitorId: string, testId: string, modality?: string): boolean => {
+        if (!isReserveJudge(modality)) return false;
+        return (room?.reserveActivations || []).some(
+            a => a.competitorId === competitorId && a.testId === testId
+        );
+    };
+
+    /**
+     * Verifica se o juiz reserva está BLOQUEADO de avaliar.
+     * Bloqueado por padrão até ser acionado. Mesmo acionado, bloqueia se ≥ 3 titulares.
+     */
+    const isBlockedAsReserve = (competitorId: string, testId: string, modality?: string): boolean => {
+        if (!isReserveJudge(modality)) return false;                      // não é reserva nessa mod, nunca bloqueado
+        if (!isAdminActivated(competitorId, testId, modality)) return true; // bloqueado por padrão
+        return getTitularEvalCount(competitorId, testId, modality) >= 3;   // acionado mas 3 titulares já ok
+    };
+
+    /**
+     * Motivo pelo qual o reserva está bloqueado.
+     */
+    const getBlockReason = (competitorId: string, testId: string, modality?: string): 'not_activated' | 'full' | null => {
+        if (!isReserveJudge(modality)) return null;
+        if (!isAdminActivated(competitorId, testId, modality)) return 'not_activated';
+        if (getTitularEvalCount(competitorId, testId, modality) >= 3) return 'full';
+        return null;
     };
 
     const getAssignedTests = (competitor?: Competitor | null) => {
@@ -535,6 +617,21 @@ export default function JudgeRoomPage() {
                 </div>
             </div>
 
+            {/* Banner de Juiz Reserva */}
+            {isReserveJudge(selectedTestView?.modality) && (
+                <div className="bg-yellow-400 text-yellow-900 px-6 py-3 sticky top-0 z-20">
+                    <div className="max-w-4xl mx-auto flex items-center gap-3">
+                        <Zap className="w-5 h-5 shrink-0" />
+                        <div>
+                            <div className="font-black uppercase text-sm tracking-wider">Você é Juiz Reserva</div>
+                            <div className="text-xs font-semibold opacity-80">
+                                Você pode avaliar quando menos de 3 juízes titulares já avaliaram o competidor. Com 3 avaliações, a média é calculada automaticamente.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="max-w-4xl mx-auto p-6 md:p-8">
                 {/* 1. SELEÇÃO DE PROVA */}
                 {!selectedTestView ? (
@@ -674,6 +771,13 @@ export default function JudgeRoomPage() {
                                 .filter(c => c.modality === selectedTestView.modality)
                                 .map(comp => {
                                     const isDone = isTestEvaluated(comp.id, selectedTestView.id);
+                                    const titularCount = getTitularEvalCount(comp.id, selectedTestView.id, selectedTestView.modality);
+                                    const totalCount = getTotalEvalCount(comp.id, selectedTestView.id);
+                                    const blocked = isBlockedAsReserve(comp.id, selectedTestView.id, selectedTestView.modality);
+                                    const avgCalculated = titularCount >= 3;
+                                    const blockReason = getBlockReason(comp.id, selectedTestView.id, selectedTestView.modality);
+                                    // isActivatedForMe: acionado E ainda pode avaliar (não bloqueado por 3 titulares)
+                                    const isActivatedForMe = isAdminActivated(comp.id, selectedTestView.id, selectedTestView.modality) && !blocked;
 
                                     return (
                                         <div
@@ -682,13 +786,42 @@ export default function JudgeRoomPage() {
                                                 relative overflow-hidden rounded-2xl border transition-all group
                                                 ${isDone
                                                     ? 'bg-green-50/30 border-green-100 opacity-90'
-                                                    : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg transform hover:-translate-y-1'
+                                                    : isActivatedForMe
+                                                        ? 'bg-amber-50 border-amber-300 shadow-md shadow-amber-100'
+                                                        : blockReason === 'not_activated'
+                                                            ? 'bg-gray-50 border-gray-200 opacity-70'
+                                                            : blockReason === 'full'
+                                                                ? 'bg-yellow-50/50 border-yellow-200 opacity-80'
+                                                                : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg transform hover:-translate-y-1'
                                                 }
                                             `}
                                         >
-                                            <div className="p-5 pl-8 flex items-start justify-between gap-6 h-full min-h-[140px]">
+                                            {/* Badge de Acionamento — só aparece quando acionado e pode avaliar */}
+                                            {isActivatedForMe && !isDone && (
+                                                <div className="absolute top-0 left-0 right-0 bg-amber-400 text-amber-900 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
+                                                    <Bell className="w-3 h-3 animate-bounce" />
+                                                    Você foi acionado! Avalie este competidor
+                                                </div>
+                                            )}
+                                            {/* Badge de aguardando acionamento */}
+                                            {blockReason === 'not_activated' && !isDone && (
+                                                <div className="absolute top-0 left-0 right-0 bg-gray-200 text-gray-500 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
+                                                    <LockIcon className="w-3 h-3" />
+                                                    Aguardando acionamento do admin
+                                                </div>
+                                            )}
+                                            <div className={`p-5 flex items-start justify-between gap-6 h-full min-h-[140px] ${(isActivatedForMe || blockReason === 'not_activated') && !isDone ? 'pt-8 pl-5' : 'pl-8'}`}>
                                                 <div className="flex items-start gap-4 flex-1 min-w-0">
-                                                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border shrink-0 relative z-10 ${isDone ? 'bg-green-100 border-green-200 text-green-600' : 'bg-orange-50 border-orange-100 text-orange-600'}`}>
+                                                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border shrink-0 relative z-10 ${isDone
+                                                        ? 'bg-green-100 border-green-200 text-green-600'
+                                                        : isActivatedForMe
+                                                            ? 'bg-amber-100 border-amber-200 text-amber-700'
+                                                            : blockReason === 'not_activated'
+                                                                ? 'bg-gray-100 border-gray-200 text-gray-400'
+                                                                : blockReason === 'full'
+                                                                    ? 'bg-yellow-100 border-yellow-200 text-yellow-700'
+                                                                    : 'bg-orange-50 border-orange-100 text-orange-600'
+                                                        }`}>
                                                         {comp.photoUrl ? (
                                                             <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
                                                         ) : (
@@ -700,7 +833,14 @@ export default function JudgeRoomPage() {
                                                     </div>
 
                                                     <div className="flex-1 relative z-10 pt-0.5 min-w-0">
-                                                        <h3 className={`font-black uppercase text-sm leading-tight truncate ${isDone ? 'text-green-900' : 'text-k9-black'}`}>
+                                                        <h3 className={`font-black uppercase text-sm leading-tight truncate ${isDone
+                                                            ? 'text-green-900'
+                                                            : blockReason === 'not_activated'
+                                                                ? 'text-gray-500'
+                                                                : blocked
+                                                                    ? 'text-yellow-900'
+                                                                    : 'text-k9-black'
+                                                            }`}>
                                                             {comp.handlerName}
                                                         </h3>
                                                         <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{t('judge.room.conductor')}</div>
@@ -709,9 +849,42 @@ export default function JudgeRoomPage() {
                                                             {t('judge.room.dog')}: {comp.dogName}
                                                         </p>
 
+                                                        {/* Placar de juízes */}
+                                                        <div className="mt-2 flex items-center gap-2">
+                                                            <div className="flex gap-1">
+                                                                {[1, 2, 3].map(i => (
+                                                                    <div key={i} className={`w-4 h-4 rounded-full border-2 ${i <= titularCount
+                                                                        ? 'bg-orange-400 border-orange-500'
+                                                                        : 'bg-gray-100 border-gray-300'
+                                                                        }`} title={`Juiz ${i}`} />
+                                                                ))}
+                                                            </div>
+                                                            <span className="text-[9px] font-black uppercase text-gray-400">
+                                                                {titularCount}/3 juízes
+                                                                {avgCalculated && <span className="text-orange-500 ml-1">· Média calculada</span>}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Indicador de acionamento urgente */}
+                                                        {isActivatedForMe && !isDone && (
+                                                            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-black text-amber-700 uppercase bg-amber-100 px-2 py-1 rounded-lg border border-amber-200">
+                                                                <Bell className="w-3 h-3" /> Acionado pelo admin · avalie agora
+                                                            </div>
+                                                        )}
+
                                                         {isDone && (
-                                                            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-black text-green-600 uppercase">
+                                                            <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-black text-green-600 uppercase">
                                                                 <CheckCircle2 className="w-3.5 h-3.5" /> {t('judge.room.evaluated2')}
+                                                            </div>
+                                                        )}
+                                                        {blockReason === 'not_activated' && !isDone && (
+                                                            <div className="mt-1.5 flex items-center gap-1 text-[10px] font-black text-gray-400 uppercase">
+                                                                <LockIcon className="w-3 h-3" /> Aguardando acionamento
+                                                            </div>
+                                                        )}
+                                                        {blockReason === 'full' && !isDone && (
+                                                            <div className="mt-1.5 flex items-center gap-1 text-[10px] font-black text-yellow-700 uppercase">
+                                                                <Zap className="w-3 h-3" /> Reserva · 3 juízes já avaliaram
                                                             </div>
                                                         )}
                                                     </div>
@@ -719,19 +892,48 @@ export default function JudgeRoomPage() {
 
                                                 <div className="flex flex-col pb-1 shrink-0 self-end">
                                                     <button
-                                                        onClick={() => !isDone && startEvaluation(comp, selectedTestView)}
+                                                        onClick={() => !isDone && !blocked && startEvaluation(comp, selectedTestView)}
+                                                        disabled={blocked && !isDone}
                                                         className={`
                                                             w-12 h-12 flex flex-col items-center justify-center rounded-xl transition-all shadow-sm border group/btn
                                                             ${isDone
                                                                 ? 'bg-green-50 border-green-100 text-green-500 cursor-default'
-                                                                : 'bg-orange-50 border-orange-100 text-orange-600 hover:bg-orange-100 hover:border-orange-200 active:scale-95'
+                                                                : isActivatedForMe
+                                                                    ? 'bg-amber-400 border-amber-500 text-amber-900 hover:bg-amber-500 active:scale-95 animate-pulse'
+                                                                    : blocked
+                                                                        ? 'bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed'
+                                                                        : 'bg-orange-50 border-orange-100 text-orange-600 hover:bg-orange-100 hover:border-orange-200 active:scale-95'
                                                             }
                                                         `}
-                                                        title={isDone ? t('judge.room.alreadyEvaluated') : t('judge.room.evaluate')}
+                                                        title={
+                                                            isDone ? t('judge.room.alreadyEvaluated')
+                                                                : blockReason === 'not_activated' ? 'Aguardando acionamento do admin'
+                                                                    : blockReason === 'full' ? 'Já há 3 juízes titulares'
+                                                                        : isActivatedForMe ? 'Você foi acionado! Avalie agora'
+                                                                            : t('judge.room.evaluate')
+                                                        }
                                                     >
-                                                        {isDone ? <CheckCircle2 className="w-6 h-6" /> : <Trophy className="w-6 h-6" />}
+                                                        {isDone
+                                                            ? <CheckCircle2 className="w-6 h-6" />
+                                                            : isActivatedForMe
+                                                                ? <Bell className="w-6 h-6" />
+                                                                : blockReason === 'not_activated'
+                                                                    ? <LockIcon className="w-5 h-5" />
+                                                                    : blockReason === 'full'
+                                                                        ? <Zap className="w-5 h-5" />
+                                                                        : <Trophy className="w-6 h-6" />
+                                                        }
                                                         <span className="text-[7px] font-black uppercase text-center leading-none mt-1">
-                                                            {isDone ? t('judge.room.done') : t('judge.room.evaluate')}
+                                                            {isDone
+                                                                ? t('judge.room.done')
+                                                                : isActivatedForMe
+                                                                    ? 'Avaliar!'
+                                                                    : blockReason === 'not_activated'
+                                                                        ? 'Bloqueado'
+                                                                        : blockReason === 'full'
+                                                                            ? 'Completo'
+                                                                            : t('judge.room.evaluate')
+                                                            }
                                                         </span>
                                                     </button>
                                                 </div>

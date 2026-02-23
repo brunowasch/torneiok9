@@ -13,7 +13,7 @@ import {
   arrayRemove,
   writeBatch
 } from 'firebase/firestore';
-import { Room, Competitor, TestTemplate, AppUser, ModalityConfig } from '../types/schema';
+import { Room, Competitor, TestTemplate, AppUser, ModalityConfig, ReserveActivation } from '../types/schema';
 
 export const createRoom = async (roomData: Omit<Room, 'id' | 'createdAt'>) => {
   try {
@@ -69,13 +69,13 @@ export const getCompetitorsByRoom = async (roomId: string) => {
 };
 
 export const updateCompetitor = async (competitorId: string, data: Partial<Competitor>) => {
-    try {
-        const docRef = doc(db, 'competitors', competitorId);
-        await updateDoc(docRef, data);
-    } catch (error) {
-        console.error("Error updating competitor: ", error);
-        throw error;
-    }
+  try {
+    const docRef = doc(db, 'competitors', competitorId);
+    await updateDoc(docRef, data);
+  } catch (error) {
+    console.error("Error updating competitor: ", error);
+    throw error;
+  }
 };
 
 export const createTestTemplate = async (templateData: Omit<TestTemplate, 'id'>) => {
@@ -126,10 +126,105 @@ export const removeJudgeFromRoom = async (roomId: string, judgeUid: string) => {
   try {
     const roomRef = doc(db, 'rooms', roomId);
     await updateDoc(roomRef, {
-      judges: arrayRemove(judgeUid)
+      judges: arrayRemove(judgeUid),
+      judgeReserves: arrayRemove(judgeUid)  // limpa reserva também
     });
   } catch (error) {
     console.error("Error removing judge from room: ", error);
+    throw error;
+  }
+};
+
+/**
+ * Define as modalidades em que um juiz é RESERVA (por modalidade específica).
+ * Uma lista vazia significa que ele é titular em todas as modalidades.
+ * `modalities` = array de nomes de modalidades onde ele é reserva.
+ */
+export const setJudgeReserveModalities = async (
+  roomId: string,
+  judgeUid: string,
+  modalities: string[]
+): Promise<void> => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+    if (!roomSnap.exists()) return;
+    const current: Record<string, string[]> = roomSnap.data().judgeReserveModalities || {};
+    await updateDoc(roomRef, {
+      judgeReserveModalities: {
+        ...current,
+        [judgeUid]: modalities
+      }
+    });
+  } catch (error) {
+    console.error('Error setting judge reserve modalities: ', error);
+    throw error;
+  }
+};
+
+/**
+ * @deprecated Usar setJudgeReserveModalities para controle por modalidade.
+ * Mantido para compatibilidade com dados legados.
+ */
+export const setJudgeReserve = async (roomId: string, judgeUid: string, isReserve: boolean) => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    await updateDoc(roomRef, {
+      judgeReserves: isReserve ? arrayUnion(judgeUid) : arrayRemove(judgeUid)
+    });
+  } catch (error) {
+    console.error('Error setting judge reserve: ', error);
+    throw error;
+  }
+};
+
+/**
+ * Aciona o juiz reserva para um competidor/prova específico.
+ * Adiciona uma entrada em reserveActivations na sala.
+ */
+export const activateReserve = async (
+  roomId: string,
+  competitorId: string,
+  testId: string,
+  adminUid: string
+): Promise<void> => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    const activation: ReserveActivation = {
+      competitorId,
+      testId,
+      activatedAt: Date.now(),
+      activatedBy: adminUid
+    };
+    await updateDoc(roomRef, {
+      reserveActivations: arrayUnion(activation)
+    });
+  } catch (error) {
+    console.error('Error activating reserve judge: ', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove o acionamento do reserva para um competidor/prova.
+ */
+export const deactivateReserve = async (
+  roomId: string,
+  competitorId: string,
+  testId: string
+): Promise<void> => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    // Lê as ativações atuais e filtra a que bate
+    const roomSnap = await getDoc(roomRef);
+    if (!roomSnap.exists()) return;
+    const activations: ReserveActivation[] = roomSnap.data().reserveActivations || [];
+    const updated = activations.filter(
+      a => !(a.competitorId === competitorId && a.testId === testId)
+    );
+    await updateDoc(roomRef, { reserveActivations: updated });
+  } catch (error) {
+    console.error('Error deactivating reserve judge: ', error);
     throw error;
   }
 };
@@ -150,13 +245,13 @@ export const updateJudgeTestAssignments = async (roomId: string, judgeUid: strin
   try {
     const roomRef = doc(db, 'rooms', roomId);
     const roomSnap = await getDoc(roomRef);
-    
+
     if (!roomSnap.exists()) {
       throw new Error('Sala não encontrada');
     }
-    
+
     const currentAssignments = roomSnap.data().judgeAssignments || {};
-    
+
     await updateDoc(roomRef, {
       judgeAssignments: {
         ...currentAssignments,
@@ -173,13 +268,13 @@ export const updateJudgeModalityAssignments = async (roomId: string, judgeUid: s
   try {
     const roomRef = doc(db, 'rooms', roomId);
     const roomSnap = await getDoc(roomRef);
-    
+
     if (!roomSnap.exists()) {
       throw new Error('Sala não encontrada');
     }
-    
+
     const currentModalities = roomSnap.data().judgeModalities || {};
-    
+
     await updateDoc(roomRef, {
       judgeModalities: {
         ...currentModalities,
@@ -196,7 +291,7 @@ export const updateJudgeModalityAssignments = async (roomId: string, judgeUid: s
 export const deleteRoom = async (roomId: string) => {
   try {
     const batch = writeBatch(db);
-    
+
     const qComp = query(collection(db, 'competitors'), where('roomId', '==', roomId));
     const compSnap = await getDocs(qComp);
     compSnap.forEach(d => batch.delete(d.ref));

@@ -5,7 +5,7 @@ import { Competitor, Evaluation } from '../types/schema';
 export interface LeaderboardEntry extends Competitor {
     totalScore: number;
     evaluationsCount: number;
-    evaluations: Evaluation[]; 
+    evaluations: Evaluation[];
     scoresByTest: Record<string, number>;
 }
 
@@ -14,13 +14,26 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
 
     const unsubscribeCompetitors = onSnapshot(qCompetitors, async (compSnapshot) => {
         const competitors = compSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+
+        const { doc: docFn, getDoc } = await import('firebase/firestore');
+        let judgeReserves: string[] = [];
+        let judgeReserveModalities: Record<string, string[]> = {};
+        try {
+            const roomSnap = await getDoc(docFn(db, 'rooms', roomId));
+            if (roomSnap.exists()) {
+                const data = roomSnap.data();
+                judgeReserves = data.judgeReserves || [];
+                judgeReserveModalities = data.judgeReserveModalities || {};
+            }
+        } catch { }
+
         const qEvaluations = query(collection(db, 'evaluations'), where('roomId', '==', roomId));
         const evalSnapshot = await getDocs(qEvaluations);
         const evaluations = evalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evaluation));
 
         const leaderboard: LeaderboardEntry[] = competitors.map(comp => {
             const compEvals = evaluations.filter(e => e.competitorId === comp.id);
-            
+
             const evalsByTest: Record<string, Evaluation[]> = {};
             compEvals.forEach(e => {
                 if (!evalsByTest[e.testId]) evalsByTest[e.testId] = [];
@@ -35,10 +48,38 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
                 if (ncEval) {
                     scoresByTest[testId] = 0;
                 } else {
-                    const sorted = [...testEvals].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-                    const top3 = sorted.slice(0, 3);
-                    const avg = top3.reduce((sum, e) => sum + e.finalScore, 0) / top3.length;
-                    scoresByTest[testId] = avg;
+                    const isRes = (judgeId: string) => {
+                        const mods = judgeReserveModalities[judgeId] || [];
+                        if (mods.length > 0) return mods.includes(comp.modality);
+                        return judgeReserves.includes(judgeId);
+                    };
+
+                    const titularEvals = testEvals
+                        .filter(e => !isRes(e.judgeId))
+                        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+                    const reserveEvals = testEvals
+                        .filter(e => isRes(e.judgeId))
+                        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+                    let evalsToAverage: Evaluation[];
+
+                    if (titularEvals.length >= 3) {
+                        evalsToAverage = titularEvals.slice(0, 3);
+                    } else if (titularEvals.length > 0) {
+                        const needed = 3 - titularEvals.length;
+                        const supplementary = reserveEvals.slice(0, needed);
+                        evalsToAverage = [...titularEvals, ...supplementary];
+                    } else {
+                        evalsToAverage = reserveEvals.slice(0, 3);
+                    }
+
+                    if (evalsToAverage.length > 0) {
+                        const avg = evalsToAverage.reduce((sum, e) => sum + e.finalScore, 0) / evalsToAverage.length;
+                        scoresByTest[testId] = avg;
+                    } else {
+                        scoresByTest[testId] = 0;
+                    }
                 }
                 totalScore += scoresByTest[testId];
             });

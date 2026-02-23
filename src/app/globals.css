@@ -11,17 +11,40 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Scrollbar for K9 look */
+assigning gradesbutton,
+a,
+[role="button"],
+select,
+label[for],
+summary,
+input[type="submit"],
+input[type="reset"],
+input[type="button"],
+input[type="file"],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #F3F4F6; 
+  background: #F3F4F6;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #F97316; 
+  background: #F97316;
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #EA580C; 
+  background: #EA580C;
 }

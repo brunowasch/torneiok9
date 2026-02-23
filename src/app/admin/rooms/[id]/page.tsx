@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig } from '@/types/schema';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities } from '@/services/adminService';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, activateReserve, deactivateReserve } from '@/services/adminService';
 import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
@@ -27,7 +27,12 @@ import {
     LogOut,
     Trophy,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Bell,
+    BellOff,
+    Zap,
+    Check,
+    ArrowRight
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -862,41 +867,79 @@ export default function RoomDetailsPage() {
                         <div className="grid md:grid-cols-2 gap-4">
                             {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => {
                                 const assignedMods = (room?.judgeModalities?.[j.uid] || []).filter(m => modalities.includes(m));
-                                const assignedCount = assignedMods.length;
+                                // Modalidades onde este juiz é reserva (novo campo por modalidade)
+                                const reserveMods: string[] = (room?.judgeReserveModalities?.[j.uid] || []);
+                                // Fallback legado: se não tem judgeReserveModalities mas tem judgeReserves global
+                                const isGlobalReserve = !room?.judgeReserveModalities?.[j.uid] && (room?.judgeReserves?.includes(j.uid) ?? false);
 
                                 return (
-                                    <div key={j.uid} className="bg-white border border-gray-100 p-4 rounded-2xl hover:shadow-md transition-all flex justify-between items-center">
-                                        <div className="flex-1">
-                                            <div className="font-bold text-k9-black uppercase">{j.name}</div>
-                                            <div className="text-xs text-gray-400 font-mono">{j.email}</div>
-                                            <div className="flex flex-wrap gap-1.5 mt-2">
-                                                {assignedMods.length > 0 ? assignedMods.map(m => (
-                                                    <span key={m} className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
-                                                        {m}
-                                                    </span>
-                                                )) : (
-                                                    <span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200">
-                                                        {t('admin.judges.noModalities')}
-                                                    </span>
-                                                )}
+                                    <div key={j.uid} className={`bg-white border-2 p-4 rounded-2xl hover:shadow-md transition-all ${reserveMods.length > 0 || isGlobalReserve ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-100'
+                                        }`}>
+                                        {/* Cabeçalho: nome + email */}
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-bold text-k9-black uppercase text-sm">{j.name}</div>
+                                                <div className="text-xs text-gray-400 font-mono mt-0.5">{j.email}</div>
+                                            </div>
+                                            {/* Botões de ação */}
+                                            <div className="flex gap-2 shrink-0">
+                                                <button
+                                                    onClick={() => handleEditJudge(j)}
+                                                    className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer"
+                                                    title="Editar"
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleRemoveJudgeRequest(j.uid, j.name)}
+                                                    className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                                                    title="Remover Juiz desta Sala"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleEditJudge(j)}
-                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer"
-                                                title="Editar"
-                                            >
-                                                <Pencil className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleRemoveJudgeRequest(j.uid, j.name)}
-                                                className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
-                                                title="Remover Juiz desta Sala"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+
+                                        {/* Modalidades atribuídas */}
+                                        <div className="flex flex-wrap gap-1.5 mt-3">
+                                            {assignedMods.length > 0 ? assignedMods.map(m => {
+                                                const isReserveInThisMod = reserveMods.includes(m) || isGlobalReserve;
+                                                return (
+                                                    <button
+                                                        key={m}
+                                                        onClick={async () => {
+                                                            // Toggle de reserva nessa modalidade
+                                                            const newReserveMods = isReserveInThisMod
+                                                                ? reserveMods.filter(r => r !== m)
+                                                                : [...reserveMods, m];
+                                                            await setJudgeReserveModalities(room!.id, j.uid, newReserveMods);
+                                                            loadRoomData();
+                                                        }}
+                                                        title={isReserveInThisMod ? `Promover a Titular em ${m}` : `Marcar como Reserva em ${m}`}
+                                                        className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded-full border transition-all cursor-pointer ${isReserveInThisMod
+                                                            ? 'bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200'
+                                                            : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                                            }`}
+                                                    >
+                                                        {isReserveInThisMod
+                                                            ? <><Zap className="w-2.5 h-2.5" /> Res: {m}</>
+                                                            : <><Check className="w-2.5 h-2.5" /> Tit: {m}</>
+                                                        }
+                                                    </button>
+                                                );
+                                            }) : (
+                                                <span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200">
+                                                    {t('admin.judges.noModalities')}
+                                                </span>
+                                            )}
                                         </div>
+
+                                        {/* Legenda */}
+                                        {assignedMods.length > 0 && (
+                                            <div className="mt-2 text-[8px] text-gray-400 font-bold uppercase">
+                                                Clique na modalidade para alternar Titular ↔ Reserva
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -1024,6 +1067,8 @@ export default function RoomDetailsPage() {
                     <div className="space-y-12">
                         {tests.sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0)).map(test => {
                             const testCompetitors = competitors.filter(c => c.modality === test.modality);
+                            const judgeReserves = room?.judgeReserves || [];
+                            const reserveActivations = room?.reserveActivations || [];
 
                             return (
                                 <div key={test.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
@@ -1044,22 +1089,93 @@ export default function RoomDetailsPage() {
 
                                     <div className="divide-y divide-gray-50">
                                         {testCompetitors.map(comp => {
+                                            const titularEvals = evaluations.filter(e => {
+                                                if (e.testId !== test.id || e.competitorId !== comp.id) return false;
+                                                const judgeReserveMods = room?.judgeReserveModalities?.[e.judgeId] || [];
+                                                if (test.modality && judgeReserveMods.length > 0) {
+                                                    return !judgeReserveMods.includes(test.modality);
+                                                }
+                                                return !(room?.judgeReserves || []).includes(e.judgeId);
+                                            });
+                                            const titularCount = titularEvals.length;
+                                            const needsReserve = titularCount < 3;
+
+                                            const isActivated = (room?.reserveActivations || []).some(
+                                                a => a.competitorId === comp.id && a.testId === test.id
+                                            );
+
                                             const evaluation = evaluations.find(e => e.testId === test.id && e.competitorId === comp.id);
                                             const isDNS = evaluation?.status === 'did_not_participate';
 
                                             return (
                                                 <div key={comp.id} className="p-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-400 text-xs overflow-hidden border border-gray-100 shadow-inner">
+                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-400 text-xs overflow-hidden border border-gray-100 shadow-inner shrink-0">
                                                             {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
                                                         </div>
-                                                        <div>
-                                                            <div className="text-sm font-black text-k9-black uppercase">{comp.handlerName}</div>
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-black text-k9-black uppercase truncate">{comp.handlerName}</div>
                                                             <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.rankings.dog')}: {comp.dogName}</div>
+
+                                                            {/* Indicador de juízes titulares */}
+                                                            <div className="flex items-center gap-2 mt-1.5">
+                                                                <div className="flex gap-1">
+                                                                    {[1, 2, 3].map(i => (
+                                                                        <div
+                                                                            key={i}
+                                                                            className={`w-3.5 h-3.5 rounded-full border-2 transition-colors ${i <= titularCount
+                                                                                ? 'bg-orange-400 border-orange-500'
+                                                                                : 'bg-gray-100 border-gray-300'
+                                                                                }`}
+                                                                            title={`Juiz titular ${i}`}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                                <span className={`text-[9px] font-black uppercase ${titularCount >= 3 ? 'text-green-600' : 'text-gray-400'
+                                                                    }`}>
+                                                                    {titularCount}/3 titulares
+                                                                    {titularCount >= 3 && <span className="ml-1">· Completo</span>}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-4">
+                                                    <div className="flex items-center gap-3 shrink-0">
+                                                        {/* Botão Acionar / Desacionar Reserva */}
+                                                        {needsReserve && !isDNS && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        if (isActivated) {
+                                                                            await deactivateReserve(roomId, comp.id, test.id);
+                                                                        } else {
+                                                                            await activateReserve(roomId, comp.id, test.id, user?.uid || 'admin');
+                                                                        }
+                                                                    } catch (err) {
+                                                                        console.error(err);
+                                                                        alert('Erro ao acionar/desacionar o reserva.');
+                                                                    }
+                                                                }}
+                                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all ${isActivated
+                                                                    ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 shadow-sm'
+                                                                    : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
+                                                                    }`}
+                                                                title={isActivated ? 'Clique para desacionar o reserva' : 'Acionar Juiz Reserva'}
+                                                            >
+                                                                {isActivated ? (
+                                                                    <>
+                                                                        <BellOff className="w-3 h-3" />
+                                                                        Acionado
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Bell className="w-3 h-3" />
+                                                                        Acionar Reserva
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        )}
+
                                                         {evaluation ? (
                                                             <div className="flex items-center gap-3">
                                                                 <div className={`text-right ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
@@ -1109,33 +1225,23 @@ export default function RoomDetailsPage() {
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-md">
                         <div className="bg-white border-2 border-red-200 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden text-black">
                             <div className="absolute top-0 left-0 w-full h-2 bg-red-500"></div>
-
                             <div className="flex flex-col items-center text-center">
                                 <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 border-2 border-red-100">
                                     <Trash2 className="w-8 h-8 text-red-500" />
                                 </div>
-
                                 <h2 className="text-2xl font-black text-k9-black uppercase mb-2 tracking-tighter leading-tight">
                                     {t('admin.deletion.title')}
                                 </h2>
-
                                 <p className="text-gray-500 text-sm font-semibold mb-6 uppercase tracking-tight">
                                     {t('admin.deletion.question')} {itemToDelete?.type === 'competitor' ? t('admin.deletion.competitor') : itemToDelete?.type === 'test' ? t('admin.deletion.test') : t('admin.deletion.judge')}<br />
                                     <span className="text-red-600 font-bold">"{itemToDelete?.name.toUpperCase()}"</span>{t('admin.deletion.questionSuffix')}<br />
                                     {itemToDelete?.type === 'judge' ? t('admin.deletion.judgeWarning') : t('admin.deletion.irreversible')}
                                 </p>
-
                                 <div className="flex gap-4 w-full">
-                                    <button
-                                        onClick={() => setItemToDelete(null)}
-                                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
-                                    >
+                                    <button onClick={() => setItemToDelete(null)} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all">
                                         {t('admin.deletion.cancel')}
                                     </button>
-                                    <button
-                                        onClick={confirmDeletion}
-                                        className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
-                                    >
+                                    <button onClick={confirmDeletion} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20">
                                         {t('admin.deletion.confirm')}
                                     </button>
                                 </div>
@@ -1143,7 +1249,6 @@ export default function RoomDetailsPage() {
                         </div>
                     </div>
                 )}
-                {/* Deletion Modal ... skipped for brevity ... */}
 
                 {/* MODAL DE CONFIRMAÇÃO DE FALTA (NC) */}
                 <Modal
@@ -1153,36 +1258,25 @@ export default function RoomDetailsPage() {
                     maxWidth="max-w-md"
                 >
                     <div className="flex flex-col items-center text-center p-2">
-                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 border-2 border-red-100 shadow-sm">
+                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 border-2 border-red-100 shadow-sm overflow-hidden">
                             {compToMarkNC?.comp.photoUrl ? (
                                 <img src={compToMarkNC.comp.photoUrl} className="w-full h-full rounded-full object-cover" />
                             ) : (
                                 <Users className="w-10 h-10 text-red-400" />
                             )}
                         </div>
-
-                        <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
-                            Você está marcando falta para:
-                        </p>
-                        <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">
-                            {compToMarkNC?.comp.handlerName}
-                        </h3>
+                        <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">Você está marcando falta para:</p>
+                        <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">{compToMarkNC?.comp.handlerName}</h3>
                         <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
-                            Prova: {compToMarkNC?.test.title}
+                            {t('admin.nc.test')}: {compToMarkNC?.test.title}
                         </p>
-
                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
                             <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
-                                O competidor receberá <span className="text-red-600">ZERO</span> pontos nesta prova.
-                                Esta ação poderá ser revertida na aba de resultados se necessário.
+                                {t('admin.nc.warning')} <span className="text-red-600">{t('admin.nc.warningZero')}</span> {t('admin.nc.warningEnd')}
                             </p>
                         </div>
-
                         <div className="flex gap-4 w-full">
-                            <button
-                                onClick={() => setCompToMarkNC(null)}
-                                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
-                            >
+                            <button onClick={() => setCompToMarkNC(null)} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all">
                                 {t('admin.nc.cancel')}
                             </button>
                             <button
@@ -1199,6 +1293,7 @@ export default function RoomDetailsPage() {
                         </div>
                     </div>
                 </Modal>
+
                 {/* MODAL DE REMOÇÃO DE AVALIAÇÃO/NC */}
                 <Modal
                     isOpen={!!evalToDelete}
@@ -1214,28 +1309,20 @@ export default function RoomDetailsPage() {
                                 <Users className="w-10 h-10 text-red-400" />
                             )}
                         </div>
-
                         <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
                             {t('admin.evalDeletion.removing')} {evalToDelete?.isNC ? t('admin.evalDeletion.removingAbsence') : t('admin.evalDeletion.removingScore')} {t('admin.evalDeletion.of')}
                         </p>
-                        <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">
-                            {evalToDelete?.name}
-                        </h3>
+                        <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">{evalToDelete?.name}</h3>
                         <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
                             {t('admin.evalDeletion.test')}: {evalToDelete?.testTitle}
                         </p>
-
                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
                             <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
                                 {t('admin.evalDeletion.warning')} {evalToDelete?.isNC ? t('admin.evalDeletion.absenceRecord') : t('admin.evalDeletion.evaluation')} {t('admin.evalDeletion.warningEnd')}
                             </p>
                         </div>
-
                         <div className="flex gap-4 w-full">
-                            <button
-                                onClick={() => setEvalToDelete(null)}
-                                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
-                            >
+                            <button onClick={() => setEvalToDelete(null)} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all">
                                 {t('admin.evalDeletion.cancel')}
                             </button>
                             <button
@@ -1248,60 +1335,6 @@ export default function RoomDetailsPage() {
                                 className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
                             >
                                 {t('admin.evalDeletion.confirm')}
-                            </button>
-                        </div>
-                    </div>
-                </Modal>
-
-                {/* MODAL DE CONFIRMAÇÃO DE FALTA (NC) */}
-                <Modal
-                    isOpen={!!compToMarkNC}
-                    onClose={() => setCompToMarkNC(null)}
-                    title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><AlertCircle className="w-5 h-5" /> {t('admin.nc.title')}</div>}
-                    maxWidth="max-w-md"
-                >
-                    <div className="flex flex-col items-center text-center p-2">
-                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 border-2 border-red-100 shadow-sm overflow-hidden">
-                            {compToMarkNC?.comp.photoUrl ? (
-                                <img src={compToMarkNC.comp.photoUrl} className="w-full h-full object-cover" />
-                            ) : (
-                                <Users className="w-10 h-10 text-red-400" />
-                            )}
-                        </div>
-
-                        <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
-                            Você está marcando falta para:
-                        </p>
-                        <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">
-                            {compToMarkNC?.comp.handlerName}
-                        </h3>
-                        <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
-                            {t('admin.nc.test')}: {compToMarkNC?.test.title}
-                        </p>
-
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
-                            <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
-                                {t('admin.nc.warning')} <span className="text-red-600">{t('admin.nc.warningZero')}</span> {t('admin.nc.warningEnd')}
-                            </p>
-                        </div>
-
-                        <div className="flex gap-4 w-full">
-                            <button
-                                onClick={() => setCompToMarkNC(null)}
-                                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
-                            >
-                                {t('admin.nc.cancel')}
-                            </button>
-                            <button
-                                onClick={async () => {
-                                    if (compToMarkNC) {
-                                        await setDidNotParticipate(roomId, compToMarkNC.test.id, compToMarkNC.comp.id, user?.uid || 'admin');
-                                        setCompToMarkNC(null);
-                                    }
-                                }}
-                                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
-                            >
-                                {t('admin.nc.confirm')}
                             </button>
                         </div>
                     </div>

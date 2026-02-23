@@ -18,14 +18,24 @@ export interface AppUser {
   createdAt: number;
 }
 
+export interface ReserveActivation {
+  competitorId: string;
+  testId: string;
+  activatedAt: number;
+  activatedBy: string;
+}
+
 export interface Room {
   id: string;
   name: string;
   description: string;
   active: boolean;
-  createdBy: string; 
+  createdBy: string;
   judges: string[];
-  judgeAssignments?: Record<string, string[]>; // Deprecated: use judgeModalities
+  judgeReserves?: string[];
+  judgeReserveModalities?: Record<string, string[]>;
+  reserveActivations?: ReserveActivation[];
+  judgeAssignments?: Record<string, string[]>;
   judgeModalities?: Record<string, Modality[]>;
   createdAt: number;
 }
@@ -33,12 +43,12 @@ export interface Room {
 export interface Competitor {
   id: string;
   roomId: string;
-  handlerName: string; 
+  handlerName: string;
   dogName: string;
   dogBreed: string;
   modality: Modality;
   competitorNumber: number;
-  testIds?: string[]; 
+  testIds?: string[];
   testId?: string; // Deprecated: mantido para compatibilidade
   photoUrl?: string;
   createdAt: number;
@@ -64,8 +74,8 @@ export interface PenaltyOption {
 
 export interface TestTemplate {
   id: string;
-  roomId?: string; 
-  modality?: Modality; 
+  roomId?: string;
+  modality?: Modality;
   title: string; // ex: "Prova de Proteção 1"
   description: string;
   maxScore: number;
