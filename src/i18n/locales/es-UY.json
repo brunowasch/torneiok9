@@ -214,6 +214,18 @@
             "warningEnd": "de la base de datos. El competidor podrá ser evaluado nuevamente si es necesario.",
             "cancel": "Cancelar",
             "confirm": "Confirmar Eliminación"
+        },
+        "editRequests": {
+            "title": "Solicitudes de Edición de Nota",
+            "pending": "pendientes",
+            "test": "Prueba",
+            "judge": "Juez",
+            "score": "Nota",
+            "reason": "Motivo",
+            "approve": "Aprobar",
+            "reject": "Rechazar",
+            "errorApprove": "Error al aprobar la solicitud.",
+            "errorReject": "Error al rechazar la solicitud."
         }
     },
     "judge": {
@@ -275,7 +287,24 @@
             "alreadyEvaluated": "Ya Evaluado",
             "penaltyMustBeNegative": "El valor de la penalidad debe ser un número negativo (ej: -1.0)",
             "penaltyDescRequired": "¡La descripción de la penalidad es obligatoria!",
-            "errorUpdatePenalty": "Error al seleccionar penalidad"
+            "errorUpdatePenalty": "Error al seleccionar la penalidad",
+            "edit": "Editar",
+            "editRequest": {
+                "title": "Solicitar Edición de Nota",
+                "question": "¿Desea cambiar su nota?",
+                "adminApproval": "Esta acción requiere aprobación del administrador",
+                "currentScore": "Nota Actual",
+                "reasonLabel": "Motivo del cambio *",
+                "reasonPlaceholder": "Describa el motivo por el cual necesita editar la nota...",
+                "cancel": "Cancelar",
+                "send": "Enviar Solicitud",
+                "sending": "Enviando...",
+                "pendingAlert": "Su solicitud ya ha sido enviada y está esperando la aprobación del admin.",
+                "successAlert": "¡Solicitud enviada al admin con éxito! Espere la aprobación.",
+                "errorAlert": "Error al enviar la solicitud.",
+                "approvedStatus": "Edición aprobada · haga clic para re-evaluar",
+                "pendingStatus": "Solicitud pendiente"
+            }
         }
     },
     "language": {

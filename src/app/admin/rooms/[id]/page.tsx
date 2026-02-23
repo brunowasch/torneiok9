@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig } from '@/types/schema';
+import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest } from '@/types/schema';
 import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, activateReserve, deactivateReserve } from '@/services/adminService';
-import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation } from '@/services/evaluationService';
+import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
@@ -34,7 +34,11 @@ import {
     Check,
     ArrowRight,
     Eye,
-    EyeOff
+    EyeOff,
+    Clock,
+    CheckCircle,
+    XCircle,
+    Send
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -91,21 +95,26 @@ export default function RoomDetailsPage() {
     // Deletion Modal State
     const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string, type: 'competitor' | 'test' | 'judge' } | null>(null);
 
+    // Edit Score Requests
+    const [editRequests, setEditRequests] = useState<EditScoreRequest[]>([]);
+
     const loadRoomData = useCallback(async () => {
         try {
             const r = await getRoomById(roomId);
             setRoom(r);
 
-            const [c, t, j, e] = await Promise.all([
+            const [c, t, j, e, er] = await Promise.all([
                 getCompetitorsByRoom(roomId),
                 getTestTemplates(roomId),
                 getJudgesList(),
-                getEvaluationsByRoom(roomId)
+                getEvaluationsByRoom(roomId),
+                getEditScoreRequestsByRoom(roomId)
             ]);
             setCompetitors(c);
             setTests(t);
             setAllJudges(j);
             setEvaluations(e);
+            setEditRequests(er);
         } catch (err) {
             console.error("Failed to load room", err);
         } finally {
@@ -429,6 +438,98 @@ export default function RoomDetailsPage() {
 
             {/* Content Actions */}
             <div className="max-w-6xl mx-auto p-6 md:p-8 bg-gray-50 rounded-xl mt-6 mb-12 md:mt-8 md:mb-16">
+
+                {/* === MOVED: SEÇÃO DE SOLICITAÇÕES DE EDIÇÃO DE NOTA (Sempre visível se houver pendentes) === */}
+                {editRequests.filter(r => r.status === 'pending').length > 0 && (
+                    <div className="mb-8 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-6 shadow-md border-l-8 border-l-amber-400">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm animate-pulse">
+                                <Send className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-k9-black uppercase tracking-tighter">{t('admin.editRequests.title')}</h3>
+                                <p className="text-[10px] font-bold text-amber-600 uppercase">{editRequests.filter(r => r.status === 'pending').length} {t('admin.editRequests.pending')}</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {editRequests.filter(r => r.status === 'pending').map(req => {
+                                const comp = competitors.find(c => c.id === req.competitorId);
+                                const test = tests.find(t => t.id === req.testId);
+                                const eval_ = evaluations.find(e => e.id === req.evaluationId);
+
+                                return (
+                                    <div key={req.id} className="bg-white rounded-xl border border-amber-100 p-4 shadow-sm hover:shadow-md transition-all">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center font-black text-orange-600 text-sm border border-orange-200 overflow-hidden shrink-0">
+                                                    {comp?.photoUrl ? (
+                                                        <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        (comp?.handlerName || '??').substring(0, 2).toUpperCase()
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-black text-k9-black uppercase text-sm truncate">{comp?.handlerName || 'Competidor'}</div>
+                                                    <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.editRequests.test')}: {test?.title || 'Prova'}</div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[10px] font-black text-amber-600 uppercase bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" /> {t('admin.editRequests.judge')}: {req.judgeName}
+                                                        </span>
+                                                        {eval_ && (
+                                                            <span className="text-[10px] font-black text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                                                                {t('admin.editRequests.score')}: {eval_.finalScore.toFixed(1)} pts
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-2 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                        <span className="text-[9px] font-black text-gray-400 uppercase block mb-0.5">{t('admin.editRequests.reason')}:</span>
+                                                        {req.reason}
+                                                    </div>
+                                                    <div className="text-[9px] text-gray-300 font-mono mt-1">
+                                                        {new Date(req.createdAt).toLocaleString('pt-BR')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-2 shrink-0">
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            await respondToEditScoreRequest(req.id, 'approved', user?.uid || 'admin');
+                                                            loadRoomData();
+                                                        } catch (err) {
+                                                            console.error(err);
+                                                            alert(t('admin.editRequests.errorApprove'));
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-all cursor-pointer shadow-sm"
+                                                    title={t('admin.editRequests.approve')}
+                                                >
+                                                    <CheckCircle className="w-4 h-4" /> {t('admin.editRequests.approve')}
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            await respondToEditScoreRequest(req.id, 'rejected', user?.uid || 'admin');
+                                                            loadRoomData();
+                                                        } catch (err) {
+                                                            console.error(err);
+                                                            alert(t('admin.editRequests.errorReject'));
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-all cursor-pointer shadow-sm"
+                                                    title={t('admin.editRequests.reject')}
+                                                >
+                                                    <XCircle className="w-4 h-4" /> {t('admin.editRequests.reject')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
                 {/* Tabs */}
                 <div className="flex gap-2 mb-8">
                     <button
@@ -454,9 +555,14 @@ export default function RoomDetailsPage() {
 
                     <button
                         onClick={() => setActiveTab('rankings')}
-                        className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'rankings' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
+                        className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer relative ${activeTab === 'rankings' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
                         <Trophy className="w-4 h-4" /> {t('admin.tabs.results')}
+                        {editRequests.filter(r => r.status === 'pending').length > 0 && (
+                            <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                                {editRequests.filter(r => r.status === 'pending').length}
+                            </span>
+                        )}
                     </button>
                 </div>
 
@@ -876,9 +982,7 @@ export default function RoomDetailsPage() {
                         <div className="grid md:grid-cols-2 gap-4">
                             {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => {
                                 const assignedMods = (room?.judgeModalities?.[j.uid] || []).filter(m => modalities.includes(m));
-                                // Modalidades onde este juiz é reserva (novo campo por modalidade)
                                 const reserveMods: string[] = (room?.judgeReserveModalities?.[j.uid] || []);
-                                // Fallback legado: se não tem judgeReserveModalities mas tem judgeReserves global
                                 const isGlobalReserve = !room?.judgeReserveModalities?.[j.uid] && (room?.judgeReserves?.includes(j.uid) ?? false);
 
                                 return (
@@ -917,7 +1021,6 @@ export default function RoomDetailsPage() {
                                                     <button
                                                         key={m}
                                                         onClick={async () => {
-                                                            // Toggle de reserva nessa modalidade
                                                             const newReserveMods = isReserveInThisMod
                                                                 ? reserveMods.filter(r => r !== m)
                                                                 : [...reserveMods, m];

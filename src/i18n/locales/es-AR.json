@@ -214,10 +214,22 @@
             "warningEnd": "de la base de datos. El competidor podrá ser evaluado nuevamente si es necesario.",
             "cancel": "Cancelar",
             "confirm": "Confirmar Eliminación"
+        },
+        "editRequests": {
+            "title": "Solicitudes de Edición de Nota",
+            "pending": "pendientes",
+            "test": "Prueba",
+            "judge": "Juez",
+            "score": "Nota",
+            "reason": "Motivo",
+            "approve": "Aprobar",
+            "reject": "Rechazar",
+            "errorApprove": "Error al aprobar solicitud.",
+            "errorReject": "Error al rechazar solicitud."
         }
     },
     "judge": {
-        "loading": "[CARGANDO ACCESO DEL JUEZ...]",
+        "loading": "[CARGANDO ACCESO DEL JUIZ...]",
         "areaTitle": "Área del Juez",
         "subtitle": "Panel de Evaluación Táctica",
         "assignedOps": "Operaciones Asignadas",
@@ -249,7 +261,7 @@
             "penaltyType": "Tipo de Penalidad",
             "penaltyValue": "Valor",
             "penaltyReason": "Motivo / Justificación (Obligatorio)",
-            "penaltyReasonPlaceholder": "Describíl detalladamente el motivo de esta penalidad...",
+            "penaltyReasonPlaceholder": "Describí detalladamente el motivo de esta penalidad...",
             "penaltySelect": "Seleccioná...",
             "penaltyCustom": "+ Penalidad Manual",
             "penaltyCancel": "Cancelar",
@@ -275,7 +287,24 @@
             "alreadyEvaluated": "Ya Evaluado",
             "penaltyMustBeNegative": "El valor de la penalidad debe ser un número negativo (ej: -1.0)",
             "penaltyDescRequired": "¡La descripción de la penalidad es obligatoria!",
-            "errorUpdatePenalty": "Error al seleccionar penalidad"
+            "errorUpdatePenalty": "Error al seleccionar penalidad",
+            "edit": "Editar",
+            "editRequest": {
+                "title": "Solicitar Edición de Nota",
+                "question": "¿Querés cambiar tu nota?",
+                "adminApproval": "Esta acción requiere aprobación del administrador",
+                "currentScore": "Nota Actual",
+                "reasonLabel": "Motivo del cambio *",
+                "reasonPlaceholder": "Describí el motivo por el cual necesitás editar la nota...",
+                "cancel": "Cancelar",
+                "send": "Enviar Solicitud",
+                "sending": "Enviando...",
+                "pendingAlert": "Tu solicitud ya fue enviada y está esperando aprobación del admin.",
+                "successAlert": "¡Solicitud enviada al admin con éxito! Esperá la aprobación.",
+                "errorAlert": "Error al enviar solicitud.",
+                "approvedStatus": "Edición aprobada · hacé clic para re-evaluar",
+                "pendingStatus": "Solicitud pendiente"
+            }
         }
     },
     "language": {

@@ -3,10 +3,13 @@ import {
   collection, 
   addDoc, 
   getDocs, 
+  getDoc,
+  doc,
+  updateDoc,
   query, 
   where 
 } from 'firebase/firestore';
-import { Evaluation, TestTemplate } from '../types/schema';
+import { Evaluation, TestTemplate, EditScoreRequest } from '../types/schema';
 
 export const calculateFinalScore = (
   template: TestTemplate,
@@ -92,4 +95,77 @@ export const setDidNotParticipate = async (roomId: string, testId: string, compe
         console.error("Error setting DNS: ", error);
         throw error;
     }
+};
+
+
+export const createEditScoreRequest = async (
+  data: Omit<EditScoreRequest, 'id' | 'createdAt' | 'status'>
+): Promise<string> => {
+  try {
+    // Check if there's already a pending request for this evaluation
+    const existing = query(
+      collection(db, 'editScoreRequests'),
+      where('evaluationId', '==', data.evaluationId),
+      where('judgeId', '==', data.judgeId),
+      where('status', '==', 'pending')
+    );
+    const existingDocs = await getDocs(existing);
+    if (!existingDocs.empty) {
+      throw new Error('Já existe uma solicitação pendente para esta avaliação.');
+    }
+
+    const docRef = await addDoc(collection(db, 'editScoreRequests'), {
+      ...data,
+      status: 'pending',
+      createdAt: Date.now()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating edit score request:', error);
+    throw error;
+  }
+};
+
+export const getEditScoreRequestsByRoom = async (roomId: string): Promise<EditScoreRequest[]> => {
+  const q = query(collection(db, 'editScoreRequests'), where('roomId', '==', roomId));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EditScoreRequest));
+};
+
+export const respondToEditScoreRequest = async (
+  requestId: string,
+  status: 'approved' | 'rejected' | 'consumed',
+  adminUid: string
+): Promise<void> => {
+  try {
+    const ref = doc(db, 'editScoreRequests', requestId);
+    await updateDoc(ref, {
+      status,
+      respondedBy: adminUid,
+      respondedAt: Date.now()
+    });
+  } catch (error) {
+    console.error('Error responding to edit score request:', error);
+    throw error;
+  }
+};
+
+export const getApprovedEditRequest = async (
+  evaluationId: string,
+  judgeId: string
+): Promise<EditScoreRequest | null> => {
+  const q = query(
+    collection(db, 'editScoreRequests'),
+    where('evaluationId', '==', evaluationId),
+    where('judgeId', '==', judgeId),
+    where('status', '==', 'approved')
+  );
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as EditScoreRequest;
+};
+export const getAllPendingEditRequests = async (): Promise<EditScoreRequest[]> => {
+  const q = query(collection(db, 'editScoreRequests'), where('status', '==', 'pending'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EditScoreRequest));
 };

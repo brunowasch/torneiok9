@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createRoom, getRooms, deleteRoom } from '@/services/adminService';
+import { getAllPendingEditRequests, respondToEditScoreRequest } from '@/services/evaluationService';
 import { auth } from '@/lib/firebase';
 import {
     PlusCircle,
@@ -16,9 +17,14 @@ import {
     Trash2,
     Shield,
     Eye,
-    EyeOff
+    EyeOff,
+    Bell,
+    Send,
+    CheckCircle,
+    XCircle,
+    Clock
 } from 'lucide-react';
-import { Room } from '@/types/schema';
+import { Room, EditScoreRequest } from '@/types/schema';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -27,6 +33,7 @@ export default function AdminDashboard() {
     const router = useRouter();
     const { t } = useTranslation();
     const [rooms, setRooms] = useState<Room[]>([]);
+    const [pendingRequests, setPendingRequests] = useState<EditScoreRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newRoomName, setNewRoomName] = useState('');
@@ -37,6 +44,8 @@ export default function AdminDashboard() {
     const [showAdminPassword, setShowAdminPassword] = useState(false);
 
     const [roomToDelete, setRoomToDelete] = useState<{ id: string, name: string } | null>(null);
+    const [showRequestsModal, setShowRequestsModal] = useState(false);
+    const [requestFilterRoomId, setRequestFilterRoomId] = useState<string | null>(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -53,10 +62,14 @@ export default function AdminDashboard() {
 
     const fetchRooms = async () => {
         try {
-            const data = await getRooms();
-            setRooms(data);
+            const [roomsData, requestsData] = await Promise.all([
+                getRooms(),
+                getAllPendingEditRequests()
+            ]);
+            setRooms(roomsData);
+            setPendingRequests(requestsData);
         } catch (e) {
-            console.error("Error loading rooms", e);
+            console.error("Error loading dashboard data", e);
         } finally {
             setLoading(false);
         }
@@ -180,6 +193,34 @@ export default function AdminDashboard() {
                     </button>
                 </div>
 
+                {/* Global Notification Banner */}
+                {pendingRequests.length > 0 && (
+                    <div 
+                        onClick={() => {
+                            setRequestFilterRoomId(null);
+                            setShowRequestsModal(true);
+                        }}
+                        className="mb-8 bg-linear-to-r from-amber-500 to-orange-600 rounded-xl p-4 shadow-lg border-2 border-orange-400 animate-in fade-in slide-in-from-top-4 duration-500 cursor-pointer hover:scale-[1.01] transition-transform"
+                    >
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3 text-white">
+                                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                                    <Bell className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-black uppercase tracking-tight">Solicitações de Edição Pendentes</p>
+                                    <p className="text-[10px] opacity-90 font-bold uppercase">Existem {pendingRequests.length} solicitações aguardando sua revisão nos torneios ativos. Clique para gerenciar.</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <div className="px-3 py-1.5 bg-white/10 rounded-lg text-white text-[10px] font-black uppercase border border-white/20">
+                                    {pendingRequests.length} PENDENTES
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {loading ? (
                     <div className="text-center p-12 animate-pulse text-k9-orange font-mono">{t('adminDashboard.loading')}</div>
                 ) : (
@@ -195,6 +236,21 @@ export default function AdminDashboard() {
                                                 <MapPin className="w-6 h-6" />
                                             </div>
                                             <div className="flex items-center gap-2">
+                                                {pendingRequests.filter(r => r.roomId === room.id).length > 0 && (
+                                                    <div
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setRequestFilterRoomId(room.id);
+                                                            setShowRequestsModal(true);
+                                                        }}
+                                                        className="px-2 py-1 bg-red-500 text-white text-[9px] font-black rounded-lg flex items-center gap-1 shadow-md animate-pulse border-2 border-red-400 cursor-pointer hover:scale-110 transition-transform"
+                                                        title={`${pendingRequests.filter(r => r.roomId === room.id).length} solicitações de edição`}
+                                                    >
+                                                        <Send className="w-3 h-3" />
+                                                        {pendingRequests.filter(r => r.roomId === room.id).length}
+                                                    </div>
+                                                )}
                                                 <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider border-2 ${room.active ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
                                                     {room.active ? t('adminDashboard.inProgress') : t('adminDashboard.finished')}
                                                 </span>
@@ -339,43 +395,146 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                 )}
+
                 {/* Delete Confirmation Modal */}
                 {roomToDelete && (
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-md">
-                        <div className="bg-white border-2 border-red-200 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden text-black">
-                            {/* Warning Strip */}
+                        <div className="bg-white border-2 border-red-200 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden text-black text-center">
                             <div className="absolute top-0 left-0 w-full h-2 bg-red-500"></div>
-
-                            <div className="flex flex-col items-center text-center">
-                                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 border-2 border-red-100">
-                                    <Trash2 className="w-8 h-8 text-red-500" />
-                                </div>
-
-                                <h2 className="text-2xl font-black text-k9-black uppercase mb-2 tracking-tighter">
-                                    {t('adminDashboard.deleteRoomTitle')}
-                                </h2>
-
-                                <p className="text-gray-500 text-sm font-semibold mb-6 uppercase tracking-tight">
-                                    {t('adminDashboard.deleteRoomMessage')}<br />
-                                    <span className="text-red-600 font-bold">"{roomToDelete.name.toUpperCase()}"</span><br />
-                                    {t('adminDashboard.deleteRoomIrreversible')}
-                                </p>
-
-                                <div className="flex gap-4 w-full">
-                                    <button
-                                        onClick={() => setRoomToDelete(null)}
-                                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
-                                    >
-                                        {t('adminDashboard.deleteRoomCancel')}
-                                    </button>
-                                    <button
-                                        onClick={confirmDeleteRoom}
-                                        className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
-                                    >
-                                        {t('adminDashboard.deleteRoomConfirm')}
-                                    </button>
-                                </div>
+                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 mt-2 border-2 border-red-100">
+                                <Trash2 className="w-8 h-8 text-red-500" />
                             </div>
+                            <h2 className="text-2xl font-black uppercase mb-2 tracking-tighter">Excluir Sala</h2>
+                            <p className="text-gray-500 text-sm font-semibold mb-6 uppercase">
+                                Você tem certeza que deseja excluir a sala <span className="text-red-600">"{roomToDelete.name.toUpperCase()}"</span>? Esta ação não pode ser desfeita.
+                            </p>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setRoomToDelete(null)}
+                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmDeleteRoom}
+                                    className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 shadow-lg"
+                                >
+                                    Confirmar Exclusão
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Requests Modal */}
+                {showRequestsModal && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-md">
+                        <div className="bg-white border-2 border-amber-200 p-8 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+                            <div className="absolute top-0 left-0 w-full h-2 bg-amber-400"></div>
+                            
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm">
+                                        <Send className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-black text-k9-black uppercase tracking-tighter">Solicitações de Edição</h2>
+                                        <p className="text-[10px] font-bold text-amber-600 uppercase">
+                                            {requestFilterRoomId 
+                                                ? `Torneio: ${rooms.find(r => r.id === requestFilterRoomId)?.name}` 
+                                                : "Todos os torneios"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setShowRequestsModal(false)}
+                                    className="p-2 text-gray-400 hover:text-black transition-colors"
+                                >
+                                    <XCircle className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <div className="overflow-y-auto space-y-4 pr-2">
+                                {pendingRequests
+                                    .filter(r => !requestFilterRoomId || r.roomId === requestFilterRoomId)
+                                    .map(req => {
+                                        const room = rooms.find(rm => rm.id === req.roomId);
+                                        return (
+                                            <div key={req.id} className="bg-amber-50/50 rounded-xl border border-amber-100 p-4 shadow-sm hover:shadow-md transition-all">
+                                                <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-[9px] font-black bg-black text-white px-2 py-0.5 rounded uppercase">
+                                                                {room?.name}
+                                                            </span>
+                                                        </div>
+                                                        <div className="font-black text-k9-black uppercase text-sm truncate">
+                                                            {req.competitorName || 'Competidor'}
+                                                        </div>
+                                                        <div className="text-[10px] text-gray-400 font-bold uppercase">
+                                                            Prova: {req.testTitle || 'Prova'}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="text-[10px] font-black text-amber-600 uppercase bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+                                                                <Clock className="w-3 h-3" /> Juiz: {req.judgeName}
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-2 text-xs text-gray-600 bg-white p-3 rounded-lg border border-amber-100 shadow-inner">
+                                                            <span className="text-[9px] font-black text-gray-400 uppercase block mb-1">Motivo:</span>
+                                                            {req.reason}
+                                                        </div>
+                                                        <div className="text-[9px] text-gray-300 font-mono mt-2">
+                                                            {new Date(req.createdAt).toLocaleString('pt-BR')}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex md:flex-col gap-2 shrink-0 w-full md:w-auto">
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await respondToEditScoreRequest(req.id, 'approved', user?.uid || 'admin');
+                                                                    fetchRooms();
+                                                                } catch (err) {
+                                                                    console.error(err);
+                                                                    alert('Erro ao aprovar.');
+                                                                }
+                                                            }}
+                                                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase rounded-lg bg-green-500 text-white border border-green-600 hover:bg-green-600 transition-all cursor-pointer shadow-sm"
+                                                        >
+                                                            <CheckCircle className="w-4 h-4" /> Aprovar
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await respondToEditScoreRequest(req.id, 'rejected', user?.uid || 'admin');
+                                                                    fetchRooms();
+                                                                } catch (err) {
+                                                                    console.error(err);
+                                                                    alert('Erro ao rejeitar.');
+                                                                }
+                                                            }}
+                                                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase rounded-lg bg-white text-red-600 border border-red-200 hover:bg-red-50 transition-all cursor-pointer shadow-sm"
+                                                        >
+                                                            <XCircle className="w-4 h-4" /> Rejeitar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                
+                                {pendingRequests.filter(r => !requestFilterRoomId || r.roomId === requestFilterRoomId).length === 0 && (
+                                    <div className="text-center py-8 text-gray-400 uppercase font-black text-xs tracking-widest">
+                                        Nenhuma solicitação pendente encontrada.
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                onClick={() => setShowRequestsModal(false)}
+                                className="mt-6 w-full py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                            >
+                                Fechar
+                            </button>
                         </div>
                     </div>
                 )}

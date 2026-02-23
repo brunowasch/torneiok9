@@ -104,3 +104,20 @@ export interface Evaluation {
   status?: 'evaluated' | 'did_not_participate';
   createdAt: number;
 }
+
+export interface EditScoreRequest {
+  id: string;
+  roomId: string;
+  competitorId: string;
+  competitorName: string;
+  testId: string;
+  testTitle: string;
+  evaluationId: string;
+  judgeId: string;
+  judgeName: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'consumed';
+  respondedBy?: string;
+  respondedAt?: number;
+  createdAt: number;
+}

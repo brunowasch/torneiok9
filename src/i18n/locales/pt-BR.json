@@ -214,6 +214,18 @@
             "warningEnd": "do banco de dados. O competidor poderá ser avaliado novamente se necessário.",
             "cancel": "Cancelar",
             "confirm": "Confirmar Exclusão"
+        },
+        "editRequests": {
+            "title": "Solicitações de Edição de Nota",
+            "pending": "pendentes",
+            "test": "Prova",
+            "judge": "Juiz",
+            "score": "Nota",
+            "reason": "Motivo",
+            "approve": "Aprovar",
+            "reject": "Rejeitar",
+            "errorApprove": "Erro ao aprovar solicitação.",
+            "errorReject": "Erro ao rejeitar solicitação."
         }
     },
     "judge": {
@@ -275,7 +287,24 @@
             "alreadyEvaluated": "Já Avaliado",
             "penaltyMustBeNegative": "O valor da penalidade deve ser um número negativo (ex: -1.0)",
             "penaltyDescRequired": "A descrição da penalidade é obrigatória!",
-            "errorUpdatePenalty": "Erro ao selecionar penalidade"
+            "errorUpdatePenalty": "Erro ao selecionar penalidade",
+            "edit": "Editar",
+            "editRequest": {
+                "title": "Solicitar Edição de Nota",
+                "question": "Deseja alterar sua nota?",
+                "adminApproval": "Esta ação requer aprovação do administrador",
+                "currentScore": "Nota Atual",
+                "reasonLabel": "Motivo da alteração *",
+                "reasonPlaceholder": "Descreva o motivo pelo qual precisa editar a nota...",
+                "cancel": "Cancelar",
+                "send": "Enviar Solicitação",
+                "sending": "Enviando...",
+                "pendingAlert": "Sua solicitação já foi enviada e está aguardando aprovação do admin.",
+                "successAlert": "Solicitação enviada ao admin com sucesso! Aguarde a aprovação.",
+                "errorAlert": "Erro ao enviar solicitação.",
+                "approvedStatus": "Edição aprovada · clique para re-avaliar",
+                "pendingStatus": "Solicitação pendente"
+            }
         }
     },
     "language": {

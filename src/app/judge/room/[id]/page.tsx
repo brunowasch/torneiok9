@@ -12,14 +12,19 @@ import {
 } from '@/services/adminService';
 import {
     saveEvaluation,
-    getEvaluationsByRoom
+    getEvaluationsByRoom,
+    createEditScoreRequest,
+    getEditScoreRequestsByRoom,
+    deleteEvaluation,
+    respondToEditScoreRequest
 } from '@/services/evaluationService';
 import {
     Room,
     Competitor,
     TestTemplate,
     Evaluation,
-    Modality
+    Modality,
+    EditScoreRequest
 } from '@/types/schema';
 import {
     ArrowLeft,
@@ -34,10 +39,14 @@ import {
     Shield,
     Bell,
     Zap,
-    Lock as LockIcon
+    Lock as LockIcon,
+    Pencil,
+    Clock,
+    Send
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import Modal from '@/components/Modal';
 
 export default function JudgeRoomPage() {
     const params = useParams();
@@ -73,6 +82,13 @@ export default function JudgeRoomPage() {
     const [selectedTestView, setSelectedTestView] = useState<TestTemplate | null>(null);
     const [testSearch, setTestSearch] = useState('');
 
+    // Edit Score Request State
+    const [editRequests, setEditRequests] = useState<EditScoreRequest[]>([]);
+    const [showEditRequestModal, setShowEditRequestModal] = useState(false);
+    const [editRequestTarget, setEditRequestTarget] = useState<{ competitor: Competitor; test: TestTemplate; evaluation: Evaluation } | null>(null);
+    const [editRequestReason, setEditRequestReason] = useState('');
+    const [sendingEditRequest, setSendingEditRequest] = useState(false);
+
     const [authDetermined, setAuthDetermined] = useState(false);
 
     useEffect(() => {
@@ -94,18 +110,20 @@ export default function JudgeRoomPage() {
 
     const loadData = async () => {
         try {
-            const [r, c, t2, e, m] = await Promise.all([
+            const [r, c, t2, e, m, er] = await Promise.all([
                 getRoomById(roomId),
                 getCompetitorsByRoom(roomId),
                 getTestTemplates(roomId),
                 getEvaluationsByRoom(roomId),
-                getModalities()
+                getModalities(),
+                getEditScoreRequestsByRoom(roomId)
             ]);
             setRoom(r);
             setCompetitors(c);
             setTests(t2);
             setEvaluations(e);
             setModalities(m.map(mod => mod.name));
+            setEditRequests(er);
         } catch (error) {
             console.error(error);
             alert(t('judge.room.errorLoad'));
@@ -162,9 +180,6 @@ export default function JudgeRoomPage() {
         }).length;
     };
 
-    /**
-     * Total de avaliações já lançadas (titular + reserva) para um competidor numa prova.
-     */
     const getTotalEvalCount = (competitorId: string, testId: string): number => {
         return evaluations.filter(e =>
             e.competitorId === competitorId &&
@@ -182,19 +197,12 @@ export default function JudgeRoomPage() {
         );
     };
 
-    /**
-     * Verifica se o juiz reserva está BLOQUEADO de avaliar.
-     * Bloqueado por padrão até ser acionado. Mesmo acionado, bloqueia se ≥ 3 titulares.
-     */
     const isBlockedAsReserve = (competitorId: string, testId: string, modality?: string): boolean => {
-        if (!isReserveJudge(modality)) return false;                      // não é reserva nessa mod, nunca bloqueado
-        if (!isAdminActivated(competitorId, testId, modality)) return true; // bloqueado por padrão
-        return getTitularEvalCount(competitorId, testId, modality) >= 3;   // acionado mas 3 titulares já ok
+        if (!isReserveJudge(modality)) return false;                      
+        if (!isAdminActivated(competitorId, testId, modality)) return true; 
+        return getTitularEvalCount(competitorId, testId, modality) >= 3;   
     };
 
-    /**
-     * Motivo pelo qual o reserva está bloqueado.
-     */
     const getBlockReason = (competitorId: string, testId: string, modality?: string): 'not_activated' | 'full' | null => {
         if (!isReserveJudge(modality)) return null;
         if (!isAdminActivated(competitorId, testId, modality)) return 'not_activated';
@@ -248,6 +256,86 @@ export default function JudgeRoomPage() {
 
         setActiveTest(test);
         setSelectedCompetitor(competitor);
+    };
+
+    const getEditRequestStatus = (evaluationId: string): EditScoreRequest | undefined => {
+        if (!user) return undefined;
+        return editRequests.find(r =>
+            r.evaluationId === evaluationId &&
+            r.judgeId === user.uid &&
+            (r.status === 'pending' || r.status === 'approved')
+        );
+    };
+
+    const handleRequestEdit = (competitor: Competitor, test: TestTemplate) => {
+        if (!user) return;
+        const evaluation = evaluations.find(e =>
+            e.competitorId === competitor.id &&
+            e.testId === test.id &&
+            e.judgeId === user.uid
+        );
+        if (!evaluation) return;
+
+        // Check if there is already an approved request
+        const existingRequest = getEditRequestStatus(evaluation.id);
+        if (existingRequest?.status === 'approved') {
+            // Already approved, proceed to re-evaluate
+            handleEditWithApproval(competitor, test, evaluation, existingRequest);
+            return;
+        }
+        if (existingRequest?.status === 'pending') {
+            alert(t('judge.room.editRequest.pendingAlert'));
+            return;
+        }
+
+        setEditRequestTarget({ competitor, test, evaluation });
+        setEditRequestReason('');
+        setShowEditRequestModal(true);
+    };
+
+    const submitEditRequest = async () => {
+        if (!editRequestTarget || !user || !editRequestReason.trim()) return;
+        setSendingEditRequest(true);
+        try {
+            await createEditScoreRequest({
+                roomId,
+                competitorId: editRequestTarget.competitor.id,
+                competitorName: editRequestTarget.competitor.handlerName,
+                testId: editRequestTarget.test.id,
+                testTitle: editRequestTarget.test.title,
+                evaluationId: editRequestTarget.evaluation.id,
+                judgeId: user.uid,
+                judgeName: user.displayName || user.email || 'Juiz',
+                reason: editRequestReason.trim()
+            });
+            alert(t('judge.room.editRequest.successAlert'));
+            setShowEditRequestModal(false);
+            setEditRequestTarget(null);
+            setEditRequestReason('');
+            loadData();
+        } catch (error: any) {
+            alert(error.message || t('judge.room.editRequest.errorAlert'));
+        } finally {
+            setSendingEditRequest(false);
+        }
+    };
+
+    const handleEditWithApproval = async (
+        competitor: Competitor,
+        test: TestTemplate,
+        evaluation: Evaluation,
+        request: EditScoreRequest
+    ) => {
+        try {
+            await deleteEvaluation(evaluation.id);
+            // Mark request as consumed so it can't be reused
+            await respondToEditScoreRequest(request.id, 'consumed', user!.uid);
+            await loadData();
+            startEvaluation(competitor, test);
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao iniciar re-avaliação.');
+        }
     };
 
     const handleScoreChange = (itemId: string, value: number, max: number) => {
@@ -581,6 +669,7 @@ export default function JudgeRoomPage() {
     }
 
     return (
+        <>
         <div className="min-h-screen bg-k9-white text-k9-black font-sans relative">
 
             {/* Header */}
@@ -776,8 +865,14 @@ export default function JudgeRoomPage() {
                                     const blocked = isBlockedAsReserve(comp.id, selectedTestView.id, selectedTestView.modality);
                                     const avgCalculated = titularCount >= 3;
                                     const blockReason = getBlockReason(comp.id, selectedTestView.id, selectedTestView.modality);
-                                    // isActivatedForMe: acionado E ainda pode avaliar (não bloqueado por 3 titulares)
                                     const isActivatedForMe = isAdminActivated(comp.id, selectedTestView.id, selectedTestView.modality) && !blocked;
+
+                                    const myEvaluation = isDone ? evaluations.find(e =>
+                                        e.competitorId === comp.id && e.testId === selectedTestView.id && e.judgeId === user?.uid
+                                    ) : undefined;
+                                    const editRequest = myEvaluation ? getEditRequestStatus(myEvaluation.id) : undefined;
+                                    const hasPendingRequest = editRequest?.status === 'pending';
+                                    const hasApprovedRequest = editRequest?.status === 'approved';
 
                                     return (
                                         <div
@@ -873,8 +968,20 @@ export default function JudgeRoomPage() {
                                                         )}
 
                                                         {isDone && (
-                                                            <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-black text-green-600 uppercase">
-                                                                <CheckCircle2 className="w-3.5 h-3.5" /> {t('judge.room.evaluated2')}
+                                                            <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase">
+                                                                {hasApprovedRequest ? (
+                                                                    <span className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                                                                        <Pencil className="w-3 h-3" /> {t('judge.room.editRequest.approvedStatus')}
+                                                                    </span>
+                                                                ) : hasPendingRequest ? (
+                                                                    <span className="flex items-center gap-1 text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                                                                        <Clock className="w-3 h-3" /> {t('judge.room.editRequest.pendingStatus')}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="flex items-center gap-1 text-green-600">
+                                                                        <CheckCircle2 className="w-3.5 h-3.5" /> {t('judge.room.evaluated2')}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         )}
                                                         {blockReason === 'not_activated' && !isDone && (
@@ -890,14 +997,24 @@ export default function JudgeRoomPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-col pb-1 shrink-0 self-end">
+                                                <div className="flex flex-col pb-1 shrink-0 self-end gap-1">
                                                     <button
-                                                        onClick={() => !isDone && !blocked && startEvaluation(comp, selectedTestView)}
+                                                        onClick={() => {
+                                                            if (isDone) {
+                                                                handleRequestEdit(comp, selectedTestView);
+                                                            } else if (!blocked) {
+                                                                startEvaluation(comp, selectedTestView);
+                                                            }
+                                                        }}
                                                         disabled={blocked && !isDone}
                                                         className={`
                                                             w-12 h-12 flex flex-col items-center justify-center rounded-xl transition-all shadow-sm border group/btn
                                                             ${isDone
-                                                                ? 'bg-green-50 border-green-100 text-green-500 cursor-default'
+                                                                ? hasApprovedRequest
+                                                                    ? 'bg-blue-50 border-blue-300 text-blue-600 hover:bg-blue-100 active:scale-95 cursor-pointer animate-pulse'
+                                                                    : hasPendingRequest
+                                                                        ? 'bg-amber-50 border-amber-200 text-amber-500 cursor-pointer'
+                                                                        : 'bg-green-50 border-green-100 text-green-500 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-500 cursor-pointer'
                                                                 : isActivatedForMe
                                                                     ? 'bg-amber-400 border-amber-500 text-amber-900 hover:bg-amber-500 active:scale-95 animate-pulse'
                                                                     : blocked
@@ -906,7 +1023,10 @@ export default function JudgeRoomPage() {
                                                             }
                                                         `}
                                                         title={
-                                                            isDone ? t('judge.room.alreadyEvaluated')
+                                                            isDone
+                                                                ? hasApprovedRequest ? 'Edição aprovada! Clique para re-avaliar'
+                                                                    : hasPendingRequest ? 'Aguardando aprovação do admin'
+                                                                        : 'Solicitar edição de nota'
                                                                 : blockReason === 'not_activated' ? 'Aguardando acionamento do admin'
                                                                     : blockReason === 'full' ? 'Já há 3 juízes titulares'
                                                                         : isActivatedForMe ? 'Você foi acionado! Avalie agora'
@@ -914,7 +1034,11 @@ export default function JudgeRoomPage() {
                                                         }
                                                     >
                                                         {isDone
-                                                            ? <CheckCircle2 className="w-6 h-6" />
+                                                            ? hasApprovedRequest
+                                                                ? <Pencil className="w-5 h-5" />
+                                                                : hasPendingRequest
+                                                                    ? <Clock className="w-5 h-5" />
+                                                                    : <Pencil className="w-5 h-5" />
                                                             : isActivatedForMe
                                                                 ? <Bell className="w-6 h-6" />
                                                                 : blockReason === 'not_activated'
@@ -925,7 +1049,11 @@ export default function JudgeRoomPage() {
                                                         }
                                                         <span className="text-[7px] font-black uppercase text-center leading-none mt-1">
                                                             {isDone
-                                                                ? t('judge.room.done')
+                                                                ? hasApprovedRequest
+                                                                    ? t('judge.room.edit')
+                                                                    : hasPendingRequest
+                                                                        ? 'Aguard.'
+                                                                        : t('judge.room.edit')
                                                                 : isActivatedForMe
                                                                     ? 'Avaliar!'
                                                                     : blockReason === 'not_activated'
@@ -946,5 +1074,78 @@ export default function JudgeRoomPage() {
                 )}
             </div>
         </div>
+
+            {/* Modal de Solicitação de Edição de Nota */}
+            <Modal
+                isOpen={showEditRequestModal}
+                onClose={() => { setShowEditRequestModal(false); setEditRequestTarget(null); setEditRequestReason(''); }}
+                title={<div className="flex items-center gap-2 text-orange-600 uppercase font-black"><Pencil className="w-5 h-5" /> {t('judge.room.editRequest.title')}</div>}
+                maxWidth="max-w-md"
+            >
+                <div className="flex flex-col items-center text-center p-2">
+                    <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mb-4 border-2 border-orange-100 shadow-inner">
+                        <Pencil className="w-8 h-8 text-orange-400" />
+                    </div>
+
+                    <h3 className="text-lg font-black text-k9-black uppercase mb-1 tracking-tighter">
+                        {t('judge.room.editRequest.question')}
+                    </h3>
+                    <p className="text-xs text-gray-500 font-semibold mb-4 uppercase tracking-tight">
+                        {t('judge.room.editRequest.adminApproval')}
+                    </p>
+
+                    {editRequestTarget && (
+                        <div className="w-full bg-gray-50 rounded-xl border border-gray-100 p-4 mb-4">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center font-black text-orange-600 text-sm border border-orange-200 overflow-hidden shrink-0">
+                                    {editRequestTarget.competitor.photoUrl ? (
+                                        <img src={editRequestTarget.competitor.photoUrl} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        editRequestTarget.competitor.handlerName.substring(0, 2).toUpperCase()
+                                    )}
+                                </div>
+                                <div className="text-left">
+                                    <div className="font-black text-k9-black uppercase text-sm">{editRequestTarget.competitor.handlerName}</div>
+                                    <div className="text-[10px] text-gray-400 font-bold uppercase">{editRequestTarget.test.title}</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-200">
+                                <span className="text-[10px] font-black text-gray-400 uppercase">{t('judge.room.editRequest.currentScore')}</span>
+                                <span className="text-lg font-black text-k9-orange">{editRequestTarget.evaluation.finalScore.toFixed(1)} <span className="text-xs text-gray-300">pts</span></span>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="w-full mb-6">
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 text-left">
+                            {t('judge.room.editRequest.reasonLabel')}
+                        </label>
+                        <textarea
+                            value={editRequestReason}
+                            onChange={(e) => setEditRequestReason(e.target.value)}
+                            className="w-full bg-white border-2 border-gray-200 text-k9-black p-3 rounded-xl focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 min-h-[80px] text-sm font-semibold"
+                            placeholder={t('judge.room.editRequest.reasonPlaceholder')}
+                        />
+                    </div>
+
+                    <div className="flex gap-4 w-full">
+                        <button
+                            onClick={() => { setShowEditRequestModal(false); setEditRequestTarget(null); setEditRequestReason(''); }}
+                            className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                        >
+                            {t('judge.room.editRequest.cancel')}
+                        </button>
+                        <button
+                            onClick={submitEditRequest}
+                            disabled={!editRequestReason.trim() || sendingEditRequest}
+                            className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-orange-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            <Send className="w-4 h-4" />
+                            {sendingEditRequest ? t('judge.room.editRequest.sending') : t('judge.room.editRequest.send')}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+        </>
     );
 }
