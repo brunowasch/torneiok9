@@ -1,10 +1,11 @@
-import { db, auth, firebaseConfig } from '../lib/firebase'; 
+import { db, auth, firebaseConfig } from '../lib/firebase';
 import { collection, query, where, getDocs, setDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signOut,
-    getAuth
+    getAuth,
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import { initializeApp, getApp, getApps, deleteApp } from 'firebase/app';
 import { AppUser } from '../types/schema';
@@ -41,6 +42,18 @@ export const loginAdmin = async (email: string, password: string) => {
         return userCredential.user;
     } catch (error: any) {
         throw new Error("Credenciais inválidas ou acesso negado.");
+    }
+};
+
+// Password reset
+export const resetPassword = async (email: string) => {
+    try {
+        await sendPasswordResetEmail(auth, email);
+    } catch (error: any) {
+        if (error.code === 'auth/user-not-found') {
+            throw new Error("Email não encontrado no sistema.");
+        }
+        throw new Error("Erro ao enviar email de recuperação.");
     }
 };
 
