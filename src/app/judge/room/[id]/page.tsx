@@ -843,6 +843,24 @@ export default function JudgeRoomPage() {
                 ) : (
                     /* 2. LISTA DE COMPETIDORES PARA A PROVA SELECIONADA */
                     <div className="space-y-6">
+                        {/* Test Info Header */}
+                        <div className="bg-black text-white p-6 rounded-2xl shadow-lg border-b-4 border-k9-orange relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-k9-orange/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                            <div className="relative z-10">
+                                <span className="text-[10px] font-black uppercase text-k9-orange bg-orange-900/20 px-2 py-0.5 rounded border border-orange-900/30 mb-2 inline-block">
+                                    {selectedTestView.modality}
+                                </span>
+                                <h2 className="text-2xl font-black uppercase tracking-tighter leading-tight drop-shadow-md">
+                                    {selectedTestView.title}
+                                </h2>
+                                {selectedTestView.description && (
+                                    <p className="text-gray-400 text-xs mt-2 font-medium leading-relaxed max-w-2xl border-l-2 border-k9-orange/50 pl-3">
+                                        {selectedTestView.description}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-purple-100 rounded-lg">

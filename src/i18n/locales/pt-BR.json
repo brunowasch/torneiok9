@@ -133,6 +133,8 @@
             "pts": "pts",
             "title": "Título",
             "titlePlaceholder": "Ex: Busca e Captura",
+            "description": "Descrição da Prova",
+            "descriptionPlaceholder": "Descreva os detalhes da prova, regras ou objetivos...",
             "modality": "Modalidade",
             "selectModality": "-- Selecione a Modalidade --",
             "criteria": "Critérios de Avaliação",

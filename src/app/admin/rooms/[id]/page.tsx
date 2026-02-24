@@ -77,6 +77,7 @@ export default function RoomDetailsPage() {
     const [scoreItems, setScoreItems] = useState<ScoreOption[]>([]);
     const [penaltyItems, setPenaltyItems] = useState<PenaltyOption[]>([]);
     const [templateTitle, setTemplateTitle] = useState('');
+    const [templateDescription, setTemplateDescription] = useState('');
     const [selectedModality, setSelectedModality] = useState<Modality | ''>('');
     const [genMsg, setGenMsg] = useState('');
     const [editingTestId, setEditingTestId] = useState<string | null>(null);
@@ -254,6 +255,7 @@ export default function RoomDetailsPage() {
 
     const editTest = (test: TestTemplate) => {
         setTemplateTitle(test.title);
+        setTemplateDescription(test.description || '');
         setSelectedModality(test.modality || '');
 
         const allItems = test.groups.flatMap(g => g.items);
@@ -285,6 +287,7 @@ export default function RoomDetailsPage() {
 
                 await updateTestTemplate(editingTestId as string, {
                     title: templateTitle || "Nova Prova",
+                    description: templateDescription || "Sem descrição",
                     modality: selectedModality,
                     maxScore: totalScore,
                     groups,
@@ -295,8 +298,8 @@ export default function RoomDetailsPage() {
                 const testNumber = tests.filter(t => t.modality === selectedModality).length + 1;
                 await createTestTemplate({
                     title: templateTitle || "Nova Prova",
+                    description: templateDescription || "Sem descrição",
                     modality: selectedModality,
-                    description: "Prova Unificada",
                     maxScore: totalScore,
                     groups,
                     penalties: penaltyItems,
@@ -309,6 +312,7 @@ export default function RoomDetailsPage() {
             setScoreItems([]);
             setPenaltyItems([]);
             setTemplateTitle('');
+            setTemplateDescription('');
             setSelectedModality('');
             setEditingTestId(null);
             setShowAddTest(false);
@@ -805,6 +809,9 @@ export default function RoomDetailsPage() {
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-k9-black uppercase">{test.title}</h3>
+                                            {test.description && (
+                                                <p className="text-[10px] text-gray-500 font-medium line-clamp-1 max-w-md">{test.description}</p>
+                                            )}
                                             <div className="text-[10px] text-gray-400 mt-1 flex gap-2 font-bold items-center">
                                                 <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-600 uppercase tracking-tighter">{test.modality}</span>
                                                 <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
@@ -848,8 +855,18 @@ export default function RoomDetailsPage() {
                                     <input
                                         value={templateTitle}
                                         onChange={e => setTemplateTitle(e.target.value)}
-                                        className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1"
+                                        className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1 font-semibold uppercase"
                                         placeholder={t('admin.tests.titlePlaceholder')}
+                                    />
+                                </div>
+
+                                <div className="mb-6">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">{t('admin.tests.description')}</label>
+                                    <textarea
+                                        value={templateDescription}
+                                        onChange={e => setTemplateDescription(e.target.value)}
+                                        className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1 text-sm h-24 resize-none"
+                                        placeholder={t('admin.tests.descriptionPlaceholder')}
                                     />
                                 </div>
 
