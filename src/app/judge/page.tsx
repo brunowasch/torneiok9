@@ -50,27 +50,28 @@ export default function JudgeDashboard() {
     return (
         <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
             <div className="max-w-6xl mx-auto">
-                <header className="mb-12 bg-black border-b-4 border-k9-orange p-6 rounded-xl shadow-lg flex items-center justify-between text-white -mt-4 relative">
-                    {/* blob decorativo — overflow contido sem afetar o dropdown */}
-                    <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-k9-orange/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                <header className="mb-12 bg-black border-b-4 border-k9-orange p-6 py-8 rounded-2xl shadow-2xl flex flex-col md:flex-row items-center justify-between text-white -mt-6 relative">
+                    <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
                     </div>
-                    <div className="relative z-10 flex items-center gap-4">
-                        <div className="h-14 w-14 relative flex items-center justify-center">
+                    <div className="relative z-10 flex items-center gap-5">
+                        <div className="h-16 w-16 relative flex items-center justify-center p-1 bg-white/5 rounded-xl border border-white/10 shadow-inner">
                             <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-black uppercase tracking-tighter leading-none">
+                            <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-1">
                                 {t('judge.areaTitle')}
                             </h1>
-                            <p className="text-gray-400 text-sm uppercase tracking-widest font-bold mt-1">{t('judge.subtitle')}</p>
+                            <p className="text-k9-orange text-[10px] uppercase tracking-[0.2em] font-black opacity-80">{t('judge.subtitle')}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 relative z-10">
+
+                    <div className="flex items-center gap-4 mt-6 md:mt-0 relative z-20">
                         <LanguageSwitcher />
+                        <div className="h-8 w-px bg-white/10 mx-1 hidden md:block"></div>
                         <button
                             onClick={handleLogout}
-                            className="text-white hover:text-red-400 text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-4 py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 shadow-sm"
+                            className="text-white hover:text-red-400 text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-4 py-2.5 rounded-lg shadow-sm"
                         >
                             <LogOut className="w-4 h-4" /> {t('judge.logout')}
                         </button>

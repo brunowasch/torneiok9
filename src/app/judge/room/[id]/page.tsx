@@ -153,7 +153,6 @@ export default function JudgeRoomPage() {
         if (modality) {
             // Verifica reserva nessa modalidade específica
             if (reserveModalities.length > 0) return reserveModalities.includes(modality);
-            // Fallback legado: reserva global
             return (room.judgeReserves || []).includes(user.uid);
         }
         // Sem modalidade: é reserva se tiver qualquer modalidade configurada ou estiver no legado
@@ -673,32 +672,46 @@ export default function JudgeRoomPage() {
         <div className="min-h-screen bg-k9-white text-k9-black font-sans relative">
 
             {/* Header */}
-            <div className="bg-black border-b-4 border-k9-orange text-white shadow-lg sticky top-0 z-30">
-                <div className="max-w-4xl mx-auto px-6 py-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <button
-                                onClick={() => selectedTestView ? handleBackToTests() : router.push('/judge')}
-                                className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer"
-                            >
-                                <ArrowLeft className="w-3 h-3" /> {selectedTestView ? t('judge.room.backToTests') : t('judge.room.back')}
-                            </button>
-                            <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter leading-none flex items-center gap-4">
-                                <div className="w-10 h-10 relative flex items-center justify-center shrink-0">
-                                    <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+            <div className="bg-black border-b-4 border-k9-orange text-white shadow-2xl sticky top-0 z-30 relative">
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                </div>
+                <div className="max-w-4xl mx-auto px-6 py-6 relative z-10">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-5 w-full md:w-auto">
+                            <div className="flex flex-col">
+                                <button
+                                    onClick={() => selectedTestView ? handleBackToTests() : router.push('/judge')}
+                                    className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer group"
+                                >
+                                    <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" /> {selectedTestView ? t('judge.room.backToTests') : t('judge.room.back')}
+                                </button>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 relative flex items-center justify-center shrink-0 p-1 bg-white/5 rounded-xl border border-white/10">
+                                        <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                                    </div>
+                                    <div>
+                                        <h1 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none">
+                                            {selectedTestView ? selectedTestView.title : room.name}
+                                        </h1>
+                                        <p className="text-k9-orange text-[9px] md:text-[10px] uppercase tracking-[0.2em] mt-1 font-black opacity-80">
+                                            {selectedTestView ? `${t('judge.room.evaluating')}: ${selectedTestView.modality}` : t('judge.room.evaluationPanel')}
+                                        </p>
+                                    </div>
                                 </div>
-                                {selectedTestView ? selectedTestView.title : room.name}
-                            </h1>
-                            <p className="text-k9-orange text-[10px] md:text-xs uppercase tracking-[0.2em] mt-1 font-bold">
-                                {selectedTestView ? `${t('judge.room.evaluating')}: ${selectedTestView.modality}` : t('judge.room.evaluationPanel')}
-                            </p>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-3">
+
+                        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t border-white/10 md:border-0 pt-4 md:pt-0">
                             <LanguageSwitcher />
-                            <div className="hidden md:block">
-                                <div className="bg-gray-900 border border-gray-800 px-4 py-2 rounded-lg text-center">
-                                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{t('judge.room.statusLabel')}</div>
-                                    <div className="text-green-500 font-black uppercase text-xs flex items-center gap-1"><div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>{t('judge.room.online')}</div>
+                            <div className="h-8 w-px bg-white/10 mx-1 hidden md:block"></div>
+                            <div className="flex items-center gap-3">
+                                <div className="bg-gray-900 border border-gray-800 px-4 py-2 rounded-lg text-center shadow-inner">
+                                    <div className="text-[9px] text-gray-500 uppercase font-black tracking-widest">{t('judge.room.statusLabel')}</div>
+                                    <div className="text-green-500 font-black uppercase text-[10px] flex items-center gap-1.5 mt-0.5">
+                                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                                        {t('judge.room.online')}
+                                    </div>
                                 </div>
                             </div>
                         </div>

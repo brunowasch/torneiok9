@@ -405,8 +405,10 @@ export default function RoomDetailsPage() {
     return (
         <div className="min-h-screen bg-k9-white text-k9-black">
             {/* Header */}
-            <div className="bg-black border-b-4 border-k9-orange text-white shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+            <div className="bg-black border-b-4 border-k9-orange text-white shadow-lg relative">
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                </div>
                 <div className="max-w-6xl mx-auto px-6 py-8 relative z-10">
                     <button onClick={() => router.push('/admin')} className="inline-flex items-center gap-2 px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-md bg-gray-900 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-white transition-colors cursor-pointer mb-6">
                         <ArrowLeft className="w-4 h-4" /> {t('admin.back')}
