@@ -7,7 +7,7 @@ import { SUPPORTED_LANGUAGES, LanguageCode } from '@/i18n/config';
 import '@/i18n/config';
 
 export default function LanguageSwitcher() {
-    const { i18n } = useTranslation();
+    const { i18n, t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -36,7 +36,7 @@ export default function LanguageSwitcher() {
             {/* Gatilho: Estilo Vidro (Glass) - Discreto e Premium */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/20 hover:border-[#FB923C]/50 transition-all active:scale-95 group shadow-sm"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/20 hover:border-[#FB923C]/50 transition-all active:scale-95 group shadow-sm cursor-pointer"
             >
                 <div className="flex items-center gap-2">
                     <span className="text-base grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
@@ -62,7 +62,7 @@ export default function LanguageSwitcher() {
                             <button
                                 key={lang.code}
                                 onClick={() => handleSelect(lang.code)}
-                                className={`w-full text-left px-3 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-tight transition-all flex items-center justify-between group
+                                className={`w-full text-left px-3 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-tight transition-all flex items-center justify-between group cursor-pointer
                                     ${i18n.language === lang.code
                                         ? 'bg-[#FB923C]/20 text-[#FB923C] border border-[#FB923C]/30'
                                         : 'text-gray-400 hover:bg-white/5 hover:text-white'
@@ -74,7 +74,7 @@ export default function LanguageSwitcher() {
                                             {lang.flag}
                                         </span>
                                     </div>
-                                    <span className="font-black">{lang.label}</span>
+                                    <span className="font-black">{t(`language.${lang.code.replace('-', '')}`)}</span>
                                 </div>
                                 {i18n.language === lang.code && (
                                     <div className="w-1.5 h-1.5 bg-[#FB923C] rounded-full shadow-[0_0_8px_rgba(251,146,60,0.6)]"></div>

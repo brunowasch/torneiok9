@@ -181,7 +181,7 @@ export default function Home() {
                 key={mod}
                 onClick={() => { setSelectedModality(mod); setSelectedTestId('geral'); }}
                 className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 
-                origin-left transition-all duration-200 whitespace-nowrap shadow-sm
+                origin-left transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer
                 ${selectedModality === mod
                     ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                     : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
@@ -198,7 +198,7 @@ export default function Home() {
           <div className="mb-8 flex flex-wrap items-center gap-6 p-2">
             <button
               onClick={() => setSelectedTestId('geral')}
-              className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm ${selectedTestId === 'geral'
+              className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm cursor-pointer ${selectedTestId === 'geral'
                 ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                 : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
                 }`}
@@ -211,7 +211,7 @@ export default function Home() {
               <button
                 key={test.id}
                 onClick={() => setSelectedTestId(test.id)}
-                className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm ${selectedTestId === test.id
+                className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm cursor-pointer ${selectedTestId === test.id
                   ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                   : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
                   }`}

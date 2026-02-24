@@ -165,7 +165,7 @@ export default function AdminDashboard() {
                         <div className="h-8 w-px bg-white/10 mx-1 hidden md:block"></div>
                         <button
                             onClick={handleLogout}
-                            className="text-white hover:text-red-400 text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-4 py-2.5 rounded-lg shadow-sm"
+                            className="text-white hover:text-red-400 text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-4 py-2.5 rounded-lg shadow-sm cursor-pointer"
                         >
                             <LogOut className="w-4 h-4" /> {t('adminDashboard.logout')}
                         </button>
@@ -189,7 +189,7 @@ export default function AdminDashboard() {
                     </button>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-k9-orange text-black border-k9-orange hover:bg-orange-500 hover:border-orange-500 hover:text-white"
+                        className="px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-k9-orange text-black border-k9-orange hover:bg-orange-500 hover:border-orange-500 hover:text-white cursor-pointer"
                     >
                         <PlusCircle className="w-5 h-5" />
                         {t('adminDashboard.newRoom')}
@@ -198,7 +198,7 @@ export default function AdminDashboard() {
 
                 {/* Global Notification Banner */}
                 {pendingRequests.length > 0 && (
-                    <div 
+                    <div
                         onClick={() => {
                             setRequestFilterRoomId(null);
                             setShowRequestsModal(true);
@@ -296,7 +296,7 @@ export default function AdminDashboard() {
                                 <p className="text-gray-600 uppercase font-bold tracking-widest mb-4">{t('adminDashboard.noRooms')}</p>
                                 <button
                                     onClick={() => setShowCreateModal(true)}
-                                    className="text-k9-orange hover:text-k9-black underline uppercase text-xs tracking-wider font-bold transition-colors"
+                                    className="text-k9-orange hover:text-k9-black underline uppercase text-xs tracking-wider font-bold transition-colors cursor-pointer"
                                 >
                                     {t('adminDashboard.createFirst')}
                                 </button>
@@ -329,7 +329,7 @@ export default function AdminDashboard() {
                                 <button
                                     onClick={handleCreateRoom}
                                     disabled={!newRoomName}
-                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105"
+                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105 cursor-pointer"
                                 >
                                     {t('adminDashboard.confirmRoom')}
                                 </button>
@@ -390,7 +390,7 @@ export default function AdminDashboard() {
                                 <button
                                     onClick={handleCreateAdmin}
                                     disabled={!newAdmin.name || !newAdmin.email || !newAdmin.password}
-                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105"
+                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105 cursor-pointer"
                                 >
                                     {t('adminDashboard.confirmAdmin')}
                                 </button>
@@ -434,7 +434,7 @@ export default function AdminDashboard() {
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-md">
                         <div className="bg-white border-2 border-amber-200 p-8 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
                             <div className="absolute top-0 left-0 w-full h-2 bg-amber-400"></div>
-                            
+
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm">
@@ -443,13 +443,13 @@ export default function AdminDashboard() {
                                     <div>
                                         <h2 className="text-xl font-black text-k9-black uppercase tracking-tighter">Solicitações de Edição</h2>
                                         <p className="text-[10px] font-bold text-amber-600 uppercase">
-                                            {requestFilterRoomId 
-                                                ? `Torneio: ${rooms.find(r => r.id === requestFilterRoomId)?.name}` 
+                                            {requestFilterRoomId
+                                                ? `Torneio: ${rooms.find(r => r.id === requestFilterRoomId)?.name}`
                                                 : "Todos os torneios"}
                                         </p>
                                     </div>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setShowRequestsModal(false)}
                                     className="p-2 text-gray-400 hover:text-black transition-colors"
                                 >
@@ -524,7 +524,7 @@ export default function AdminDashboard() {
                                             </div>
                                         );
                                     })}
-                                
+
                                 {pendingRequests.filter(r => !requestFilterRoomId || r.roomId === requestFilterRoomId).length === 0 && (
                                     <div className="text-center py-8 text-gray-400 uppercase font-black text-xs tracking-widest">
                                         Nenhuma solicitação pendente encontrada.

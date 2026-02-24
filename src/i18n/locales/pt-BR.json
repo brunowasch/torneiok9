@@ -309,10 +309,47 @@
             }
         }
     },
+    "login": {
+        "title": "Acesso Restrito",
+        "subtitle": "Comando Central K9",
+        "resetTitle": "Recuperar Acesso",
+        "identification": "Identificação",
+        "placeholderIdentification": "usuario@comando.k9",
+        "securityKey": "Chave de Segurança",
+        "placeholderSecurityKey": "••••••••",
+        "forgotKey": "Esqueceu a chave?",
+        "backToLogin": "Voltar para o login",
+        "warning": "ESTE SISTEMA É MONITORADO. QUALQUER TENTATIVA DE ACESSO NÃO AUTORIZADO SERÁ REGISTRADA.",
+        "buttonAccess": "ACESSAR",
+        "buttonSendRecovery": "ENVIAR EMAIL DE RECUPERAÇÃO",
+        "loadingAuthenticating": "Autenticando...",
+        "loadingSending": "Enviando...",
+        "recoverSuccess": "Email de recuperação enviado com sucesso. Verifique sua caixa de entrada.",
+        "errorIdentification": "Informe seu email de identificação."
+    },
+    "setupAdmin": {
+        "title": "Setup Inicial",
+        "subtitle": "Credencial de Comando Único",
+        "accessDenied": "Acesso Negado",
+        "alreadyConfigured": "O Administrador do Sistema já foi configurado. Esta rota agora é classificada como restrita.",
+        "returnBase": "Retornar à Base",
+        "identification": "Identificação (Nome)",
+        "placeholderName": "Nome do Admin",
+        "email": "Canal Seguro (Email)",
+        "placeholderEmail": "admin@k9.com",
+        "securityKey": "Chave de Acesso (Senha)",
+        "placeholderPassword": "••••••••",
+        "buttonCreate": "CRIAR CREDENCIAL ADMIN",
+        "loadingGenerating": "GERANDO ACESSO...",
+        "successMessage": "PROTOCOLO DE ADMIN: USUÁRIO MESTRE CRIADO COM SUCESSO.",
+        "errorFields": "TRAVADO: Todos os campos são obrigatórios para a credencial.",
+        "systemStatus": "[INICIANDO PROTOCOLO DE SEGURANÇA...]",
+        "footer": "SISTEMA TORNEIO K9 v1.0 • ACESSO RESTRITO A PESSOAL AUTORIZADO"
+    },
     "language": {
         "label": "Idioma",
         "ptBR": "🇧🇷 Português",
-        "esAR": "🇦🇷 Español (AR)",
-        "esUY": "🇺🇾 Español (UY)"
+        "esAR": "🇦🇷 Espanhol (AR)",
+        "esUY": "🇺🇾 Espanhol (UY)"
     }
 }
