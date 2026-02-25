@@ -45,7 +45,6 @@ import {
     Send
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 import Modal from '@/components/Modal';
 
 export default function JudgeRoomPage() {
@@ -197,9 +196,9 @@ export default function JudgeRoomPage() {
     };
 
     const isBlockedAsReserve = (competitorId: string, testId: string, modality?: string): boolean => {
-        if (!isReserveJudge(modality)) return false;                      
-        if (!isAdminActivated(competitorId, testId, modality)) return true; 
-        return getTitularEvalCount(competitorId, testId, modality) >= 3;   
+        if (!isReserveJudge(modality)) return false;
+        if (!isAdminActivated(competitorId, testId, modality)) return true;
+        return getTitularEvalCount(competitorId, testId, modality) >= 3;
     };
 
     const getBlockReason = (competitorId: string, testId: string, modality?: string): 'not_activated' | 'full' | null => {
@@ -669,442 +668,440 @@ export default function JudgeRoomPage() {
 
     return (
         <>
-        <div className="min-h-screen bg-k9-white text-k9-black font-sans relative">
+            <div className="min-h-screen bg-k9-white text-k9-black font-sans relative">
 
-            {/* Header */}
-            <div className="bg-black border-b-4 border-k9-orange text-white shadow-2xl sticky top-0 z-30 relative">
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                </div>
-                <div className="max-w-4xl mx-auto px-6 py-6 relative z-10">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-5 w-full md:w-auto">
-                            <div className="flex flex-col">
-                                <button
-                                    onClick={() => selectedTestView ? handleBackToTests() : router.push('/judge')}
-                                    className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer group"
-                                >
-                                    <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" /> {selectedTestView ? t('judge.room.backToTests') : t('judge.room.back')}
-                                </button>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 relative flex items-center justify-center shrink-0 p-1 bg-white/5 rounded-xl border border-white/10">
-                                        <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none">
-                                            {selectedTestView ? selectedTestView.title : room.name}
-                                        </h1>
-                                        <p className="text-k9-orange text-[9px] md:text-[10px] uppercase tracking-[0.2em] mt-1 font-black opacity-80">
-                                            {selectedTestView ? `${t('judge.room.evaluating')}: ${selectedTestView.modality}` : t('judge.room.evaluationPanel')}
-                                        </p>
+                {/* Header */}
+                <div className="bg-black border-b-4 border-k9-orange text-white shadow-2xl sticky top-0 z-30 relative">
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                    </div>
+                    <div className="max-w-4xl mx-auto px-6 py-6 relative z-10">
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-5 w-full md:w-auto">
+                                <div className="flex flex-col">
+                                    <button
+                                        onClick={() => selectedTestView ? handleBackToTests() : router.push('/judge')}
+                                        className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer group"
+                                    >
+                                        <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" /> {selectedTestView ? t('judge.room.backToTests') : t('judge.room.back')}
+                                    </button>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 relative flex items-center justify-center shrink-0 p-1 bg-white/5 rounded-xl border border-white/10">
+                                            <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                                        </div>
+                                        <div>
+                                            <h1 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none">
+                                                {selectedTestView ? selectedTestView.title : room.name}
+                                            </h1>
+                                            <p className="text-k9-orange text-[9px] md:text-[10px] uppercase tracking-[0.2em] mt-1 font-black opacity-80">
+                                                {selectedTestView ? `${t('judge.room.evaluating')}: ${selectedTestView.modality}` : t('judge.room.evaluationPanel')}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t border-white/10 md:border-0 pt-4 md:pt-0">
-                            <LanguageSwitcher />
-                            <div className="h-8 w-px bg-white/10 mx-1 hidden md:block"></div>
-                            <div className="flex items-center gap-3">
-                                <div className="bg-gray-900 border border-gray-800 px-4 py-2 rounded-lg text-center shadow-inner">
-                                    <div className="text-[9px] text-gray-500 uppercase font-black tracking-widest">{t('judge.room.statusLabel')}</div>
-                                    <div className="text-green-500 font-black uppercase text-[10px] flex items-center gap-1.5 mt-0.5">
-                                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-                                        {t('judge.room.online')}
+                            <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t border-white/10 md:border-0 pt-4 md:pt-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-gray-900 border border-gray-800 px-4 py-2 rounded-lg text-center shadow-inner">
+                                        <div className="text-[9px] text-gray-500 uppercase font-black tracking-widest">{t('judge.room.statusLabel')}</div>
+                                        <div className="text-green-500 font-black uppercase text-[10px] flex items-center gap-1.5 mt-0.5">
+                                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                                            {t('judge.room.online')}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Banner de Juiz Reserva */}
-            {isReserveJudge(selectedTestView?.modality) && (
-                <div className="bg-yellow-400 text-yellow-900 px-6 py-3 sticky top-0 z-20">
-                    <div className="max-w-4xl mx-auto flex items-center gap-3">
-                        <Zap className="w-5 h-5 shrink-0" />
-                        <div>
-                            <div className="font-black uppercase text-sm tracking-wider">Você é Juiz Reserva</div>
-                            <div className="text-xs font-semibold opacity-80">
-                                Você pode avaliar quando menos de 3 juízes titulares já avaliaram o competidor. Com 3 avaliações, a média é calculada automaticamente.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="max-w-4xl mx-auto p-6 md:p-8">
-                {/* 1. SELEÇÃO DE PROVA */}
-                {!selectedTestView ? (
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-orange-100 rounded-lg">
-                                <List className="w-5 h-5 text-orange-600" />
-                            </div>
+                {/* Banner de Juiz Reserva */}
+                {isReserveJudge(selectedTestView?.modality) && (
+                    <div className="bg-yellow-400 text-yellow-900 px-6 py-3 sticky top-0 z-20">
+                        <div className="max-w-4xl mx-auto flex items-center gap-3">
+                            <Zap className="w-5 h-5 shrink-0" />
                             <div>
-                                <h2 className="text-lg font-black uppercase text-k9-black leading-tight">{t('judge.room.selectTest')}</h2>
-                                <p className="text-xs text-gray-400 font-bold uppercase">{t('judge.room.selectTestHint')}</p>
-                            </div>
-                        </div>
-
-                        <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder={t('judge.room.searchTest')}
-                                value={testSearch}
-                                onChange={e => setTestSearch(e.target.value)}
-                                className="w-full bg-white border-2 border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-k9-black focus:outline-none focus:border-k9-orange focus:ring-4 focus:ring-orange-50 transition-all shadow-sm placeholder:text-gray-300"
-                            />
-                        </div>
-
-                        {(() => {
-                            const normalize = (text: string) =>
-                                text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-
-                            const assignedTests = getAssignedTests()
-                                .filter(t => {
-                                    if (!testSearch) return true;
-                                    const s = normalize(testSearch);
-                                    const titleMatch = normalize(t.title).includes(s);
-                                    const modalityMatch = t.modality ? normalize(t.modality).includes(s) : false;
-                                    const numberMatch = t.testNumber ? t.testNumber.toString().includes(s) : false;
-
-                                    return titleMatch || modalityMatch || numberMatch;
-                                })
-                                .sort((a, b) => {
-                                    if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
-                                    return (a.testNumber || 0) - (b.testNumber || 0);
-                                });
-
-                            if (assignedTests.length === 0) {
-                                return (
-                                    <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                                        <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                                        <p className="uppercase font-bold text-sm tracking-wide">{t('judge.room.noTestsFound')}</p>
-                                    </div>
-                                );
-                            }
-
-                            const groupedByModality = assignedTests.reduce((acc, test) => {
-                                const modality = test.modality || 'OUTRAS';
-                                if (!acc[modality]) acc[modality] = [];
-                                acc[modality].push(test);
-                                return acc;
-                            }, {} as Record<string, TestTemplate[]>);
-
-                            return (
-                                <div className="space-y-8">
-                                    {Object.entries(groupedByModality).map(([modality, modalityTests]) => (
-                                        <div key={modality} className="bg-gray-50/50 border border-gray-100 rounded-3xl p-6 shadow-sm">
-                                            <h3 className="text-sm font-black uppercase text-k9-orange mb-6 flex items-center gap-2 tracking-widest">
-                                                <Shield className="w-4 h-4" /> {modality}
-                                            </h3>
-                                            <div className="grid gap-3">
-                                                {modalityTests
-                                                    .sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0))
-                                                    .map(test => {
-                                                        const testCompetitors = competitors.filter(c => c.modality === test.modality);
-                                                        const doneCount = testCompetitors.filter(c => isTestEvaluated(c.id, test.id)).length;
-                                                        const isAllDone = testCompetitors.length > 0 && doneCount === testCompetitors.length;
-
-                                                        return (
-                                                            <button
-                                                                key={test.id}
-                                                                onClick={() => handleSelectTest(test)}
-                                                                className={`
-                                                                    group relative w-full text-left p-5 rounded-2xl border transition-all flex items-center justify-between shadow-sm
-                                                                    ${isAllDone
-                                                                        ? 'bg-green-50/50 border-green-200'
-                                                                        : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg'
-                                                                    }
-                                                                `}
-                                                            >
-                                                                <div className="flex items-center gap-4">
-                                                                    <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black transition-all shadow-sm border ${isAllDone ? 'bg-green-100 border-green-200 text-green-600' : 'bg-gray-900 border-gray-800 text-white group-hover:bg-k9-orange group-hover:border-k9-orange'}`}>
-                                                                        <span className="text-[8px] opacity-60 leading-none mb-0.5">Nº</span>
-                                                                        <span className="text-lg leading-none">{test.testNumber ? test.testNumber.toString().padStart(2, '0') : '--'}</span>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h4 className={`font-black uppercase text-base ${isAllDone ? 'text-green-900' : 'text-k9-black'}`}>{test.title}</h4>
-                                                                        <div className="flex items-center gap-2 mt-0.5 font-bold uppercase text-[9px]">
-                                                                            <span className={isAllDone ? 'text-green-600' : 'text-gray-400'}>{doneCount}/{testCompetitors.length} {t('judge.room.evaluated')}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                                {isAllDone ? (
-                                                                    <div className="bg-green-100 text-green-600 p-2 rounded-full">
-                                                                        <Check className="w-5 h-5" />
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-orange-50 group-hover:text-k9-orange transition-all">
-                                                                        <ArrowLeft className="w-5 h-5 rotate-180" />
-                                                                    </div>
-                                                                )}
-                                                            </button>
-                                                        );
-                                                    })
-                                                }
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            );
-                        })()}
-                    </div>
-                ) : (
-                    /* 2. LISTA DE COMPETIDORES PARA A PROVA SELECIONADA */
-                    <div className="space-y-6">
-                        {/* Test Info Header */}
-                        <div className="bg-black text-white p-6 rounded-2xl shadow-lg border-b-4 border-k9-orange relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-k9-orange/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-                            <div className="relative z-10">
-                                <span className="text-[10px] font-black uppercase text-k9-orange bg-orange-900/20 px-2 py-0.5 rounded border border-orange-900/30 mb-2 inline-block">
-                                    {selectedTestView.modality}
-                                </span>
-                                <h2 className="text-2xl font-black uppercase tracking-tighter leading-tight drop-shadow-md">
-                                    {selectedTestView.title}
-                                </h2>
-                                {selectedTestView.description && (
-                                    <p className="text-gray-400 text-xs mt-2 font-medium leading-relaxed max-w-2xl border-l-2 border-k9-orange/50 pl-3">
-                                        {selectedTestView.description}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-purple-100 rounded-lg">
-                                    <Users className="w-5 h-5 text-purple-600" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-black uppercase text-k9-black leading-tight">{t('judge.room.competitorQueue')}</h2>
-                                    <p className="text-xs text-gray-400 font-bold uppercase">{t('judge.room.competitorQueueHint')}</p>
+                                <div className="font-black uppercase text-sm tracking-wider">Você é Juiz Reserva</div>
+                                <div className="text-xs font-semibold opacity-80">
+                                    Você pode avaliar quando menos de 3 juízes titulares já avaliaram o competidor. Com 3 avaliações, a média é calculada automaticamente.
                                 </div>
                             </div>
-                        </div>
-
-                        <div className="grid md:grid-cols-2 gap-4">
-                            {competitors
-                                .filter(c => c.modality === selectedTestView.modality)
-                                .map(comp => {
-                                    const isDone = isTestEvaluated(comp.id, selectedTestView.id);
-                                    const titularCount = getTitularEvalCount(comp.id, selectedTestView.id, selectedTestView.modality);
-                                    const totalCount = getTotalEvalCount(comp.id, selectedTestView.id);
-                                    const blocked = isBlockedAsReserve(comp.id, selectedTestView.id, selectedTestView.modality);
-                                    const avgCalculated = titularCount >= 3;
-                                    const blockReason = getBlockReason(comp.id, selectedTestView.id, selectedTestView.modality);
-                                    const isActivatedForMe = isAdminActivated(comp.id, selectedTestView.id, selectedTestView.modality) && !blocked;
-
-                                    const myEvaluation = isDone ? evaluations.find(e =>
-                                        e.competitorId === comp.id && e.testId === selectedTestView.id && e.judgeId === user?.uid
-                                    ) : undefined;
-                                    const editRequest = myEvaluation ? getEditRequestStatus(myEvaluation.id) : undefined;
-                                    const hasPendingRequest = editRequest?.status === 'pending';
-                                    const hasApprovedRequest = editRequest?.status === 'approved';
-
-                                    return (
-                                        <div
-                                            key={comp.id}
-                                            className={`
-                                                relative overflow-hidden rounded-2xl border transition-all group
-                                                ${isDone
-                                                    ? 'bg-green-50/30 border-green-100 opacity-90'
-                                                    : isActivatedForMe
-                                                        ? 'bg-amber-50 border-amber-300 shadow-md shadow-amber-100'
-                                                        : blockReason === 'not_activated'
-                                                            ? 'bg-gray-50 border-gray-200 opacity-70'
-                                                            : blockReason === 'full'
-                                                                ? 'bg-yellow-50/50 border-yellow-200 opacity-80'
-                                                                : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg transform hover:-translate-y-1'
-                                                }
-                                            `}
-                                        >
-                                            {/* Badge de Acionamento — só aparece quando acionado e pode avaliar */}
-                                            {isActivatedForMe && !isDone && (
-                                                <div className="absolute top-0 left-0 right-0 bg-amber-400 text-amber-900 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
-                                                    <Bell className="w-3 h-3 animate-bounce" />
-                                                    Você foi acionado! Avalie este competidor
-                                                </div>
-                                            )}
-                                            {/* Badge de aguardando acionamento */}
-                                            {blockReason === 'not_activated' && !isDone && (
-                                                <div className="absolute top-0 left-0 right-0 bg-gray-200 text-gray-500 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
-                                                    <LockIcon className="w-3 h-3" />
-                                                    Aguardando acionamento do admin
-                                                </div>
-                                            )}
-                                            <div className={`p-5 flex items-start justify-between gap-6 h-full min-h-[140px] ${(isActivatedForMe || blockReason === 'not_activated') && !isDone ? 'pt-8 pl-5' : 'pl-8'}`}>
-                                                <div className="flex items-start gap-4 flex-1 min-w-0">
-                                                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border shrink-0 relative z-10 ${isDone
-                                                        ? 'bg-green-100 border-green-200 text-green-600'
-                                                        : isActivatedForMe
-                                                            ? 'bg-amber-100 border-amber-200 text-amber-700'
-                                                            : blockReason === 'not_activated'
-                                                                ? 'bg-gray-100 border-gray-200 text-gray-400'
-                                                                : blockReason === 'full'
-                                                                    ? 'bg-yellow-100 border-yellow-200 text-yellow-700'
-                                                                    : 'bg-orange-50 border-orange-100 text-orange-600'
-                                                        }`}>
-                                                        {comp.photoUrl ? (
-                                                            <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <div className="flex flex-col items-center">
-                                                                <span className="text-xs leading-none">{comp.handlerName.substring(0, 2).toUpperCase()}</span>
-                                                                <span className="text-[10px] opacity-40 mt-0.5">#{comp.competitorNumber}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex-1 relative z-10 pt-0.5 min-w-0">
-                                                        <h3 className={`font-black uppercase text-sm leading-tight truncate ${isDone
-                                                            ? 'text-green-900'
-                                                            : blockReason === 'not_activated'
-                                                                ? 'text-gray-500'
-                                                                : blocked
-                                                                    ? 'text-yellow-900'
-                                                                    : 'text-k9-black'
-                                                            }`}>
-                                                            {comp.handlerName}
-                                                        </h3>
-                                                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{t('judge.room.conductor')}</div>
-
-                                                        <p className="text-xs font-bold text-k9-orange uppercase mt-1 font-mono truncate">
-                                                            {t('judge.room.dog')}: {comp.dogName}
-                                                        </p>
-
-                                                        {/* Placar de juízes */}
-                                                        <div className="mt-2 flex items-center gap-2">
-                                                            <div className="flex gap-1">
-                                                                {[1, 2, 3].map(i => (
-                                                                    <div key={i} className={`w-4 h-4 rounded-full border-2 ${i <= titularCount
-                                                                        ? 'bg-orange-400 border-orange-500'
-                                                                        : 'bg-gray-100 border-gray-300'
-                                                                        }`} title={`Juiz ${i}`} />
-                                                                ))}
-                                                            </div>
-                                                            <span className="text-[9px] font-black uppercase text-gray-400">
-                                                                {titularCount}/3 juízes
-                                                                {avgCalculated && <span className="text-orange-500 ml-1">· Média calculada</span>}
-                                                            </span>
-                                                        </div>
-
-                                                        {/* Indicador de acionamento urgente */}
-                                                        {isActivatedForMe && !isDone && (
-                                                            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-black text-amber-700 uppercase bg-amber-100 px-2 py-1 rounded-lg border border-amber-200">
-                                                                <Bell className="w-3 h-3" /> Acionado pelo admin · avalie agora
-                                                            </div>
-                                                        )}
-
-                                                        {isDone && (
-                                                            <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase">
-                                                                {hasApprovedRequest ? (
-                                                                    <span className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
-                                                                        <Pencil className="w-3 h-3" /> {t('judge.room.editRequest.approvedStatus')}
-                                                                    </span>
-                                                                ) : hasPendingRequest ? (
-                                                                    <span className="flex items-center gap-1 text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
-                                                                        <Clock className="w-3 h-3" /> {t('judge.room.editRequest.pendingStatus')}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="flex items-center gap-1 text-green-600">
-                                                                        <CheckCircle2 className="w-3.5 h-3.5" /> {t('judge.room.evaluated2')}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                        {blockReason === 'not_activated' && !isDone && (
-                                                            <div className="mt-1.5 flex items-center gap-1 text-[10px] font-black text-gray-400 uppercase">
-                                                                <LockIcon className="w-3 h-3" /> Aguardando acionamento
-                                                            </div>
-                                                        )}
-                                                        {blockReason === 'full' && !isDone && (
-                                                            <div className="mt-1.5 flex items-center gap-1 text-[10px] font-black text-yellow-700 uppercase">
-                                                                <Zap className="w-3 h-3" /> Reserva · 3 juízes já avaliaram
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex flex-col pb-1 shrink-0 self-end gap-1">
-                                                    <button
-                                                        onClick={() => {
-                                                            if (isDone) {
-                                                                handleRequestEdit(comp, selectedTestView);
-                                                            } else if (!blocked) {
-                                                                startEvaluation(comp, selectedTestView);
-                                                            }
-                                                        }}
-                                                        disabled={blocked && !isDone}
-                                                        className={`
-                                                            w-12 h-12 flex flex-col items-center justify-center rounded-xl transition-all shadow-sm border group/btn
-                                                            ${isDone
-                                                                ? hasApprovedRequest
-                                                                    ? 'bg-blue-50 border-blue-300 text-blue-600 hover:bg-blue-100 active:scale-95 cursor-pointer animate-pulse'
-                                                                    : hasPendingRequest
-                                                                        ? 'bg-amber-50 border-amber-200 text-amber-500 cursor-pointer'
-                                                                        : 'bg-green-50 border-green-100 text-green-500 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-500 cursor-pointer'
-                                                                : isActivatedForMe
-                                                                    ? 'bg-amber-400 border-amber-500 text-amber-900 hover:bg-amber-500 active:scale-95 animate-pulse'
-                                                                    : blocked
-                                                                        ? 'bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed'
-                                                                        : 'bg-orange-50 border-orange-100 text-orange-600 hover:bg-orange-100 hover:border-orange-200 active:scale-95'
-                                                            }
-                                                        `}
-                                                        title={
-                                                            isDone
-                                                                ? hasApprovedRequest ? 'Edição aprovada! Clique para re-avaliar'
-                                                                    : hasPendingRequest ? 'Aguardando aprovação do admin'
-                                                                        : 'Solicitar edição de nota'
-                                                                : blockReason === 'not_activated' ? 'Aguardando acionamento do admin'
-                                                                    : blockReason === 'full' ? 'Já há 3 juízes titulares'
-                                                                        : isActivatedForMe ? 'Você foi acionado! Avalie agora'
-                                                                            : t('judge.room.evaluate')
-                                                        }
-                                                    >
-                                                        {isDone
-                                                            ? hasApprovedRequest
-                                                                ? <Pencil className="w-5 h-5" />
-                                                                : hasPendingRequest
-                                                                    ? <Clock className="w-5 h-5" />
-                                                                    : <Pencil className="w-5 h-5" />
-                                                            : isActivatedForMe
-                                                                ? <Bell className="w-6 h-6" />
-                                                                : blockReason === 'not_activated'
-                                                                    ? <LockIcon className="w-5 h-5" />
-                                                                    : blockReason === 'full'
-                                                                        ? <Zap className="w-5 h-5" />
-                                                                        : <Trophy className="w-6 h-6" />
-                                                        }
-                                                        <span className="text-[7px] font-black uppercase text-center leading-none mt-1">
-                                                            {isDone
-                                                                ? hasApprovedRequest
-                                                                    ? t('judge.room.edit')
-                                                                    : hasPendingRequest
-                                                                        ? 'Aguard.'
-                                                                        : t('judge.room.edit')
-                                                                : isActivatedForMe
-                                                                    ? 'Avaliar!'
-                                                                    : blockReason === 'not_activated'
-                                                                        ? 'Bloqueado'
-                                                                        : blockReason === 'full'
-                                                                            ? 'Completo'
-                                                                            : t('judge.room.evaluate')
-                                                            }
-                                                        </span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
                         </div>
                     </div>
                 )}
+
+                <div className="max-w-4xl mx-auto p-6 md:p-8">
+                    {/* 1. SELEÇÃO DE PROVA */}
+                    {!selectedTestView ? (
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-orange-100 rounded-lg">
+                                    <List className="w-5 h-5 text-orange-600" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black uppercase text-k9-black leading-tight">{t('judge.room.selectTest')}</h2>
+                                    <p className="text-xs text-gray-400 font-bold uppercase">{t('judge.room.selectTestHint')}</p>
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder={t('judge.room.searchTest')}
+                                    value={testSearch}
+                                    onChange={e => setTestSearch(e.target.value)}
+                                    className="w-full bg-white border-2 border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-k9-black focus:outline-none focus:border-k9-orange focus:ring-4 focus:ring-orange-50 transition-all shadow-sm placeholder:text-gray-300"
+                                />
+                            </div>
+
+                            {(() => {
+                                const normalize = (text: string) =>
+                                    text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+
+                                const assignedTests = getAssignedTests()
+                                    .filter(t => {
+                                        if (!testSearch) return true;
+                                        const s = normalize(testSearch);
+                                        const titleMatch = normalize(t.title).includes(s);
+                                        const modalityMatch = t.modality ? normalize(t.modality).includes(s) : false;
+                                        const numberMatch = t.testNumber ? t.testNumber.toString().includes(s) : false;
+
+                                        return titleMatch || modalityMatch || numberMatch;
+                                    })
+                                    .sort((a, b) => {
+                                        if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
+                                        return (a.testNumber || 0) - (b.testNumber || 0);
+                                    });
+
+                                if (assignedTests.length === 0) {
+                                    return (
+                                        <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                            <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                                            <p className="uppercase font-bold text-sm tracking-wide">{t('judge.room.noTestsFound')}</p>
+                                        </div>
+                                    );
+                                }
+
+                                const groupedByModality = assignedTests.reduce((acc, test) => {
+                                    const modality = test.modality || 'OUTRAS';
+                                    if (!acc[modality]) acc[modality] = [];
+                                    acc[modality].push(test);
+                                    return acc;
+                                }, {} as Record<string, TestTemplate[]>);
+
+                                return (
+                                    <div className="space-y-8">
+                                        {Object.entries(groupedByModality).map(([modality, modalityTests]) => (
+                                            <div key={modality} className="bg-gray-50/50 border border-gray-100 rounded-3xl p-6 shadow-sm">
+                                                <h3 className="text-sm font-black uppercase text-k9-orange mb-6 flex items-center gap-2 tracking-widest">
+                                                    <Shield className="w-4 h-4" /> {modality}
+                                                </h3>
+                                                <div className="grid gap-3">
+                                                    {modalityTests
+                                                        .sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0))
+                                                        .map(test => {
+                                                            const testCompetitors = competitors.filter(c => c.modality === test.modality);
+                                                            const doneCount = testCompetitors.filter(c => isTestEvaluated(c.id, test.id)).length;
+                                                            const isAllDone = testCompetitors.length > 0 && doneCount === testCompetitors.length;
+
+                                                            return (
+                                                                <button
+                                                                    key={test.id}
+                                                                    onClick={() => handleSelectTest(test)}
+                                                                    className={`
+                                                                    group relative w-full text-left p-5 rounded-2xl border transition-all flex items-center justify-between shadow-sm
+                                                                    ${isAllDone
+                                                                            ? 'bg-green-50/50 border-green-200'
+                                                                            : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg'
+                                                                        }
+                                                                `}
+                                                                >
+                                                                    <div className="flex items-center gap-4">
+                                                                        <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black transition-all shadow-sm border ${isAllDone ? 'bg-green-100 border-green-200 text-green-600' : 'bg-gray-900 border-gray-800 text-white group-hover:bg-k9-orange group-hover:border-k9-orange'}`}>
+                                                                            <span className="text-[8px] opacity-60 leading-none mb-0.5">Nº</span>
+                                                                            <span className="text-lg leading-none">{test.testNumber ? test.testNumber.toString().padStart(2, '0') : '--'}</span>
+                                                                        </div>
+                                                                        <div>
+                                                                            <h4 className={`font-black uppercase text-base ${isAllDone ? 'text-green-900' : 'text-k9-black'}`}>{test.title}</h4>
+                                                                            <div className="flex items-center gap-2 mt-0.5 font-bold uppercase text-[9px]">
+                                                                                <span className={isAllDone ? 'text-green-600' : 'text-gray-400'}>{doneCount}/{testCompetitors.length} {t('judge.room.evaluated')}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {isAllDone ? (
+                                                                        <div className="bg-green-100 text-green-600 p-2 rounded-full">
+                                                                            <Check className="w-5 h-5" />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-orange-50 group-hover:text-k9-orange transition-all">
+                                                                            <ArrowLeft className="w-5 h-5 rotate-180" />
+                                                                        </div>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })
+                                                    }
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    ) : (
+                        /* 2. LISTA DE COMPETIDORES PARA A PROVA SELECIONADA */
+                        <div className="space-y-6">
+                            {/* Test Info Header */}
+                            <div className="bg-black text-white p-6 rounded-2xl shadow-lg border-b-4 border-k9-orange relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-k9-orange/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                                <div className="relative z-10">
+                                    <span className="text-[10px] font-black uppercase text-k9-orange bg-orange-900/20 px-2 py-0.5 rounded border border-orange-900/30 mb-2 inline-block">
+                                        {selectedTestView.modality}
+                                    </span>
+                                    <h2 className="text-2xl font-black uppercase tracking-tighter leading-tight drop-shadow-md">
+                                        {selectedTestView.title}
+                                    </h2>
+                                    {selectedTestView.description && (
+                                        <p className="text-gray-400 text-xs mt-2 font-medium leading-relaxed max-w-2xl border-l-2 border-k9-orange/50 pl-3">
+                                            {selectedTestView.description}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-purple-100 rounded-lg">
+                                        <Users className="w-5 h-5 text-purple-600" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-black uppercase text-k9-black leading-tight">{t('judge.room.competitorQueue')}</h2>
+                                        <p className="text-xs text-gray-400 font-bold uppercase">{t('judge.room.competitorQueueHint')}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-4">
+                                {competitors
+                                    .filter(c => c.modality === selectedTestView.modality)
+                                    .map(comp => {
+                                        const isDone = isTestEvaluated(comp.id, selectedTestView.id);
+                                        const titularCount = getTitularEvalCount(comp.id, selectedTestView.id, selectedTestView.modality);
+                                        const totalCount = getTotalEvalCount(comp.id, selectedTestView.id);
+                                        const blocked = isBlockedAsReserve(comp.id, selectedTestView.id, selectedTestView.modality);
+                                        const avgCalculated = titularCount >= 3;
+                                        const blockReason = getBlockReason(comp.id, selectedTestView.id, selectedTestView.modality);
+                                        const isActivatedForMe = isAdminActivated(comp.id, selectedTestView.id, selectedTestView.modality) && !blocked;
+
+                                        const myEvaluation = isDone ? evaluations.find(e =>
+                                            e.competitorId === comp.id && e.testId === selectedTestView.id && e.judgeId === user?.uid
+                                        ) : undefined;
+                                        const editRequest = myEvaluation ? getEditRequestStatus(myEvaluation.id) : undefined;
+                                        const hasPendingRequest = editRequest?.status === 'pending';
+                                        const hasApprovedRequest = editRequest?.status === 'approved';
+
+                                        return (
+                                            <div
+                                                key={comp.id}
+                                                className={`
+                                                relative overflow-hidden rounded-2xl border transition-all group
+                                                ${isDone
+                                                        ? 'bg-green-50/30 border-green-100 opacity-90'
+                                                        : isActivatedForMe
+                                                            ? 'bg-amber-50 border-amber-300 shadow-md shadow-amber-100'
+                                                            : blockReason === 'not_activated'
+                                                                ? 'bg-gray-50 border-gray-200 opacity-70'
+                                                                : blockReason === 'full'
+                                                                    ? 'bg-yellow-50/50 border-yellow-200 opacity-80'
+                                                                    : 'bg-white border-gray-100 hover:border-k9-orange hover:shadow-lg transform hover:-translate-y-1'
+                                                    }
+                                            `}
+                                            >
+                                                {/* Badge de Acionamento — só aparece quando acionado e pode avaliar */}
+                                                {isActivatedForMe && !isDone && (
+                                                    <div className="absolute top-0 left-0 right-0 bg-amber-400 text-amber-900 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
+                                                        <Bell className="w-3 h-3 animate-bounce" />
+                                                        Você foi acionado! Avalie este competidor
+                                                    </div>
+                                                )}
+                                                {/* Badge de aguardando acionamento */}
+                                                {blockReason === 'not_activated' && !isDone && (
+                                                    <div className="absolute top-0 left-0 right-0 bg-gray-200 text-gray-500 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
+                                                        <LockIcon className="w-3 h-3" />
+                                                        Aguardando acionamento do admin
+                                                    </div>
+                                                )}
+                                                <div className={`p-5 flex items-start justify-between gap-6 h-full min-h-[140px] ${(isActivatedForMe || blockReason === 'not_activated') && !isDone ? 'pt-8 pl-5' : 'pl-8'}`}>
+                                                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                                                        <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border shrink-0 relative z-10 ${isDone
+                                                            ? 'bg-green-100 border-green-200 text-green-600'
+                                                            : isActivatedForMe
+                                                                ? 'bg-amber-100 border-amber-200 text-amber-700'
+                                                                : blockReason === 'not_activated'
+                                                                    ? 'bg-gray-100 border-gray-200 text-gray-400'
+                                                                    : blockReason === 'full'
+                                                                        ? 'bg-yellow-100 border-yellow-200 text-yellow-700'
+                                                                        : 'bg-orange-50 border-orange-100 text-orange-600'
+                                                            }`}>
+                                                            {comp.photoUrl ? (
+                                                                <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="text-xs leading-none">{comp.handlerName.substring(0, 2).toUpperCase()}</span>
+                                                                    <span className="text-[10px] opacity-40 mt-0.5">#{comp.competitorNumber}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex-1 relative z-10 pt-0.5 min-w-0">
+                                                            <h3 className={`font-black uppercase text-sm leading-tight truncate ${isDone
+                                                                ? 'text-green-900'
+                                                                : blockReason === 'not_activated'
+                                                                    ? 'text-gray-500'
+                                                                    : blocked
+                                                                        ? 'text-yellow-900'
+                                                                        : 'text-k9-black'
+                                                                }`}>
+                                                                {comp.handlerName}
+                                                            </h3>
+                                                            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{t('judge.room.conductor')}</div>
+
+                                                            <p className="text-xs font-bold text-k9-orange uppercase mt-1 font-mono truncate">
+                                                                {t('judge.room.dog')}: {comp.dogName}
+                                                            </p>
+
+                                                            {/* Placar de juízes */}
+                                                            <div className="mt-2 flex items-center gap-2">
+                                                                <div className="flex gap-1">
+                                                                    {[1, 2, 3].map(i => (
+                                                                        <div key={i} className={`w-4 h-4 rounded-full border-2 ${i <= titularCount
+                                                                            ? 'bg-orange-400 border-orange-500'
+                                                                            : 'bg-gray-100 border-gray-300'
+                                                                            }`} title={`Juiz ${i}`} />
+                                                                    ))}
+                                                                </div>
+                                                                <span className="text-[9px] font-black uppercase text-gray-400">
+                                                                    {titularCount}/3 juízes
+                                                                    {avgCalculated && <span className="text-orange-500 ml-1">· Média calculada</span>}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Indicador de acionamento urgente */}
+                                                            {isActivatedForMe && !isDone && (
+                                                                <div className="mt-2 flex items-center gap-1.5 text-[10px] font-black text-amber-700 uppercase bg-amber-100 px-2 py-1 rounded-lg border border-amber-200">
+                                                                    <Bell className="w-3 h-3" /> Acionado pelo admin · avalie agora
+                                                                </div>
+                                                            )}
+
+                                                            {isDone && (
+                                                                <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase">
+                                                                    {hasApprovedRequest ? (
+                                                                        <span className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                                                                            <Pencil className="w-3 h-3" /> {t('judge.room.editRequest.approvedStatus')}
+                                                                        </span>
+                                                                    ) : hasPendingRequest ? (
+                                                                        <span className="flex items-center gap-1 text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                                                                            <Clock className="w-3 h-3" /> {t('judge.room.editRequest.pendingStatus')}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="flex items-center gap-1 text-green-600">
+                                                                            <CheckCircle2 className="w-3.5 h-3.5" /> {t('judge.room.evaluated2')}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            {blockReason === 'not_activated' && !isDone && (
+                                                                <div className="mt-1.5 flex items-center gap-1 text-[10px] font-black text-gray-400 uppercase">
+                                                                    <LockIcon className="w-3 h-3" /> Aguardando acionamento
+                                                                </div>
+                                                            )}
+                                                            {blockReason === 'full' && !isDone && (
+                                                                <div className="mt-1.5 flex items-center gap-1 text-[10px] font-black text-yellow-700 uppercase">
+                                                                    <Zap className="w-3 h-3" /> Reserva · 3 juízes já avaliaram
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col pb-1 shrink-0 self-end gap-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                if (isDone) {
+                                                                    handleRequestEdit(comp, selectedTestView);
+                                                                } else if (!blocked) {
+                                                                    startEvaluation(comp, selectedTestView);
+                                                                }
+                                                            }}
+                                                            disabled={blocked && !isDone}
+                                                            className={`
+                                                            w-12 h-12 flex flex-col items-center justify-center rounded-xl transition-all shadow-sm border group/btn
+                                                            ${isDone
+                                                                    ? hasApprovedRequest
+                                                                        ? 'bg-blue-50 border-blue-300 text-blue-600 hover:bg-blue-100 active:scale-95 cursor-pointer animate-pulse'
+                                                                        : hasPendingRequest
+                                                                            ? 'bg-amber-50 border-amber-200 text-amber-500 cursor-pointer'
+                                                                            : 'bg-green-50 border-green-100 text-green-500 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-500 cursor-pointer'
+                                                                    : isActivatedForMe
+                                                                        ? 'bg-amber-400 border-amber-500 text-amber-900 hover:bg-amber-500 active:scale-95 animate-pulse'
+                                                                        : blocked
+                                                                            ? 'bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed'
+                                                                            : 'bg-orange-50 border-orange-100 text-orange-600 hover:bg-orange-100 hover:border-orange-200 active:scale-95'
+                                                                }
+                                                        `}
+                                                            title={
+                                                                isDone
+                                                                    ? hasApprovedRequest ? 'Edição aprovada! Clique para re-avaliar'
+                                                                        : hasPendingRequest ? 'Aguardando aprovação do admin'
+                                                                            : 'Solicitar edição de nota'
+                                                                    : blockReason === 'not_activated' ? 'Aguardando acionamento do admin'
+                                                                        : blockReason === 'full' ? 'Já há 3 juízes titulares'
+                                                                            : isActivatedForMe ? 'Você foi acionado! Avalie agora'
+                                                                                : t('judge.room.evaluate')
+                                                            }
+                                                        >
+                                                            {isDone
+                                                                ? hasApprovedRequest
+                                                                    ? <Pencil className="w-5 h-5" />
+                                                                    : hasPendingRequest
+                                                                        ? <Clock className="w-5 h-5" />
+                                                                        : <Pencil className="w-5 h-5" />
+                                                                : isActivatedForMe
+                                                                    ? <Bell className="w-6 h-6" />
+                                                                    : blockReason === 'not_activated'
+                                                                        ? <LockIcon className="w-5 h-5" />
+                                                                        : blockReason === 'full'
+                                                                            ? <Zap className="w-5 h-5" />
+                                                                            : <Trophy className="w-6 h-6" />
+                                                            }
+                                                            <span className="text-[7px] font-black uppercase text-center leading-none mt-1">
+                                                                {isDone
+                                                                    ? hasApprovedRequest
+                                                                        ? t('judge.room.edit')
+                                                                        : hasPendingRequest
+                                                                            ? 'Aguard.'
+                                                                            : t('judge.room.edit')
+                                                                    : isActivatedForMe
+                                                                        ? 'Avaliar!'
+                                                                        : blockReason === 'not_activated'
+                                                                            ? 'Bloqueado'
+                                                                            : blockReason === 'full'
+                                                                                ? 'Completo'
+                                                                                : t('judge.room.evaluate')
+                                                                }
+                                                            </span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
 
             {/* Modal de Solicitação de Edição de Nota */}
             <Modal

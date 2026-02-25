@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { Trophy, Users, FileText } from 'lucide-react';
 import Image from 'next/image';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from './LanguageSwitcher';
-import '@/i18n/config';
 
 export default function Navbar() {
     const { t } = useTranslation();
@@ -66,7 +64,6 @@ export default function Navbar() {
                             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse mr-2 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
                             <span className="text-xs font-mono text-gray-400 uppercase font-bold hidden sm:block">{t('nav.systemOnline')}</span>
                         </div>
-                        <LanguageSwitcher />
                     </div>
                 </div>
             </div>

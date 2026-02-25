@@ -10,7 +10,6 @@ import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 import {
     ArrowLeft,
     Users,
@@ -430,9 +429,7 @@ export default function RoomDetailsPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-3 relative z-10">
-                            <LanguageSwitcher />
                             <button
-                                onClick={handleLogout}
                                 className="text-white hover:text-red-400 text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-4 py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 shadow-sm"
                             >
                                 <LogOut className="w-4 h-4" /> {t('admin.logout')}

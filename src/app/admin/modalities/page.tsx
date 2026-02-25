@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { ModalityConfig } from '@/types/schema';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function ModalitiesPage() {
     const router = useRouter();
@@ -112,7 +111,6 @@ export default function ModalitiesPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <LanguageSwitcher />
                         <Shield className="w-8 h-8 text-k9-orange opacity-50 hidden md:block" />
                     </div>
                 </header>

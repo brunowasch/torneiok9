@@ -27,7 +27,6 @@ import {
 import { Room, EditScoreRequest } from '@/types/schema';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -161,8 +160,6 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex items-center gap-4 mt-6 md:mt-0 relative z-20">
-                        <LanguageSwitcher />
-                        <div className="h-8 w-px bg-white/10 mx-1 hidden md:block"></div>
                         <button
                             onClick={handleLogout}
                             className="text-white hover:text-red-400 text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-4 py-2.5 rounded-lg shadow-sm"
@@ -198,7 +195,7 @@ export default function AdminDashboard() {
 
                 {/* Global Notification Banner */}
                 {pendingRequests.length > 0 && (
-                    <div 
+                    <div
                         onClick={() => {
                             setRequestFilterRoomId(null);
                             setShowRequestsModal(true);
@@ -434,7 +431,7 @@ export default function AdminDashboard() {
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-md">
                         <div className="bg-white border-2 border-amber-200 p-8 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
                             <div className="absolute top-0 left-0 w-full h-2 bg-amber-400"></div>
-                            
+
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm">
@@ -443,13 +440,13 @@ export default function AdminDashboard() {
                                     <div>
                                         <h2 className="text-xl font-black text-k9-black uppercase tracking-tighter">Solicitações de Edição</h2>
                                         <p className="text-[10px] font-bold text-amber-600 uppercase">
-                                            {requestFilterRoomId 
-                                                ? `Torneio: ${rooms.find(r => r.id === requestFilterRoomId)?.name}` 
+                                            {requestFilterRoomId
+                                                ? `Torneio: ${rooms.find(r => r.id === requestFilterRoomId)?.name}`
                                                 : "Todos os torneios"}
                                         </p>
                                     </div>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setShowRequestsModal(false)}
                                     className="p-2 text-gray-400 hover:text-black transition-colors"
                                 >
@@ -524,7 +521,7 @@ export default function AdminDashboard() {
                                             </div>
                                         );
                                     })}
-                                
+
                                 {pendingRequests.filter(r => !requestFilterRoomId || r.roomId === requestFilterRoomId).length === 0 && (
                                     <div className="text-center py-8 text-gray-400 uppercase font-black text-xs tracking-widest">
                                         Nenhuma solicitação pendente encontrada.
