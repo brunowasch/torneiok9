@@ -55,7 +55,7 @@ export default function RoomDetailsPage() {
         await signOut(auth);
         router.push('/secret-access');
     };
-    const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges' | 'rankings'>('competitors');
+    const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges' | 'rankings'>('tests');
     const [compToMarkNC, setCompToMarkNC] = useState<{ test: TestTemplate, comp: Competitor } | null>(null);
     const [evalToDelete, setEvalToDelete] = useState<{ id: string, name: string, testTitle: string, isNC: boolean, photoUrl?: string } | null>(null);
     const [allJudges, setAllJudges] = useState<AppUser[]>([]);
