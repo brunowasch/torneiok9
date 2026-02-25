@@ -162,7 +162,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-4 mt-6 md:mt-0 relative z-20">
                         <button
                             onClick={handleLogout}
-                            className="text-white hover:text-red-400 text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-4 py-2.5 rounded-lg shadow-sm"
+                            className="text-white hover:text-red-400 text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-4 py-2.5 rounded-lg shadow-sm cursor-pointer"
                         >
                             <LogOut className="w-4 h-4" /> {t('adminDashboard.logout')}
                         </button>
@@ -186,7 +186,7 @@ export default function AdminDashboard() {
                     </button>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-k9-orange text-black border-k9-orange hover:bg-orange-500 hover:border-orange-500 hover:text-white"
+                        className="px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-k9-orange text-black border-k9-orange hover:bg-orange-500 hover:border-orange-500 hover:text-white cursor-pointer"
                     >
                         <PlusCircle className="w-5 h-5" />
                         {t('adminDashboard.newRoom')}
@@ -293,7 +293,7 @@ export default function AdminDashboard() {
                                 <p className="text-gray-600 uppercase font-bold tracking-widest mb-4">{t('adminDashboard.noRooms')}</p>
                                 <button
                                     onClick={() => setShowCreateModal(true)}
-                                    className="text-k9-orange hover:text-k9-black underline uppercase text-xs tracking-wider font-bold transition-colors"
+                                    className="text-k9-orange hover:text-k9-black underline uppercase text-xs tracking-wider font-bold transition-colors cursor-pointer"
                                 >
                                     {t('adminDashboard.createFirst')}
                                 </button>
@@ -326,7 +326,7 @@ export default function AdminDashboard() {
                                 <button
                                     onClick={handleCreateRoom}
                                     disabled={!newRoomName}
-                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105"
+                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105 cursor-pointer"
                                 >
                                     {t('adminDashboard.confirmRoom')}
                                 </button>
@@ -387,7 +387,7 @@ export default function AdminDashboard() {
                                 <button
                                     onClick={handleCreateAdmin}
                                     disabled={!newAdmin.name || !newAdmin.email || !newAdmin.password}
-                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105"
+                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105 cursor-pointer"
                                 >
                                     {t('adminDashboard.confirmAdmin')}
                                 </button>

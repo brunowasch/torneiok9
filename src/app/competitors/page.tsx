@@ -171,7 +171,7 @@ export default function CompetitorsPage() {
                         <div className="flex gap-6 min-w-max px-3">
                             <button
                                 onClick={() => setSelectedModality(null)}
-                                className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 origin-left transition-all duration-200 whitespace-nowrap shadow-sm
+                                className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 origin-left transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer
                                     ${selectedModality === null
                                         ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                                         : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
@@ -184,7 +184,7 @@ export default function CompetitorsPage() {
                                 <button
                                     key={mod}
                                     onClick={() => setSelectedModality(mod)}
-                                    className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 origin-left transition-all duration-200 whitespace-nowrap shadow-sm
+                                    className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 origin-left transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer
                                         ${selectedModality === mod
                                             ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                                             : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
@@ -288,7 +288,7 @@ export default function CompetitorsPage() {
                             </div>
                             <button
                                 onClick={() => setSelectedCompetitor(null)}
-                                className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                                className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -424,7 +424,7 @@ function TestScoreSection({
             {/* Test Header */}
             <button
                 onClick={() => setExpanded(!expanded)}
-                className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors cursor-pointer"
             >
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gray-900 rounded-xl flex flex-col items-center justify-center text-white font-black shadow-sm">

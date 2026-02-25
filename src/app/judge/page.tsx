@@ -71,7 +71,7 @@ export default function JudgeDashboard() {
                         <div className="h-8 w-px bg-white/10 mx-1 hidden md:block"></div>
                         <button
                             onClick={handleLogout}
-                            className="text-white hover:text-red-400 text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-4 py-2.5 rounded-lg shadow-sm"
+                            className="text-white hover:text-red-400 text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-4 py-2.5 rounded-lg shadow-sm cursor-pointer"
                         >
                             <LogOut className="w-4 h-4" /> {t('judge.logout')}
                         </button>
@@ -92,7 +92,7 @@ export default function JudgeDashboard() {
                             <button
                                 key={room.id}
                                 onClick={() => router.push(`/judge/room/${room.id}`)}
-                                className="group w-full text-left"
+                                className="group w-full text-left cursor-pointer"
                             >
                                 <div className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-k9-orange hover:shadow-lg transition-all relative overflow-hidden h-full flex flex-col">
                                     <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-bl from-k9-orange/5 to-transparent"></div>

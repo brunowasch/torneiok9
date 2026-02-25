@@ -4,9 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createAdminUser, checkAdminExists } from '@/services/userService';
 import { ShieldCheck, Lock, Mail, User, AlertTriangle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function SetupAdminPage() {
     const router = useRouter();
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [adminExists, setAdminExists] = useState(false);
     const [formData, setFormData] = useState({
@@ -37,14 +40,14 @@ export default function SetupAdminPage() {
         setStatus({ type: 'idle', message: '' });
 
         if (!formData.name || !formData.email || !formData.password) {
-            setStatus({ type: 'error', message: 'TRAVADO: Todos os campos são obrigatórios para a credencial.' });
+            setStatus({ type: 'error', message: t('setupAdmin.errorFields') });
             return;
         }
 
         setLoading(true);
         try {
             await createAdminUser(formData.email, formData.password, formData.name);
-            setStatus({ type: 'success', message: 'PROTOCOLO DE ADMIN: USUÁRIO MESTRE CRIADO COM SUCESSO.' });
+            setStatus({ type: 'success', message: t('setupAdmin.successMessage') });
             setTimeout(() => {
                 router.push('/admin');
             }, 2000);
@@ -57,7 +60,7 @@ export default function SetupAdminPage() {
     if (loading && !status.message) {
         return (
             <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono animate-pulse">
-                [INICIANDO PROTOCOLO DE SEGURANÇA...]
+                {t('setupAdmin.systemStatus')}
             </div>
         );
     }
@@ -70,16 +73,16 @@ export default function SetupAdminPage() {
                         <div className="p-4 bg-red-100 rounded-full border-2 border-red-300">
                             <AlertTriangle className="w-12 h-12 text-red-600" />
                         </div>
-                        <h1 className="text-2xl font-black text-k9-black uppercase tracking-widest">Acesso Negado</h1>
+                        <h1 className="text-2xl font-black text-k9-black uppercase tracking-widest">{t('setupAdmin.accessDenied')}</h1>
                         <p className="text-gray-600 font-semibold text-sm">
-                            O Administrador do Sistema já foi configurado. Esta rota agora é classificada como restrita.
+                            {t('setupAdmin.alreadyConfigured')}
                         </p>
                         <div className="w-full h-px bg-gray-300 my-4"></div>
                         <button
                             onClick={() => router.push('/')}
-                            className="text-k9-orange hover:text-k9-black uppercase text-xs font-black tracking-widest transition-colors border-2 border-k9-orange rounded-lg px-4 py-2 hover:bg-k9-orange/10"
+                            className="text-k9-orange hover:text-k9-black uppercase text-xs font-black tracking-widest transition-colors border-2 border-k9-orange rounded-lg px-4 py-2 hover:bg-k9-orange/10 cursor-pointer"
                         >
-                            Retornar à Base
+                            {t('setupAdmin.returnBase')}
                         </button>
                     </div>
                 </div>
@@ -91,13 +94,16 @@ export default function SetupAdminPage() {
         <div className="min-h-screen bg-k9-white flex items-center justify-center p-4">
             <div className="max-w-md w-full">
                 {/* Header */}
-                <div className="text-center mb-8">
+                <div className="text-center mb-8 relative">
+                    <div className="absolute top-0 right-0 z-10">
+                        <LanguageSwitcher />
+                    </div>
                     <ShieldCheck className="w-16 h-16 text-k9-orange mx-auto mb-4" />
                     <h1 className="text-3xl font-black text-k9-black uppercase tracking-tighter">
-                        Setup Inicial
+                        {t('setupAdmin.title')}
                     </h1>
                     <p className="text-k9-orange text-sm uppercase tracking-widest mt-2 font-bold">
-                        Credencial de Comando Único
+                        {t('setupAdmin.subtitle')}
                     </p>
                 </div>
 
@@ -118,33 +124,33 @@ export default function SetupAdminPage() {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
                             <label className="text-xs font-black text-k9-black uppercase tracking-wider flex items-center gap-2">
-                                <User className="w-3 h-3" /> Identificação (Nome)
+                                <User className="w-3 h-3" /> {t('setupAdmin.identification')}
                             </label>
                             <input
                                 type="text"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:border-k9-orange focus:ring-1 focus:ring-k9-orange focus:outline-none transition-all placeholder-gray-400 font-semibold"
-                                placeholder="Nome do Admin"
+                                placeholder={t('setupAdmin.placeholderName')}
                             />
                         </div>
 
                         <div className="space-y-2">
                             <label className="text-xs font-black text-k9-black uppercase tracking-wider flex items-center gap-2">
-                                <Mail className="w-3 h-3" /> Canal Seguro (Email)
+                                <Mail className="w-3 h-3" /> {t('setupAdmin.email')}
                             </label>
                             <input
                                 type="email"
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:border-k9-orange focus:ring-1 focus:ring-k9-orange focus:outline-none transition-all placeholder-gray-400 font-semibold"
-                                placeholder="admin@k9.com"
+                                placeholder={t('setupAdmin.placeholderEmail')}
                             />
                         </div>
 
                         <div className="space-y-2">
                             <label className="text-xs font-black text-k9-black uppercase tracking-wider flex items-center gap-2">
-                                <Lock className="w-3 h-3" /> Chave de Acesso (Senha)
+                                <Lock className="w-3 h-3" /> {t('setupAdmin.securityKey')}
                             </label>
                             <div className="relative">
                                 <input
@@ -152,7 +158,7 @@ export default function SetupAdminPage() {
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                     className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 pr-10 rounded-lg focus:border-k9-orange focus:ring-1 focus:ring-k9-orange focus:outline-none transition-all placeholder-gray-400 font-semibold"
-                                    placeholder="••••••••"
+                                    placeholder={t('setupAdmin.placeholderPassword')}
                                 />
                                 <button
                                     type="button"
@@ -167,16 +173,16 @@ export default function SetupAdminPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-k9-orange hover:bg-amber-600 text-white font-black uppercase py-4 rounded-lg tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-8"
+                            className="w-full bg-k9-orange hover:bg-amber-600 text-white font-black uppercase py-4 rounded-lg tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-8 cursor-pointer"
                         >
-                            {loading ? 'GERANDO ACESSO...' : 'CRIAR CREDENCIAL ADMIN'}
+                            {loading ? t('setupAdmin.loadingGenerating') : t('setupAdmin.buttonCreate')}
                         </button>
                     </form>
                 </div>
 
                 <div className="text-center mt-6">
                     <p className="text-xs text-gray-600 font-mono font-semibold">
-                        SISTEMA TORNEIO K9 v1.0 <br /> ACESSO RESTRITO A PESSOAL AUTORIZADO
+                        {t('setupAdmin.footer')}
                     </p>
                 </div>
             </div>

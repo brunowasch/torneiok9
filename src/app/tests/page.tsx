@@ -76,7 +76,7 @@ export default function TestsPage() {
                         <div className="flex gap-6 min-w-max px-3">
                             <button
                                 onClick={() => setSelectedModality(null)}
-                                className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 origin-left transition-all duration-200 whitespace-nowrap shadow-sm
+                                className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 origin-left transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer
                                     ${selectedModality === null
                                         ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                                         : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
@@ -88,7 +88,7 @@ export default function TestsPage() {
                                 <button
                                     key={mod}
                                     onClick={() => setSelectedModality(mod)}
-                                    className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 origin-left transition-all duration-200 whitespace-nowrap shadow-sm
+                                    className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 origin-left transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer
                                         ${selectedModality === mod
                                             ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                                             : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'

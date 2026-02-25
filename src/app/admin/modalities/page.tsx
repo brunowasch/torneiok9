@@ -99,7 +99,7 @@ export default function ModalitiesPage() {
                     <div className="relative z-10 flex items-center gap-4">
                         <button
                             onClick={() => router.push('/admin')}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                         >
                             <ArrowLeft className="w-6 h-6" />
                         </button>
@@ -123,7 +123,7 @@ export default function ModalitiesPage() {
                         {!isAdding && (
                             <button
                                 onClick={() => setIsAdding(true)}
-                                className="bg-orange-400 hover:bg-orange-500 text-white px-4 py-2 rounded-lg transition-all shadow-md flex items-center gap-2 text-xs font-bold uppercase"
+                                className="bg-orange-400 hover:bg-orange-500 text-white px-4 py-2 rounded-lg transition-all shadow-md flex items-center gap-2 text-xs font-bold uppercase cursor-pointer"
                             >
                                 <Plus className="w-4 h-4" /> {t('modalities.addNew')}
                             </button>
@@ -145,13 +145,13 @@ export default function ModalitiesPage() {
                                     />
                                     <button
                                         onClick={handleAdd}
-                                        className="bg-orange-400 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs shadow-lg transition-all"
+                                        className="bg-orange-400 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs shadow-lg transition-all cursor-pointer"
                                     >
                                         {t('modalities.save')}
                                     </button>
                                     <button
                                         onClick={() => { setIsAdding(false); setNewName(''); }}
-                                        className="bg-gray-200 hover:bg-gray-300 text-gray-600 px-6 py-3 rounded-xl font-bold uppercase text-xs transition-all"
+                                        className="bg-gray-200 hover:bg-gray-300 text-gray-600 px-6 py-3 rounded-xl font-bold uppercase text-xs transition-all cursor-pointer"
                                     >
                                         {t('modalities.cancel')}
                                     </button>
@@ -180,13 +180,13 @@ export default function ModalitiesPage() {
                                             />
                                             <button
                                                 onClick={() => handleUpdate(mod.id)}
-                                                className="text-green-600 hover:bg-green-50 p-2 rounded-lg transition-colors"
+                                                className="text-green-600 hover:bg-green-50 p-2 rounded-lg transition-colors cursor-pointer"
                                             >
                                                 <Save className="w-5 h-5" />
                                             </button>
                                             <button
                                                 onClick={() => setEditingId(null)}
-                                                className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                                                className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors cursor-pointer"
                                             >
                                                 <X className="w-5 h-5" />
                                             </button>
@@ -199,14 +199,14 @@ export default function ModalitiesPage() {
                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => { setEditingId(mod.id); setEditName(mod.name); }}
-                                                    className="p-2 text-gray-400 hover:text-k9-orange hover:bg-orange-50 rounded-lg transition-all"
+                                                    className="p-2 text-gray-400 hover:text-k9-orange hover:bg-orange-50 rounded-lg transition-all cursor-pointer"
                                                     title={t('modalities.save')}
                                                 >
                                                     <Pencil className="w-5 h-5" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(mod.id, mod.name)}
-                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
                                                     title={t('modalities.errorDelete')}
                                                 >
                                                     <Trash2 className="w-5 h-5" />
