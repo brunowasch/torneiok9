@@ -22,50 +22,74 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    let unsubscribeRooms: (() => void) | undefined;
+    let unsubscribeAuth: (() => void) | undefined;
 
     const setup = async () => {
       try {
-        const { collection, query, onSnapshot, where } = await import('firebase/firestore');
-        const { db } = await import('@/lib/firebase');
+        const { onAuthStateChanged, signInAnonymously } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
 
-        const fetchedModalities = await getModalities();
-        const modalityNames = fetchedModalities.length > 0
-          ? fetchedModalities.map(m => m.name)
-          : INITIAL_MODALITIES;
-        setModalities(modalityNames);
-        if (modalityNames.length > 0) setSelectedModality(modalityNames[0]);
+        unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+          if (!user) {
+            try {
+              await signInAnonymously(auth);
+            } catch (e) {
+              console.error('Error signing in anonymously', e);
+            }
+            return;
+          }
 
-        const q = query(collection(db, 'rooms'), where('active', '==', true));
+          try {
+            const { collection, query, onSnapshot, where } = await import('firebase/firestore');
+            const { db } = await import('@/lib/firebase');
 
-        unsubscribe = onSnapshot(
-          q,
-          (snap) => {
-            const roomsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
-            setRooms(roomsData);
+            const fetchedModalities = await getModalities();
+            const modalityNames = fetchedModalities.length > 0
+              ? fetchedModalities.map(m => m.name)
+              : INITIAL_MODALITIES;
+            setModalities(modalityNames);
+            if (modalityNames.length > 0) setSelectedModality(modalityNames[0]);
 
-            setSelectedRoomId(prev => {
-              if ((!prev || prev === '') && roomsData.length > 0) return roomsData[0].id;
-              if (prev && !roomsData.find(r => r.id === prev) && roomsData.length > 0) return roomsData[0].id;
-              return prev;
-            });
+            const q = query(collection(db, 'rooms'), where('active', '==', true));
 
-            setLoading(false);
-          },
-          (err) => {
-            console.error('Error listening rooms', err);
+            if (unsubscribeRooms) unsubscribeRooms();
+            unsubscribeRooms = onSnapshot(
+              q,
+              (snap) => {
+                const roomsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
+                setRooms(roomsData);
+
+                setSelectedRoomId(prev => {
+                  if ((!prev || prev === '') && roomsData.length > 0) return roomsData[0].id;
+                  if (prev && !roomsData.find(r => r.id === prev) && roomsData.length > 0) return roomsData[0].id;
+                  return prev;
+                });
+
+                setLoading(false);
+              },
+              (err) => {
+                console.error('Error listening rooms', err);
+                setLoading(false);
+              }
+            );
+          } catch (e) {
+            console.error('Error fetching initial data', e);
             setLoading(false);
           }
-        );
+        });
       } catch (e) {
-        console.error('Error setting up rooms listener', e);
+        console.error('Error setting up auth listener', e);
         setLoading(false);
       }
     };
 
     setup();
 
-    return () => { if (unsubscribe) unsubscribe(); };
+    return () => {
+      if (unsubscribeRooms) unsubscribeRooms();
+      if (unsubscribeAuth) unsubscribeAuth();
+    };
   }, []);
 
   useEffect(() => {
