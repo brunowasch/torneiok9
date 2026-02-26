@@ -404,35 +404,36 @@ export default function RoomDetailsPage() {
     return (
         <div className="min-h-screen bg-k9-white text-k9-black">
             {/* Header */}
-            <div className="bg-black border-b-4 border-k9-orange text-white shadow-lg relative">
+            <div className="bg-black border-b-4 border-k9-orange text-white shadow-md relative">
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                 </div>
-                <div className="max-w-6xl mx-auto px-6 py-8 relative z-10">
-                    <button onClick={() => router.push('/admin')} className="inline-flex items-center gap-2 px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-md bg-gray-900 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-white transition-colors cursor-pointer mb-6">
-                        <ArrowLeft className="w-4 h-4" /> {t('admin.back')}
+                <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8 relative z-10">
+                    <button onClick={() => router.push('/admin')} className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-md bg-gray-900 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-white transition-colors cursor-pointer mb-6 group">
+                        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" /> {t('admin.back')}
                     </button>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-4xl font-black text-white uppercase tracking-tighter flex items-center gap-4">
-                                <div className="w-12 h-12 relative flex items-center justify-center">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white uppercase tracking-tighter flex items-center gap-3 md:gap-4 leading-tight">
+                                <div className="w-10 h-10 md:w-12 md:h-12 relative flex items-center justify-center shrink-0 p-1 bg-white/5 rounded-xl border border-white/10">
                                     <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
                                 </div>
-                                {room.name}
+                                <span className="truncate">{room.name}</span>
                             </h1>
-                            <div className="flex items-center gap-4 mt-3">
-                                <span className="text-xs font-mono text-k9-orange bg-orange-900/20 px-3 py-1 rounded border border-orange-900/50">ID: {room.id}</span>
-                                <span className={`text-xs font-bold uppercase flex items-center gap-2 px-3 py-1 rounded-full border ${room.active ? 'bg-green-900/20 text-green-400 border-green-900/30' : 'bg-red-900/20 text-red-400 border-red-900/30'}`}>
-                                    <div className={`w-2 h-2 rounded-full ${room.active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                            <div className="flex flex-wrap items-center gap-3 mt-4">
+                                <span className="text-[9px] md:text-xs font-mono text-k9-orange bg-orange-900/20 px-2 py-1 md:px-3 md:py-1 rounded border border-orange-900/50">ID: {room.id}</span>
+                                <span className={`text-[9px] md:text-xs font-bold uppercase flex items-center gap-2 px-2 py-1 md:px-3 md:py-1 rounded-full border ${room.active ? 'bg-green-900/20 text-green-400 border-green-900/30' : 'bg-red-900/20 text-red-400 border-red-900/30'}`}>
+                                    <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${room.active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
                                     {room.active ? t('admin.active') : t('admin.finished')}
                                 </span>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 relative z-10">
+                        <div className="flex items-center gap-3 relative z-10 self-end md:self-center">
                             <button
-                                className="text-white hover:text-red-400 text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-4 py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 shadow-sm"
+                                onClick={handleLogout}
+                                className="text-white hover:text-red-400 text-[10px] md:text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-3 py-2 md:px-4 md:py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 shadow-sm"
                             >
-                                <LogOut className="w-4 h-4" /> {t('admin.logout')}
+                                <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('admin.logout')}
                             </button>
                         </div>
                     </div>
@@ -440,18 +441,18 @@ export default function RoomDetailsPage() {
             </div>
 
             {/* Content Actions */}
-            <div className="max-w-6xl mx-auto p-6 md:p-8 bg-gray-50 rounded-xl mt-6 mb-12 md:mt-8 md:mb-16">
+            <div className="max-w-6xl mx-auto px-3 py-6 sm:p-6 md:p-8 bg-gray-50 rounded-xl mt-4 md:mt-8 mb-12 md:mb-16">
 
                 {/* === MOVED: SEÇÃO DE SOLICITAÇÕES DE EDIÇÃO DE NOTA (Sempre visível se houver pendentes) === */}
                 {editRequests.filter(r => r.status === 'pending').length > 0 && (
-                    <div className="mb-8 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-6 shadow-md border-l-8 border-l-amber-400">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm animate-pulse">
-                                <Send className="w-5 h-5 text-white" />
+                    <div className="mb-6 md:mb-8 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-4 md:p-6 shadow-md border-l-8 border-l-amber-400">
+                        <div className="flex items-center gap-3 mb-4 md:mb-6">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm animate-pulse">
+                                <Send className="w-4 h-4 md:w-5 md:h-5 text-white" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-black text-k9-black uppercase tracking-tighter">{t('admin.editRequests.title')}</h3>
-                                <p className="text-[10px] font-bold text-amber-600 uppercase">{editRequests.filter(r => r.status === 'pending').length} {t('admin.editRequests.pending')}</p>
+                                <h3 className="text-base md:text-lg font-black text-k9-black uppercase tracking-tighter">{t('admin.editRequests.title')}</h3>
+                                <p className="text-[9px] md:text-[10px] font-bold text-amber-600 uppercase">{editRequests.filter(r => r.status === 'pending').length} {t('admin.editRequests.pending')}</p>
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -462,7 +463,7 @@ export default function RoomDetailsPage() {
 
                                 return (
                                     <div key={req.id} className="bg-white rounded-xl border border-amber-100 p-4 shadow-sm hover:shadow-md transition-all">
-                                        <div className="flex items-start justify-between gap-4">
+                                        <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                                             <div className="flex items-start gap-3 flex-1 min-w-0">
                                                 <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center font-black text-orange-600 text-sm border border-orange-200 overflow-hidden shrink-0">
                                                     {comp?.photoUrl ? (
@@ -474,26 +475,23 @@ export default function RoomDetailsPage() {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="font-black text-k9-black uppercase text-sm truncate">{comp?.handlerName || 'Competidor'}</div>
                                                     <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.editRequests.test')}: {test?.title || 'Prova'}</div>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-[10px] font-black text-amber-600 uppercase bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
-                                                            <Clock className="w-3 h-3" /> {t('admin.editRequests.judge')}: {req.judgeName}
+                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                        <span className="text-[9px] font-black text-amber-600 uppercase bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" /> {req.judgeName}
                                                         </span>
                                                         {eval_ && (
-                                                            <span className="text-[10px] font-black text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
-                                                                {t('admin.editRequests.score')}: {eval_.finalScore.toFixed(1)} pts
+                                                            <span className="text-[9px] font-black text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                                                                {eval_.finalScore.toFixed(1)} pts
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="mt-2 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                    <div className="mt-2 text-[11px] text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-100">
                                                         <span className="text-[9px] font-black text-gray-400 uppercase block mb-0.5">{t('admin.editRequests.reason')}:</span>
                                                         {req.reason}
                                                     </div>
-                                                    <div className="text-[9px] text-gray-300 font-mono mt-1">
-                                                        {new Date(req.createdAt).toLocaleString('pt-BR')}
-                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="flex flex-col gap-2 shrink-0">
+                                            <div className="flex sm:flex-col gap-2 shrink-0 w-full sm:w-auto">
                                                 <button
                                                     onClick={async () => {
                                                         try {
@@ -504,8 +502,7 @@ export default function RoomDetailsPage() {
                                                             alert(t('admin.editRequests.errorApprove'));
                                                         }
                                                     }}
-                                                    className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-all cursor-pointer shadow-sm"
-                                                    title={t('admin.editRequests.approve')}
+                                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase rounded-lg bg-green-500 text-white border border-green-600 hover:bg-green-600 transition-all cursor-pointer shadow-sm"
                                                 >
                                                     <CheckCircle className="w-4 h-4" /> {t('admin.editRequests.approve')}
                                                 </button>
@@ -519,8 +516,7 @@ export default function RoomDetailsPage() {
                                                             alert(t('admin.editRequests.errorReject'));
                                                         }
                                                     }}
-                                                    className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-all cursor-pointer shadow-sm"
-                                                    title={t('admin.editRequests.reject')}
+                                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 text-[9px] font-black uppercase rounded-lg bg-white text-red-600 border border-red-200 hover:bg-red-50 transition-all cursor-pointer shadow-sm"
                                                 >
                                                     <XCircle className="w-4 h-4" /> {t('admin.editRequests.reject')}
                                                 </button>
@@ -534,35 +530,35 @@ export default function RoomDetailsPage() {
                 )}
 
                 {/* Tabs */}
-                <div className="flex gap-2 mb-8">
+                <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-none -mx-2 px-2">
                     <button
                         onClick={() => setActiveTab('tests')}
-                        className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'tests' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
+                        className={`px-3 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer whitespace-nowrap min-w-max ${activeTab === 'tests' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
-                        <FileText className="w-4 h-4" /> {t('admin.tabs.tests')} ({tests.length})
+                        <FileText className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('admin.tabs.tests')} ({tests.length})
                     </button>
 
                     <button
                         onClick={() => setActiveTab('competitors')}
-                        className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'competitors' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
+                        className={`px-3 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer whitespace-nowrap min-w-max ${activeTab === 'competitors' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
-                        <Users className="w-4 h-4" /> {t('admin.tabs.competitors')} ({competitors.length})
+                        <Users className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('admin.tabs.competitors')} ({competitors.length})
                     </button>
 
                     <button
                         onClick={() => setActiveTab('judges')}
-                        className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer ${activeTab === 'judges' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
+                        className={`px-3 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer whitespace-nowrap min-w-max ${activeTab === 'judges' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
-                        <ShieldCheck className="w-4 h-4" /> {t('admin.tabs.judges')} ({room?.judges?.length || 0})
+                        <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('admin.tabs.judges')} ({room?.judges?.length || 0})
                     </button>
 
                     <button
                         onClick={() => setActiveTab('rankings')}
-                        className={`px-3 py-2 text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer relative ${activeTab === 'rankings' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
+                        className={`px-3 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer relative whitespace-nowrap min-w-max ${activeTab === 'rankings' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                     >
-                        <Trophy className="w-4 h-4" /> {t('admin.tabs.results')}
+                        <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('admin.tabs.results')}
                         {editRequests.filter(r => r.status === 'pending').length > 0 && (
-                            <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 md:w-5 md:h-5 bg-red-500 text-white text-[8px] md:text-[9px] font-black rounded-full flex items-center justify-center animate-pulse shadow-lg">
                                 {editRequests.filter(r => r.status === 'pending').length}
                             </span>
                         )}
@@ -585,12 +581,12 @@ export default function RoomDetailsPage() {
                             </button>
                         </div>
 
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {competitors.map(comp => {
                                 const testCount = tests.filter(t => t.modality === comp.modality).length;
 
                                 return (
-                                    <div key={comp.id} className="bg-white border border-gray-100 p-5 pl-8 rounded-2xl hover:shadow-lg transform hover:-translate-y-1 transition-all flex items-start justify-between gap-6 group min-h-[130px]">
+                                    <div key={comp.id} className="bg-white border border-gray-100 p-4 sm:p-5 sm:pl-8 rounded-2xl hover:shadow-md transform md:hover:-translate-y-1 transition-all flex items-start justify-between gap-6 group min-h-[130px]">
                                         <div className="flex items-start gap-4 flex-1 min-w-0">
                                             <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border border-orange-100 shrink-0">
                                                 {comp.photoUrl ? (
@@ -749,7 +745,7 @@ export default function RoomDetailsPage() {
                 {/* TESTS VIEW */}
                 {activeTab === 'tests' && (
                     <div>
-                        <div className="flex justify-between items-center mb-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6">
                             <button
                                 onClick={async () => {
                                     if (!confirm(t('admin.tests.autoNumberConfirm'))) return;
@@ -777,7 +773,7 @@ export default function RoomDetailsPage() {
                                         alert(t('admin.tests.autoNumberError'));
                                     }
                                 }}
-                                className="px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg border-2 border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition-all flex items-center gap-2"
+                                className="flex-1 sm:flex-none justify-center px-4 py-3 sm:py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg border-2 border-gray-200 bg-white text-gray-400 hover:bg-gray-50 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
                             >
                                 <ShieldCheck className="w-4 h-4" /> {t('admin.tests.autoNumber')}
                             </button>
@@ -790,7 +786,7 @@ export default function RoomDetailsPage() {
                                     setSelectedModality('');
                                     setShowAddTest(true);
                                 }}
-                                className={`px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100`}
+                                className="flex-1 sm:flex-none justify-center px-4 py-3 sm:py-2 text-[10px] sm:text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100 cursor-pointer"
                             >
                                 <Wand2 className="w-4 h-4 text-purple-700" /> {t('admin.tests.create')}
                             </button>
@@ -801,39 +797,43 @@ export default function RoomDetailsPage() {
                                 if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
                                 return (a.testNumber || 0) - (b.testNumber || 0);
                             }).map(test => (
-                                <div key={test.id} className="bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-all flex justify-between items-center group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-gray-900 text-white rounded-lg flex items-center justify-center font-black text-sm shrink-0 border border-gray-800 shadow-sm">
+                                <div key={test.id} className="bg-white border border-gray-100 rounded-2xl p-4 md:p-5 hover:shadow-md transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
+                                    <div className="flex items-start sm:items-center gap-3 md:gap-4 w-full sm:w-auto">
+                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-900 text-white rounded-lg flex items-center justify-center font-black text-sm shrink-0 border border-gray-800 shadow-sm mt-1 sm:mt-0">
                                             {test.testNumber ? test.testNumber.toString().padStart(2, '0') : '--'}
                                         </div>
-                                        <div>
-                                            <h3 className="font-bold text-k9-black uppercase">{test.title}</h3>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-black text-k9-black uppercase text-sm md:text-base leading-tight truncate">{test.title}</h3>
                                             {test.description && (
-                                                <p className="text-[10px] text-gray-500 font-medium line-clamp-1 max-w-md">{test.description}</p>
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 line-clamp-1">{test.description}</p>
                                             )}
-                                            <div className="text-[10px] text-gray-400 mt-1 flex gap-2 font-bold items-center">
-                                                <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-600 uppercase tracking-tighter">{test.modality}</span>
-                                                <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                                                <span className="text-gray-400">{t('admin.tests.maxScore')}: {test.maxScore} {t('admin.tests.pts')}</span>
+                                            <div className="text-[10px] text-gray-400 mt-2 flex flex-wrap gap-x-3 gap-y-1 font-bold items-center">
+                                                <span className="px-2 py-0.5 bg-gray-50 rounded text-gray-500 uppercase border border-gray-100">{test.modality}</span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                                                    <span className="text-gray-400 uppercase">{t('admin.tests.maxScore')}: {test.maxScore} {t('admin.tests.pts')}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            onClick={() => editTest(test)}
-                                            className="p-2 bg-gray-50 rounded-md text-gray-400 hover:bg-orange-50 hover:text-orange-500 transition-colors cursor-pointer"
-                                            title="Editar Prova"
-                                        >
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteTest(test.id, test.title)}
-                                            className="p-2 bg-gray-50 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors cursor-pointer"
-                                            title="Excluir Prova"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                        <div className="px-3 py-1 bg-orange-50 text-orange-600 text-xs font-bold rounded uppercase border border-orange-100">
+                                    <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-3 sm:pt-0 border-t border-gray-50 sm:border-0">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => editTest(test)}
+                                                className="w-9 h-9 flex items-center justify-center bg-gray-50 rounded-lg text-gray-400 hover:bg-orange-50 hover:text-orange-500 transition-colors cursor-pointer border border-gray-100"
+                                                title="Editar Prova"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteTest(test.id, test.title)}
+                                                className="w-9 h-9 flex items-center justify-center bg-gray-50 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors cursor-pointer border border-gray-100"
+                                                title="Excluir Prova"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        <div className="px-3 py-1.5 bg-orange-50 text-orange-600 text-[10px] font-black uppercase rounded border border-orange-100 tracking-wider">
                                             {t('admin.tests.active')}
                                         </div>
                                     </div>
@@ -1245,18 +1245,18 @@ export default function RoomDetailsPage() {
                                             const isDNS = evaluation?.status === 'did_not_participate';
 
                                             return (
-                                                <div key={comp.id} className="p-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                                                <div key={comp.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50/50 transition-colors">
                                                     <div className="flex items-center gap-3 flex-1 min-w-0">
                                                         <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-400 text-xs overflow-hidden border border-gray-100 shadow-inner shrink-0">
                                                             {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
                                                         </div>
-                                                        <div className="min-w-0">
+                                                        <div className="min-w-0 flex-1">
                                                             <div className="text-sm font-black text-k9-black uppercase truncate">{comp.handlerName}</div>
                                                             <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.rankings.dog')}: {comp.dogName}</div>
 
                                                             {/* Indicador de juízes titulares */}
-                                                            <div className="flex items-center gap-2 mt-1.5">
-                                                                <div className="flex gap-1">
+                                                            <div className="flex items-center gap-2 mt-1.5 overflow-x-auto no-scrollbar">
+                                                                <div className="flex gap-1 shrink-0">
                                                                     {[1, 2, 3].map(i => (
                                                                         <div
                                                                             key={i}
@@ -1268,16 +1268,15 @@ export default function RoomDetailsPage() {
                                                                         />
                                                                     ))}
                                                                 </div>
-                                                                <span className={`text-[9px] font-black uppercase ${titularCount >= 3 ? 'text-green-600' : 'text-gray-400'
+                                                                <span className={`text-[9px] font-black uppercase whitespace-nowrap ${titularCount >= 3 ? 'text-green-600' : 'text-gray-400'
                                                                     }`}>
-                                                                    {titularCount}/3 titulares
-                                                                    {titularCount >= 3 && <span className="ml-1">· Completo</span>}
+                                                                    {titularCount}/3 {t('admin.rankings.titulars')}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-3 shrink-0">
+                                                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t border-gray-50 sm:border-0 w-full sm:w-auto shrink-0">
                                                         {/* Botão Acionar / Desacionar Reserva */}
                                                         {needsReserve && !isDNS && (
                                                             <button
@@ -1293,7 +1292,7 @@ export default function RoomDetailsPage() {
                                                                         alert('Erro ao acionar/desacionar o reserva.');
                                                                     }
                                                                 }}
-                                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all ${isActivated
+                                                                className={`flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all ${isActivated
                                                                     ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 shadow-sm'
                                                                     : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
                                                                     }`}
@@ -1302,12 +1301,12 @@ export default function RoomDetailsPage() {
                                                                 {isActivated ? (
                                                                     <>
                                                                         <BellOff className="w-3 h-3" />
-                                                                        Acionado
+                                                                        {t('admin.rankings.activated') || 'Acionado'}
                                                                     </>
                                                                 ) : (
                                                                     <>
                                                                         <Bell className="w-3 h-3" />
-                                                                        Acionar Reserva
+                                                                        {t('admin.rankings.activateReserve') || 'Acionar Reserva'}
                                                                     </>
                                                                 )}
                                                             </button>

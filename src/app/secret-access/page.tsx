@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { loginAdmin, resetPassword } from '@/services/userService';
 import { Lock, Fingerprint, Info, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function SecretLoginPage() {
     const router = useRouter();
@@ -75,9 +74,6 @@ export default function SecretLoginPage() {
                             alt="Logo Torneio K9"
                             className="object-contain w-full h-full"
                         />
-                    </div>
-                    <div className="absolute top-4 right-4 z-10">
-                        <LanguageSwitcher />
                     </div>
                     <h1 className="text-2xl font-black text-k9-black uppercase tracking-tighter">
                         {isResetMode ? t('login.resetTitle') : t('login.title')}

@@ -143,50 +143,50 @@ export default function AdminDashboard() {
     return (
         <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
             <div className="max-w-6xl mx-auto">
-                <header className="mb-8 bg-black border-b-4 border-k9-orange p-6 py-8 rounded-2xl shadow-2xl flex flex-col md:flex-row items-center justify-between text-white -mt-6 relative">
+                <header className="mb-6 bg-black border-b-4 border-k9-orange p-5 md:p-6 py-6 md:py-8 rounded-2xl shadow-lg flex flex-col md:flex-row items-center justify-between text-white relative">
                     <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
                     </div>
-                    <div className="relative z-10 flex items-center gap-5">
-                        <div className="h-16 w-16 relative flex items-center justify-center p-1 bg-white/5 rounded-xl border border-white/10 shadow-inner">
+                    <div className="relative z-10 flex items-center gap-4 md:gap-5 w-full md:w-auto">
+                        <div className="h-12 w-12 md:h-16 md:w-16 relative flex items-center justify-center p-1 bg-white/5 rounded-xl border border-white/10 shadow-inner shrink-0">
                             <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
                         </div>
-                        <div>
-                            <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-1">
+                        <div className="min-w-0">
+                            <h1 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tighter leading-none mb-1 truncate">
                                 {t('adminDashboard.title')}
                             </h1>
-                            <p className="text-k9-orange text-[10px] uppercase tracking-[0.2em] font-black opacity-80">{t('adminDashboard.subtitle')}</p>
+                            <p className="text-k9-orange text-[9px] md:text-[10px] uppercase tracking-[0.2em] font-black opacity-80">{t('adminDashboard.subtitle')}</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4 mt-6 md:mt-0 relative z-20">
+                    <div className="flex items-center gap-4 mt-4 md:mt-0 relative z-20 w-full md:w-auto justify-end">
                         <button
                             onClick={handleLogout}
-                            className="text-white hover:text-red-400 text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-4 py-2.5 rounded-lg shadow-sm cursor-pointer"
+                            className="text-white hover:text-red-400 text-[10px] md:text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-3 py-2 md:px-4 md:py-2.5 rounded-lg shadow-sm cursor-pointer"
                         >
-                            <LogOut className="w-4 h-4" /> {t('adminDashboard.logout')}
+                            <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('adminDashboard.logout')}
                         </button>
                     </div>
                 </header>
 
-                <div className="flex justify-end gap-4 mb-8">
+                <div className="flex flex-wrap md:justify-end gap-3 md:gap-4 mb-8">
                     <button
                         onClick={() => router.push('/admin/modalities')}
-                        className="bg-white hover:bg-orange-50 text-k9-black font-bold uppercase px-4 py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-xs cursor-pointer border-2 border-gray-200 shadow-sm hover:border-k9-orange"
+                        className="flex-1 md:flex-none justify-center bg-white hover:bg-orange-50 text-k9-black font-bold uppercase px-3 py-3 md:px-4 md:py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-[10px] md:text-xs cursor-pointer border-2 border-gray-200 shadow-sm hover:border-k9-orange whitespace-nowrap"
                     >
                         <Shield className="w-4 h-4 text-k9-orange" />
                         {t('adminDashboard.modalities')}
                     </button>
                     <button
                         onClick={() => setShowCreateAdminModal(true)}
-                        className="bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-4 py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-xs cursor-pointer border border-gray-700 shadow-sm hover:border-k9-orange"
+                        className="flex-1 md:flex-none justify-center bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-3 py-3 md:px-4 md:py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-[10px] md:text-xs cursor-pointer border border-gray-700 shadow-sm hover:border-k9-orange whitespace-nowrap"
                     >
                         <Users className="w-4 h-4 text-k9-orange" />
                         {t('adminDashboard.newAdmin')}
                     </button>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-k9-orange text-black border-k9-orange hover:bg-orange-500 hover:border-orange-500 hover:text-white cursor-pointer"
+                        className="w-full md:w-auto justify-center px-4 py-3 md:px-6 md:py-3 text-[10px] md:text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-k9-orange text-black border-k9-orange hover:bg-orange-500 hover:border-orange-500 hover:text-white cursor-pointer"
                     >
                         <PlusCircle className="w-5 h-5" />
                         {t('adminDashboard.newRoom')}

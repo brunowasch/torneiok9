@@ -180,6 +180,10 @@
             "dog": "Cão",
             "noCompetitors": "Nenhum competidor nesta modalidade",
             "markAbsence": "Marcar Falta",
+            "activateReserve": "Acionar Reserva",
+            "activated": "Acionado",
+            "titulars": "titulares",
+            "noEval": "Nenhuma avaliação",
             "status": "Status"
         },
         "deletion": {

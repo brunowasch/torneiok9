@@ -155,16 +155,16 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
-          <div className="text-center md:text-left">
-            <h1 className="text-5xl font-black text-k9-black uppercase tracking-tighter flex items-center gap-3 justify-center md:justify-start">
-              <Crown className="w-12 h-12 text-k9-orange" />
+        <div className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-10 gap-6 text-center md:text-left">
+          <div className="flex flex-col items-center md:items-start shrink-0">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-k9-black uppercase tracking-tighter flex items-center gap-2 md:gap-3 leading-none">
+              <Crown className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-k9-orange shrink-0" />
               {t('home.title')}
             </h1>
-            <p className="text-gray-500 text-sm font-semibold uppercase tracking-widest pl-0 md:pl-16 mt-1">{t('home.subtitle')}</p>
+            <p className="text-gray-500 text-[10px] sm:text-xs md:text-sm font-semibold uppercase tracking-[0.2em] md:pl-16 mt-2">{t('home.subtitle')}</p>
           </div>
 
-          <div className="w-full md:w-auto">
+          <div className="w-full md:w-auto max-w-md mx-auto md:mx-0">
             <RoomSelect
               value={selectedRoomId}
               onChange={setSelectedRoomId}
@@ -174,14 +174,14 @@ export default function Home() {
         </div>
 
         {/* Modality Tabs */}
-        <div className="mb-8 overflow-x-auto pb-4">
-          <div className="flex gap-6 min-w-max px-3">
+        <div className="mb-6 -mx-4 px-4 overflow-x-auto pb-4 scrollbar-none scroll-smooth">
+          <div className="flex gap-4 md:gap-6 min-w-max">
             {modalities.map(mod => (
               <button
                 key={mod}
                 onClick={() => { setSelectedModality(mod); setSelectedTestId('geral'); }}
-                className={`px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 
-                origin-left transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer
+                className={`px-5 py-2.5 md:px-6 md:py-3 text-xs md:text-sm font-black uppercase tracking-wider rounded-lg border-2 
+                transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer
                 ${selectedModality === mod
                     ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                     : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
@@ -195,30 +195,36 @@ export default function Home() {
 
         {/* Test Selector (Sub-nav) */}
         {selectedModality && (
-          <div className="mb-8 flex flex-wrap items-center gap-6 p-2">
-            <button
-              onClick={() => setSelectedTestId('geral')}
-              className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm cursor-pointer ${selectedTestId === 'geral'
-                ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
-                : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
-                }`}
-            >
-              <Trophy className="w-3 h-3" /> {t('home.modalityChampion')}
-            </button>
-            <div className="w-px h-6 bg-gray-200 mx-2"></div>
-            {modalityTests.length === 0 && <span className="text-xs text-gray-400 px-2">{t('home.noTestsRegistered')}</span>}
-            {modalityTests.map(test => (
+          <div className="mb-8 -mx-4 px-4 overflow-x-auto pb-4">
+            <div className="flex items-center gap-3 md:gap-4 min-w-max">
               <button
-                key={test.id}
-                onClick={() => setSelectedTestId(test.id)}
-                className={`px-4 py-2 text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-normal wrap-break-word shadow-sm cursor-pointer ${selectedTestId === test.id
+                onClick={() => setSelectedTestId('geral')}
+                className={`px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer ${selectedTestId === 'geral'
                   ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                   : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
                   }`}
               >
-                <Target className="w-3 h-3" /> {test.title}
+                <div className="flex items-center gap-1.5">
+                  <Trophy className="w-3 h-3" /> {t('home.modalityChampion')}
+                </div>
               </button>
-            ))}
+              <div className="w-px h-6 bg-gray-200 mx-1"></div>
+              {modalityTests.length === 0 && <span className="text-xs text-gray-400 px-2">{t('home.noTestsRegistered')}</span>}
+              {modalityTests.map(test => (
+                <button
+                  key={test.id}
+                  onClick={() => setSelectedTestId(test.id)}
+                  className={`px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer ${selectedTestId === test.id
+                    ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
+                    : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
+                    }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Target className="w-3 h-3" /> {test.title}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -229,13 +235,13 @@ export default function Home() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="bg-gray-50 text-gray-500 uppercase text-[0.65rem] tracking-[0.2em] font-black border-b border-gray-100">
+              <thead className="bg-gray-50 text-gray-400 uppercase text-[0.6rem] md:text-[0.65rem] tracking-[0.2em] font-black border-b border-gray-100">
                 <tr>
-                  <th className="p-5 text-center w-24">{t('home.table.position')}</th>
-                  <th className="p-5">{t('home.table.competitor')}</th>
-                  <th className="p-5">{t('home.table.breed')}</th>
-                  <th className="p-5 text-center">{t('home.table.tests')}</th>
-                  <th className="p-5 text-right">{t('home.table.score')}</th>
+                  <th className="p-4 md:p-5 text-center w-16 md:w-24">{t('home.table.position')}</th>
+                  <th className="p-4 md:p-5">{t('home.table.competitor')}</th>
+                  <th className="p-5 hidden lg:table-cell">{t('home.table.breed')}</th>
+                  <th className="p-5 text-center hidden sm:table-cell">{t('home.table.tests')}</th>
+                  <th className="p-4 md:p-5 text-right">{t('home.table.score')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -258,54 +264,54 @@ export default function Home() {
 
                 {filteredData.map((entry, index) => (
                   <tr key={entry.id} className={`hover:bg-orange-50/50 transition-colors group ${index < 3 ? 'bg-orange-50/10' : ''}`}>
-                    <td className="p-5 text-center">
+                    <td className="p-4 md:p-5 text-center">
                       <div className="flex flex-col items-center justify-center">
-                        <div className={`font-black text-2xl md:text-3xl ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-amber-700' : 'text-gray-300'} flex justify-center items-center relative`}>
+                        <div className={`font-black text-xl md:text-3xl ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-amber-700' : 'text-gray-300'} flex justify-center items-center relative`}>
                           {index < 3 ? (
                             <>
-                              {index === 0 ? <Crown className="w-8 h-8 md:w-10 md:h-10 fill-current opacity-60" /> : <Medal className="w-8 h-8 md:w-10 md:h-10 fill-current opacity-60" />}
-                              <span className="absolute text-sm md:text-base font-black text-k9-black pt-2">{index + 1}º</span>
+                              {index === 0 ? <Crown className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 fill-current opacity-60" /> : <Medal className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 fill-current opacity-60" />}
+                              <span className="absolute text-[10px] sm:text-xs md:text-base font-black text-k9-black pt-1 sm:pt-2">{index + 1}º</span>
                             </>
                           ) : (
-                            <span className="text-gray-400 group-hover:text-k9-orange transition-colors text-xl md:text-2xl">{index + 1}º</span>
+                            <span className="text-gray-400 group-hover:text-k9-orange transition-colors text-lg md:text-2xl">{index + 1}º</span>
                           )}
                         </div>
-                        <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-1">{t('home.table.place')}</span>
+                        <span className="text-[7px] md:text-[8px] font-bold text-gray-400 uppercase tracking-tighter mt-1">{t('home.table.place')}</span>
                       </div>
                     </td>
-                    <td className="p-5">
-                      <div className="flex items-center gap-5">
-                        <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-sm font-bold shrink-0 shadow-sm overflow-hidden bg-orange-50 text-orange-600 border border-orange-100`}>
+                    <td className="p-4 md:p-5">
+                      <div className="flex items-center gap-3 md:gap-5">
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-[10px] sm:text-xs md:text-sm font-bold shrink-0 shadow-sm overflow-hidden bg-orange-50 text-orange-600 border border-orange-100`}>
                           {entry.photoUrl ? (
                             <img src={entry.photoUrl} alt="" className="w-full h-full object-cover" />
                           ) : (
                             entry.handlerName.substring(0, 2).toUpperCase()
                           )}
                         </div>
-                        <div>
-                          <div className="font-extrabold text-k9-black uppercase tracking-tight text-base md:text-lg group-hover:text-k9-orange transition-colors">{entry.handlerName}</div>
-                          <div className="text-[11px] md:text-xs text-gray-500 uppercase font-bold flex items-center gap-1 mt-0.5">
-                            <Flame className="w-3 h-3 text-k9-orange" /> {t('home.table.dog')}: <span className="text-gray-800">{entry.dogName}</span>
+                        <div className="min-w-0">
+                          <div className="font-extrabold text-k9-black uppercase tracking-tight text-xs sm:text-sm md:text-lg group-hover:text-k9-orange transition-colors truncate max-w-[100px] sm:max-w-[200px] md:max-w-none">{entry.handlerName}</div>
+                          <div className="text-[9px] sm:text-[10px] md:text-xs text-gray-500 uppercase font-bold flex items-center gap-1 mt-0.5">
+                            <Flame className="w-2.5 h-2.5 md:w-3 md:h-3 text-k9-orange" /> {t('home.table.dog')}: <span className="text-gray-800 truncate">{entry.dogName}</span>
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="p-5 text-xs md:text-sm text-gray-400 uppercase tracking-widest font-semibold hidden md:table-cell">
+                    <td className="p-5 text-xs md:text-sm text-gray-400 uppercase tracking-widest font-semibold hidden lg:table-cell">
                       {entry.dogBreed}
                     </td>
-                    <td className="p-5 text-center text-xs md:text-sm font-bold text-gray-400">
+                    <td className="p-5 text-center text-xs md:text-sm font-bold text-gray-400 hidden sm:table-cell">
                       {selectedTestId === 'geral' ? (
                         <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded">{entry.currentCount}</span>
                       ) : (
-                        entry.currentCount > 0 ? <span className="text-green-600">{t('home.table.completed')}</span> : <span className="text-gray-300">-</span>
+                        entry.currentCount > 0 ? <span className="text-green-600 font-black">{t('home.table.completed')}</span> : <span className="text-gray-300">-</span>
                       )}
                     </td>
-                    <td className="p-5 text-right">
+                    <td className="p-4 md:p-5 text-right">
                       <div className="flex flex-col items-end">
-                        <span className={`text-2xl md:text-4xl font-black tracking-tighter leading-none group-hover:scale-110 transition-transform origin-right ${entry.isNC ? 'text-red-500' : 'text-k9-black'}`}>
+                        <span className={`text-xl sm:text-2xl md:text-4xl font-black tracking-tighter leading-none group-hover:scale-110 transition-transform origin-right ${entry.isNC ? 'text-red-500' : 'text-k9-black'}`}>
                           {entry.isNC ? 'NC' : entry.currentScore.toFixed(1)}
                         </span>
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{entry.isNC ? t('home.table.absence') : t('home.table.points')}</span>
+                        <span className="text-[7px] md:text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{entry.isNC ? t('home.table.absence') : t('home.table.points')}</span>
                       </div>
                     </td>
                   </tr>

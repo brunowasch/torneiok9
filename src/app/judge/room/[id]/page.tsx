@@ -42,7 +42,9 @@ import {
     Lock as LockIcon,
     Pencil,
     Clock,
-    Send
+    Send,
+    ChevronRight,
+    Plus
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Modal from '@/components/Modal';
@@ -76,6 +78,7 @@ export default function JudgeRoomPage() {
     const [tempPenaltyDescription, setTempPenaltyDescription] = useState('');
     const [isCustomPenalty, setIsCustomPenalty] = useState(false);
     const [customValue, setCustomValue] = useState('-1.0');
+    const [isPenaltyDropdownOpen, setIsPenaltyDropdownOpen] = useState(false);
 
     // View Selection State
     const [selectedTestView, setSelectedTestView] = useState<TestTemplate | null>(null);
@@ -326,7 +329,6 @@ export default function JudgeRoomPage() {
     ) => {
         try {
             await deleteEvaluation(evaluation.id);
-            // Mark request as consumed so it can't be reused
             await respondToEditScoreRequest(request.id, 'consumed', user!.uid);
             await loadData();
             startEvaluation(competitor, test);
@@ -401,7 +403,6 @@ export default function JudgeRoomPage() {
             }]);
         }
 
-        // Reset temp state
         setTempPenalty(null);
         setTempPenaltyDescription('');
         setShowPenaltyAdd(false);
@@ -430,23 +431,23 @@ export default function JudgeRoomPage() {
 
     if (selectedCompetitor && activeTest) {
         return (
-            <div className="min-h-screen bg-gray-50 text-k9-black pb-20">
-                <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm px-4 py-3">
-                    <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <div className="min-h-screen bg-gray-50 text-k9-black pb-20 overflow-x-hidden">
+                <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm px-4 py-3 md:py-4 overflow-hidden">
+                    <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
                         <button
                             onClick={() => setSelectedCompetitor(null)}
-                            className="text-gray-500 hover:text-black flex items-center gap-2 text-xs font-bold uppercase transition-colors"
+                            className="text-gray-500 hover:text-black flex items-center gap-2 text-[10px] md:text-xs font-bold uppercase transition-colors shrink-0"
                         >
-                            <ArrowLeft className="w-4 h-4" /> {t('judge.room.cancel')}
+                            <ArrowLeft className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('judge.room.cancel')}
                         </button>
-                        <div className="text-right">
+                        <div className="text-right min-w-0">
                             {penalties.length > 0 && (
-                                <div className="text-[10px] text-red-500 font-mono uppercase font-bold mb-1">
+                                <div className="text-[9px] md:text-[10px] text-red-500 font-mono uppercase font-bold mb-1 truncate">
                                     {penalties.length} {penalties.length === 1 ? t('judge.room.penalty') : t('judge.room.penalties')} ({penalties.reduce((sum, p) => sum + p.value, 0).toFixed(1)} pts)
                                 </div>
                             )}
-                            <div className="text-[10px] text-gray-400 font-mono uppercase font-bold">{t('judge.room.partialTotal')}</div>
-                            <div className="text-2xl font-black text-k9-orange leading-none">{calculateCurrentTotal().toFixed(1)} <span className="text-sm text-gray-300">/ {activeTest.maxScore}</span></div>
+                            <div className="text-[9px] md:text-[10px] text-gray-400 font-mono uppercase font-bold">{t('judge.room.partialTotal')}</div>
+                            <div className="text-xl md:text-2xl font-black text-k9-orange leading-none">{calculateCurrentTotal().toFixed(1)} <span className="text-xs md:text-sm text-gray-300">/ {activeTest.maxScore}</span></div>
                         </div>
                     </div>
                 </div>
@@ -457,12 +458,12 @@ export default function JudgeRoomPage() {
                         <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-lg flex items-center justify-center font-black text-xl border-2 border-orange-100">
                             {selectedCompetitor.competitorNumber}
                         </div>
-                        <div>
-                            <h1 className="font-black text-xl uppercase text-k9-black leading-tight">{selectedCompetitor.handlerName}</h1>
-                            <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase mt-1">
-                                <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{t('judge.room.dog')}: {selectedCompetitor.dogName}</span>
-                                <span className="text-orange-400">•</span>
-                                <span>{activeTest.title}</span>
+                        <div className="min-w-0 flex-1">
+                            <h1 className="font-black text-lg md:text-xl uppercase text-k9-black leading-tight truncate">{selectedCompetitor.handlerName}</h1>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] md:text-xs font-bold text-gray-400 uppercase mt-1">
+                                <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600 truncate max-w-[120px] md:max-w-none">{t('judge.room.dog')}: {selectedCompetitor.dogName}</span>
+                                <span className="text-orange-400 hidden sm:inline">•</span>
+                                <span className="truncate">{activeTest.title}</span>
                             </div>
                         </div>
                     </div>
@@ -476,10 +477,10 @@ export default function JudgeRoomPage() {
                             </div>
                             <div className="p-5 space-y-8">
                                 {group.items.map(item => (
-                                    <div key={item.id}>
-                                        <div className="flex justify-between items-end mb-3">
-                                            <label className="text-sm font-bold text-k9-black w-3/4">{item.label}</label>
-                                            <span className="text-xs font-mono font-bold text-k9-orange bg-orange-50 px-2 py-1 rounded border border-orange-100">Max: {item.maxPoints}</span>
+                                    <div key={item.id} className="min-w-0">
+                                        <div className="flex justify-between items-start gap-3 mb-3">
+                                            <label className="text-sm font-bold text-k9-black break-words flex-1">{item.label}</label>
+                                            <span className="text-[10px] font-mono font-bold text-k9-orange bg-orange-50 px-2 py-1 rounded border border-orange-100 whitespace-nowrap shrink-0">Max: {item.maxPoints}</span>
                                         </div>
 
                                         <div className="flex items-center gap-4">
@@ -556,35 +557,40 @@ export default function JudgeRoomPage() {
                                     {t('judge.room.addPenalty')}
                                 </button>
                             ) : (
-                                <div className="bg-white border-2 border-red-400 rounded-lg p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="flex gap-4">
-                                        <div className="flex-1">
+                                <div className="bg-white border-2 border-red-400 rounded-xl p-4 md:p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 shadow-inner">
+                                    <div className="flex flex-col sm:flex-row gap-4">
+                                        <div className="w-auto min-w-0">
                                             <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">{t('judge.room.penaltyType')}</label>
-                                            <select
-                                                value={isCustomPenalty ? 'custom' : (tempPenalty?.id || '')}
-                                                onChange={(e) => {
-                                                    if (e.target.value === 'custom') {
-                                                        setIsCustomPenalty(true);
-                                                        setTempPenalty(null);
-                                                    } else {
-                                                        setIsCustomPenalty(false);
-                                                        const p = activeTest.penalties?.find(opt => opt.id === e.target.value);
-                                                        if (p) setTempPenalty(p);
-                                                    }
-                                                }}
-                                                className="w-full bg-gray-50 border border-gray-200 text-k9-black p-2 rounded-md focus:outline-none focus:border-red-400 font-semibold"
-                                            >
-                                                <option value="" disabled>{t('judge.room.penaltySelect')}</option>
-                                                {activeTest.penalties?.map(p => (
-                                                    <option key={p.id} value={p.id}>
-                                                        {p.label} ({p.value} pts)
-                                                    </option>
-                                                ))}
-                                                <option value="custom">{t('judge.room.penaltyCustom')}</option>
-                                            </select>
+                                            <div className="relative w-48 sm:w-64">
+                                                <select
+                                                    value={isCustomPenalty ? 'custom' : (tempPenalty?.id || '')}
+                                                    onChange={(e) => {
+                                                        if (e.target.value === 'custom') {
+                                                            setIsCustomPenalty(true);
+                                                            setTempPenalty(null);
+                                                        } else {
+                                                            setIsCustomPenalty(false);
+                                                            const p = activeTest.penalties?.find(opt => opt.id === e.target.value);
+                                                            if (p) setTempPenalty(p);
+                                                        }
+                                                    }}
+                                                    className="w-full bg-gray-50 border border-gray-200 text-k9-black p-2.5 rounded-xl focus:outline-none focus:border-red-400 font-bold uppercase text-[10px] md:text-xs appearance-none truncate relative z-10 pr-9"
+                                                >
+                                                    <option value="" disabled>{t('judge.room.penaltySelect')}</option>
+                                                    {activeTest.penalties?.map(p => (
+                                                        <option key={p.id} value={p.id}>
+                                                            {p.label} ({p.value} pts)
+                                                        </option>
+                                                    ))}
+                                                    <option value="custom">{t('judge.room.penaltyCustom')}</option>
+                                                </select>
+                                                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none z-20">
+                                                    <ChevronRight className="w-3.5 h-3.5 text-gray-400 rotate-90" />
+                                                </div>
+                                            </div>
                                         </div>
                                         {isCustomPenalty && (
-                                            <div className="w-24">
+                                            <div className="w-full sm:w-28 shrink-0">
                                                 <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">{t('judge.room.penaltyValue')}</label>
                                                 <input
                                                     type="number"
@@ -592,7 +598,7 @@ export default function JudgeRoomPage() {
                                                     max="-0.1"
                                                     value={customValue}
                                                     onChange={(e) => setCustomValue(e.target.value)}
-                                                    className="w-full bg-gray-50 border border-gray-200 text-red-600 p-2 rounded-md focus:outline-none focus:border-red-400 font-bold"
+                                                    className="w-full bg-gray-50 border border-gray-200 text-red-600 p-3 rounded-xl focus:outline-none focus:border-red-400 font-black text-center text-sm"
                                                 />
                                             </div>
                                         )}
@@ -675,25 +681,25 @@ export default function JudgeRoomPage() {
                     <div className="absolute inset-0 overflow-hidden pointer-events-none">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
                     </div>
-                    <div className="max-w-4xl mx-auto px-6 py-6 relative z-10">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="flex items-center gap-5 w-full md:w-auto">
-                                <div className="flex flex-col">
+                    <div className="max-w-4xl mx-auto px-4 md:px-6 py-5 md:py-6 relative z-10">
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-5 md:gap-6">
+                            <div className="flex items-center gap-4 md:gap-5 w-full md:w-auto">
+                                <div className="flex flex-col flex-1 min-w-0">
                                     <button
                                         onClick={() => selectedTestView ? handleBackToTests() : router.push('/judge')}
-                                        className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer group"
+                                        className="flex items-center gap-2 text-gray-500 hover:text-white mb-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer group w-fit"
                                     >
                                         <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" /> {selectedTestView ? t('judge.room.backToTests') : t('judge.room.back')}
                                     </button>
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 relative flex items-center justify-center shrink-0 p-1 bg-white/5 rounded-xl border border-white/10">
+                                    <div className="flex items-center gap-3 md:gap-4">
+                                        <div className="w-10 h-10 md:w-12 md:h-12 relative flex items-center justify-center shrink-0 p-1 bg-white/5 rounded-xl border border-white/10">
                                             <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
                                         </div>
-                                        <div>
-                                            <h1 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none">
+                                        <div className="min-w-0">
+                                            <h1 className="text-lg md:text-2xl font-black text-white uppercase tracking-tighter leading-none truncate">
                                                 {selectedTestView ? selectedTestView.title : room.name}
                                             </h1>
-                                            <p className="text-k9-orange text-[9px] md:text-[10px] uppercase tracking-[0.2em] mt-1 font-black opacity-80">
+                                            <p className="text-k9-orange text-[8px] md:text-[10px] uppercase tracking-[0.2em] mt-1 font-black opacity-80 truncate">
                                                 {selectedTestView ? `${t('judge.room.evaluating')}: ${selectedTestView.modality}` : t('judge.room.evaluationPanel')}
                                             </p>
                                         </div>
@@ -701,11 +707,11 @@ export default function JudgeRoomPage() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t border-white/10 md:border-0 pt-4 md:pt-0">
+                            <div className="flex items-center gap-4 w-full md:w-auto justify-end border-t border-white/5 md:border-0 pt-4 md:pt-0">
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-gray-900 border border-gray-800 px-4 py-2 rounded-lg text-center shadow-inner">
-                                        <div className="text-[9px] text-gray-500 uppercase font-black tracking-widest">{t('judge.room.statusLabel')}</div>
-                                        <div className="text-green-500 font-black uppercase text-[10px] flex items-center gap-1.5 mt-0.5">
+                                    <div className="bg-gray-900/50 border border-white/5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-center shadow-inner">
+                                        <div className="text-[8px] md:text-[9px] text-gray-500 uppercase font-black tracking-widest">{t('judge.room.statusLabel')}</div>
+                                        <div className="text-green-500 font-black uppercase text-[9px] md:text-[10px] flex items-center gap-1.5 mt-0.5">
                                             <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
                                             {t('judge.room.online')}
                                         </div>

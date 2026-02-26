@@ -40,13 +40,13 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = 'ma
             {/* Modal Content */}
             <div className={`relative bg-white rounded-xl shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200`}>
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                    <div className="text-xl font-black text-k9-black uppercase tracking-tight">
+                <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-100">
+                    <div className="text-lg md:text-xl font-black text-k9-black uppercase tracking-tight truncate pr-2">
                         {title}
                     </div>
                     <button 
                         onClick={onClose}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 md:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
                         aria-label="Fechar Modal"
                     >
                         <X className="w-5 h-5" />
@@ -54,7 +54,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = 'ma
                 </div>
 
                 {/* Body - Scrollable */}
-                <div className="p-6 overflow-y-auto">
+                <div className="p-4 md:p-6 overflow-y-auto">
                     {children}
                 </div>
             </div>

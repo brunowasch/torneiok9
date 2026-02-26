@@ -94,24 +94,26 @@ export default function ModalitiesPage() {
     return (
         <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
             <div className="max-w-4xl mx-auto">
-                <header className="mb-8 bg-black border-b-4 border-k9-orange p-6 rounded-xl shadow-lg flex items-center justify-between text-white -mt-4 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-k9-orange/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                <header className="mb-6 bg-black border-b-4 border-k9-orange p-5 md:p-6 py-6 md:py-8 rounded-2xl shadow-md flex items-center justify-between text-white relative overflow-hidden">
+                    <div className="absolute inset-0 pointer-events-none">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                    </div>
                     <div className="relative z-10 flex items-center gap-4">
                         <button
                             onClick={() => router.push('/admin')}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer shrink-0"
                         >
                             <ArrowLeft className="w-6 h-6" />
                         </button>
-                        <div>
-                            <h1 className="text-2xl font-black uppercase tracking-tighter leading-none">
+                        <div className="min-w-0">
+                            <h1 className="text-xl md:text-2xl font-black uppercase tracking-tighter leading-tight truncate">
                                 {t('modalities.title')}
                             </h1>
-                            <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mt-1">{t('modalities.subtitle')}</p>
+                            <p className="text-k9-orange text-[9px] md:text-[10px] uppercase tracking-[0.2em] font-black opacity-80 mt-1">{t('modalities.subtitle')}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <Shield className="w-8 h-8 text-k9-orange opacity-50 hidden md:block" />
+                    <div className="flex items-center gap-3 shrink-0">
+                        <Shield className="w-8 h-8 text-k9-orange opacity-40 hidden md:block" />
                     </div>
                 </header>
 

@@ -32,19 +32,45 @@ select:disabled {
   cursor: not-allowed;
 }
 
-::-webkit-scrollbar {
-  width: 8px;
+@media (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+    transition: background 0.2s;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #F97316;
+  }
+
+  [role="dialog"] ::-webkit-scrollbar-thumb,
+  .modal-content ::-webkit-scrollbar-thumb {
+    background: #F97316;
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: #F3F4F6;
-}
+@media (pointer: coarse) {
+  ::-webkit-scrollbar {
+    width: 0; 
+    height: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #F97316;
+    border-radius: 10px;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: #F97316;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #EA580C;
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
