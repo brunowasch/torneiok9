@@ -26,7 +26,7 @@ export default function Home() {
 
     const setup = async () => {
       try {
-        const { collection, query, onSnapshot } = await import('firebase/firestore');
+        const { collection, query, onSnapshot, where } = await import('firebase/firestore');
         const { db } = await import('@/lib/firebase');
 
         const fetchedModalities = await getModalities();
@@ -36,7 +36,7 @@ export default function Home() {
         setModalities(modalityNames);
         if (modalityNames.length > 0) setSelectedModality(modalityNames[0]);
 
-        const q = query(collection(db, 'rooms'));
+        const q = query(collection(db, 'rooms'), where('active', '==', true));
 
         unsubscribe = onSnapshot(
           q,
