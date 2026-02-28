@@ -80,7 +80,7 @@ O Torneio K9 foi feito pela colaboração estratégica de:
     <td align="center">
       <a href="https://github.com/brunowasch">
         <img src="https://github.com/brunowasch.png" width="150px;" alt="Bruno Wasch Profile Picture"/><br />
-        <sub><b>Bruno Wasch</b></sub>
+        <sub><b>Bruno Waschburger Silva</b></sub>
       </a>
     </td>
     <td align="center">

@@ -455,9 +455,13 @@ export default function JudgeRoomPage() {
                 <div className="max-w-2xl mx-auto p-4 space-y-6">
                     {/* Competitor Card */}
                     <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
-                        <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-lg flex items-center justify-center font-black text-xl border-2 border-orange-100">
-                            {selectedCompetitor.competitorNumber}
-                        </div>
+                        <div className="w-16 h-16 rounded-xl flex items-center justify-center text-xl font-black shrink-0 shadow-sm overflow-hidden bg-orange-50 text-orange-600 border-2 border-orange-100 group-hover:border-k9-orange transition-colors">
+                        {selectedCompetitor.photoUrl ? (
+                            <img src={selectedCompetitor.photoUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                            <span>{selectedCompetitor.handlerName.substring(0, 2).toUpperCase()}</span>
+                        )}
+                    </div>
                         <div className="min-w-0 flex-1">
                             <h1 className="font-black text-lg md:text-xl uppercase text-k9-black leading-tight truncate">{selectedCompetitor.handlerName}</h1>
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] md:text-xs font-bold text-gray-400 uppercase mt-1">
@@ -951,14 +955,13 @@ export default function JudgeRoomPage() {
                                                                         ? 'bg-yellow-100 border-yellow-200 text-yellow-700'
                                                                         : 'bg-orange-50 border-orange-100 text-orange-600'
                                                             }`}>
-                                                            {comp.photoUrl ? (
-                                                                <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="flex flex-col items-center">
-                                                                    <span className="text-xs leading-none">{comp.handlerName.substring(0, 2).toUpperCase()}</span>
-                                                                    <span className="text-[10px] opacity-40 mt-0.5">#{comp.competitorNumber}</span>
-                                                                </div>
-                                                            )}
+                                                            <div className="w-16 h-16 rounded-xl flex items-center justify-center text-xl font-black shrink-0 shadow-sm overflow-hidden bg-orange-50 text-orange-600 border-2 border-orange-100 group-hover:border-k9-orange transition-colors">
+                                                                {comp.photoUrl ? (
+                                                                    <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <span>{comp.handlerName.substring(0, 2).toUpperCase()}</span>
+                                                                )}
+                                                            </div>
                                                         </div>
 
                                                         <div className="flex-1 relative z-10 pt-0.5 min-w-0">

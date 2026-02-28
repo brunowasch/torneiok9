@@ -163,7 +163,7 @@ export default function CompetitorsPage() {
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
-                </div>
+                </div>  
 
                 {/* Tabs: Todos + Modalidades */}
                 {!loading && modalities.length > 0 && (
@@ -206,7 +206,6 @@ export default function CompetitorsPage() {
                         ))}
                     </div>
                 ) : selectedModality === null ? (
-                    /* ── Modo "Todos": agrupado por modalidade ── */
                     <div className="space-y-10">
                         {Object.keys(groupedByModality).length === 0 ? (
                             <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
@@ -269,17 +268,13 @@ export default function CompetitorsPage() {
                                     )}
                                 </div>
                                 <div>
-                                    <div className="text-[10px] text-k9-orange font-black uppercase tracking-widest">
+                                    <div className="text-[10px] text-k9-orange font-black text-gray-400 text-xs font-bold uppercase uppercase tracking-widest">
                                         {selectedCompetitor.modality}
-                                        {selectedCompetitor.competitorNumber && (
-                                            <span className="ml-2 text-orange-300">• #{selectedCompetitor.competitorNumber}</span>
-                                        )}
                                     </div>
                                     <h2 className="text-white font-black text-xl uppercase tracking-tight leading-tight">
                                         {selectedCompetitor.handlerName}
                                     </h2>
                                     <div className="flex items-center gap-1.5 mt-0.5">
-                                        <Flame className="w-3 h-3 text-k9-orange" />
                                         <span className="text-gray-400 text-xs font-bold uppercase">{selectedCompetitor.dogName}</span>
                                         <span className="text-gray-600">•</span>
                                         <span className="text-gray-500 text-xs font-bold uppercase">{selectedCompetitor.dogBreed}</span>
@@ -372,11 +367,6 @@ function CompetitorGrid({
 
                     {/* Details */}
                     <div className="min-w-0 flex-1">
-                        {comp.competitorNumber && (
-                            <span className="text-[10px] font-black text-k9-orange bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 mb-1 inline-block">
-                                #{comp.competitorNumber}
-                            </span>
-                        )}
                         <h3 className="text-lg font-black text-k9-black uppercase leading-tight tracking-tight truncate group-hover:text-k9-orange transition-colors">
                             {comp.handlerName}
                         </h3>
