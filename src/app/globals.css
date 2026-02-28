@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+@theme {
+  --color-k9-orange: #F97316;
+  --color-k9-black: #1A1A1A;
+  --color-k9-white: #FFFFFF;
+  --color-k9-gray: #F3F4F6;
+  --color-k9-blue: #2563EB;
+}
+
 :root {
   --background: #FFFFFF;
   --foreground: #1A1A1A;
@@ -73,4 +81,9 @@ select:disabled {
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }

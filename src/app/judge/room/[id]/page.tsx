@@ -703,6 +703,16 @@ export default function JudgeRoomPage() {
                                             <h1 className="text-lg md:text-2xl font-black text-white uppercase tracking-tighter leading-none truncate">
                                                 {selectedTestView ? selectedTestView.title : room.name}
                                             </h1>
+                                            {!selectedTestView && room.startDate && (
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                    <span className="text-k9-orange text-[8px] md:text-[10px] font-black tracking-widest">
+                                                        {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        {room.endDate && room.endDate !== room.startDate && (
+                                                            <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            )}
                                             <p className="text-k9-orange text-[8px] md:text-[10px] uppercase tracking-[0.2em] mt-1 font-black opacity-80 truncate">
                                                 {selectedTestView ? `${t('judge.room.evaluating')}: ${selectedTestView.modality}` : t('judge.room.evaluationPanel')}
                                             </p>

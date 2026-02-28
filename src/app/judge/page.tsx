@@ -8,6 +8,7 @@ import { Gavel, LogOut, ShieldAlert, ChevronRight, MapPin, Calendar } from 'luci
 import { Room } from '@/types/schema';
 import { getRoomsWhereJudge } from '@/services/adminService';
 import { useTranslation } from 'react-i18next';
+import RoomCountdown from '@/components/RoomCountdown';
 
 export default function JudgeDashboard() {
     const router = useRouter();
@@ -103,17 +104,40 @@ export default function JudgeDashboard() {
                                         </span>
                                     </div>
 
-                                    <h3 className="text-xl font-black text-k9-black uppercase leading-tight mb-2 group-hover:text-k9-orange transition-colors tracking-tight text-left">
+                                    <h3 className="text-xl font-black text-k9-black uppercase leading-tight mb-1 group-hover:text-k9-orange transition-colors tracking-tight text-left">
                                         {room.name}
                                     </h3>
+                                    {room.startDate && (
+                                        <div className="flex items-center gap-1 mb-2">
+                                            <Calendar className="w-3 h-3 text-k9-orange shrink-0" />
+                                            <span className="text-[10px] font-black text-k9-orange uppercase tracking-wide">
+                                                {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                {room.endDate && room.endDate !== room.startDate && (
+                                                    <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</>
+                                                )}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="mb-3">
+                                        <RoomCountdown room={room} variant="light" />
+                                    </div>
                                     <p className="text-xs text-gray-600 uppercase tracking-wide mb-6 font-semibold line-clamp-2 text-left">
                                         {room.description}
                                     </p>
 
                                     <div className="mt-auto flex items-center justify-between text-xs text-gray-500 border-t-2 border-gray-200 pt-4 font-bold w-full">
-                                        <div className="flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" />
-                                            {new Date(room.createdAt).toLocaleDateString()}
+                                        <div className="flex items-center gap-1.5">
+                                            <Calendar className="w-3 h-3 shrink-0" />
+                                            {room.startDate ? (
+                                                <span className="text-k9-black font-black">
+                                                    {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                    {room.endDate && room.endDate !== room.startDate && (
+                                                        <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</>
+                                                    )}
+                                                </span>
+                                            ) : (
+                                                <span>{new Date(room.createdAt).toLocaleDateString()}</span>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-1 text-k9-orange group-hover:translate-x-1 transition-transform">
                                             {t('judge.access')} <ChevronRight className="w-3 h-3" />

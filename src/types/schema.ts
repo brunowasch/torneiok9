@@ -38,6 +38,10 @@ export interface Room {
   judgeAssignments?: Record<string, string[]>;
   judgeModalities?: Record<string, Modality[]>;
   createdAt: number;
+  startDate?: string; 
+  startTime?: string; 
+  endDate?: string;  
+  endTime?: string;
 }
 
 export interface Competitor {
@@ -69,7 +73,7 @@ export interface ScoreGroup {
 export interface PenaltyOption {
   id: string;
   label: string;
-  value: number; // Valor negativo, ex: -5.0
+  value: number; 
 }
 
 export interface TestTemplate {

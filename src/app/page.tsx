@@ -5,8 +5,9 @@ import Navbar from '@/components/Navbar';
 import RoomSelect from '@/components/RoomSelect';
 import { Room, TestTemplate, Modality, INITIAL_MODALITIES, ModalityConfig } from '@/types/schema';
 import { getModalities } from '@/services/adminService';
-import { Trophy, Medal, Crown, ListFilter, Target, Flame } from 'lucide-react';
+import { Trophy, Medal, Crown, ListFilter, Target, Flame, Calendar } from 'lucide-react';
 import { LeaderboardEntry, subscribeToLeaderboard } from '@/services/rankingService';
+import RoomCountdown from '@/components/RoomCountdown';
 import { useTranslation } from 'react-i18next';
 import '@/i18n/config';
 
@@ -196,6 +197,26 @@ export default function Home() {
             />
           </div>
         </div>
+
+        {/* Room Date & Countdown Badge */}
+        {(() => {
+          const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+          if (!selectedRoom?.startDate) return null;
+          return (
+            <div className="flex flex-col items-center md:items-start gap-3 -mt-4 mb-6">
+              <div className="inline-flex items-center gap-2 bg-k9-orange/10 border border-k9-orange/30 text-k9-orange px-4 py-2 rounded-full">
+                <Calendar className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-[11px] font-black uppercase tracking-wider">
+                  {new Date(selectedRoom.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  {selectedRoom.endDate && selectedRoom.endDate !== selectedRoom.startDate && (
+                    <> - {new Date(selectedRoom.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</>
+                  )}
+                </span>
+              </div>
+              <RoomCountdown room={selectedRoom} variant="light" />
+            </div>
+          );
+        })()}
 
         {/* Modality Tabs */}
         <div className="mb-6 -mx-4 px-4 overflow-x-auto pb-4 scrollbar-none scroll-smooth">

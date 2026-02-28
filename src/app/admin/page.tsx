@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createRoom, getRooms, deleteRoom } from '@/services/adminService';
+import { createRoom, getRooms, deleteRoom, updateRoom } from '@/services/adminService';
 import { getAllPendingEditRequests, respondToEditScoreRequest } from '@/services/evaluationService';
 import { auth } from '@/lib/firebase';
 import {
@@ -22,20 +22,30 @@ import {
     Send,
     CheckCircle,
     XCircle,
-    Clock
+    Clock,
+    Pencil
 } from 'lucide-react';
 import { Room, EditScoreRequest } from '@/types/schema';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
+import MaskedDateInput from '@/components/MaskedDateInput';
+import DateToast from '@/components/DateToast';
 
 export default function AdminDashboard() {
     const router = useRouter();
     const { t } = useTranslation();
+    const currentYear = new Date().getFullYear();
+    const minStartDate = `${currentYear}-01-01`;
+    const maxEndDate = `${currentYear + 1}-12-31`;
     const [rooms, setRooms] = useState<Room[]>([]);
     const [pendingRequests, setPendingRequests] = useState<EditScoreRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newRoomName, setNewRoomName] = useState('');
+    const [newRoomStartDate, setNewRoomStartDate] = useState('');
+    const [newRoomStartTime, setNewRoomStartTime] = useState('00:00');
+    const [newRoomEndDate, setNewRoomEndDate] = useState('');
+    const [newRoomEndTime, setNewRoomEndTime] = useState('23:59');
     const [user, setUser] = useState<User | null>(null);
 
     const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
@@ -45,6 +55,14 @@ export default function AdminDashboard() {
     const [roomToDelete, setRoomToDelete] = useState<{ id: string, name: string } | null>(null);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestFilterRoomId, setRequestFilterRoomId] = useState<string | null>(null);
+    const [dateErrors, setDateErrors] = useState<Record<string, string>>({});
+
+    const [showEditDatesModal, setShowEditDatesModal] = useState(false);
+    const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+    const [editRoomStartDate, setEditRoomStartDate] = useState('');
+    const [editRoomStartTime, setEditRoomStartTime] = useState('00:00');
+    const [editRoomEndDate, setEditRoomEndDate] = useState('');
+    const [editRoomEndTime, setEditRoomEndTime] = useState('23:59');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -79,22 +97,84 @@ export default function AdminDashboard() {
         router.push('/secret-access');
     };
 
+    const validateDates = (startDate: string, endDate: string): Record<string, string> => {
+        const errors: Record<string, string> = {};
+        const fmt = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
+        if (startDate && startDate < minStartDate) errors.start = `Data de início inválida! O mínimo permitido é ${fmt(minStartDate)}.`;
+        else if (startDate && startDate > maxEndDate) errors.start = `Data de início inválida! O máximo permitido é ${fmt(maxEndDate)}.`;
+        
+        if (endDate && endDate < minStartDate) errors.end = `Data de fim inválida! O mínimo permitido é ${fmt(minStartDate)}.`;
+        else if (endDate && endDate > maxEndDate) errors.end = `Data de fim inválida! O máximo permitido é ${fmt(maxEndDate)}.`;
+        else if (startDate && endDate && endDate < startDate) errors.end = `Data de fim não pode ser anterior à data de início!`;
+        return errors;
+    };
+
     const handleCreateRoom = async () => {
         if (!newRoomName || !user) return;
+        const errors = validateDates(newRoomStartDate, newRoomEndDate);
+        if (Object.keys(errors).length > 0) { setDateErrors(errors); return; }
         try {
             await createRoom({
                 name: newRoomName,
                 description: 'Torneio K9',
                 active: true,
                 createdBy: user.uid,
-                judges: []
+                judges: [],
+                ...(newRoomStartDate && {
+                    startDate: newRoomStartDate,
+                    ...(newRoomStartTime && { startTime: newRoomStartTime }),
+                }),
+                ...(newRoomEndDate && {
+                    endDate: newRoomEndDate,
+                    endTime: newRoomEndTime || '23:59',
+                }),
             });
             setNewRoomName('');
+            setNewRoomStartDate('');
+            setNewRoomStartTime('00:00');
+            setNewRoomEndDate('');
+            setNewRoomEndTime('23:59');
+            setDateErrors({});
             setShowCreateModal(false);
             fetchRooms();
         } catch (err) {
             console.error('Error creating room', err);
             alert(t('adminDashboard.errorCreateRoom'));
+        }
+    };
+
+    const handleOpenEditDates = (room: Room) => {
+        setEditingRoomId(room.id);
+        setEditRoomStartDate(room.startDate || '');
+        setEditRoomStartTime(room.startTime || '00:00');
+        setEditRoomEndDate(room.endDate || '');
+        setEditRoomEndTime(room.endTime || '23:59');
+        setDateErrors({});
+        setShowEditDatesModal(true);
+    };
+
+    const handleSaveEditDates = async () => {
+        if (!editingRoomId || !user) return;
+        const errors = validateDates(editRoomStartDate, editRoomEndDate);
+        if (Object.keys(errors).length > 0) { setDateErrors(errors); return; }
+        try {
+            await updateRoom(editingRoomId, {
+                startDate: editRoomStartDate || undefined,
+                startTime: editRoomStartDate && editRoomStartTime ? editRoomStartTime : undefined,
+                endDate: editRoomEndDate || undefined,
+                endTime: editRoomEndDate ? (editRoomEndTime || '23:59') : undefined,
+            });
+            setShowEditDatesModal(false);
+            setEditingRoomId(null);
+            setEditRoomStartDate('');
+            setEditRoomStartTime('00:00');
+            setEditRoomEndDate('');
+            setEditRoomEndTime('23:59');
+            setDateErrors({});
+            fetchRooms();
+        } catch (err) {
+            console.error('Error updating room dates', err);
+            alert('Erro ao atualizar datas da sala.');
         }
     };
 
@@ -141,7 +221,8 @@ export default function AdminDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
+        <>
+            <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
             <div className="max-w-6xl mx-auto">
                 <header className="mb-6 bg-black border-b-4 border-k9-orange p-5 md:p-6 py-6 md:py-8 rounded-2xl shadow-lg flex flex-col md:flex-row items-center justify-between text-white relative">
                     <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
@@ -186,7 +267,7 @@ export default function AdminDashboard() {
                     </button>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="w-full md:w-auto justify-center px-4 py-3 md:px-6 md:py-3 text-[10px] md:text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-k9-orange text-black border-k9-orange hover:bg-orange-500 hover:border-orange-500 hover:text-white cursor-pointer"
+                        className="w-full md:w-auto justify-center px-4 py-3 md:px-6 md:py-3 text-[10px] md:text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:border-orange-600 cursor-pointer"
                     >
                         <PlusCircle className="w-5 h-5" />
                         {t('adminDashboard.newRoom')}
@@ -257,6 +338,17 @@ export default function AdminDashboard() {
                                                 <button
                                                     onClick={(e) => {
                                                         e.preventDefault();
+                                                        e.stopPropagation();
+                                                        handleOpenEditDates(room);
+                                                    }}
+                                                    className="p-1.5 text-black hover:text-blue-500 border-2 border-black hover:border-blue-500 rounded-lg transition-all cursor-pointer z-10 bg-white shadow-sm flex items-center justify-center"
+                                                    title="Editar Datas"
+                                                >
+                                                    <Calendar className="w-3.5 h-3.5 mt-[1px]" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
                                                         handleDeleteRoom(room.id, room.name);
                                                     }}
                                                     className="p-1.5 text-black hover:text-red-500 border-2 border-black hover:border-red-500 rounded-lg transition-all cursor-pointer z-10 bg-white shadow-sm"
@@ -267,17 +359,37 @@ export default function AdminDashboard() {
                                             </div>
                                         </div>
 
-                                        <h2 className="text-xl font-black text-k9-black uppercase leading-tight mb-2 group-hover:text-k9-orange transition-colors tracking-tight">
+                                        <h2 className="text-xl font-black text-k9-black uppercase leading-tight mb-1 group-hover:text-k9-orange transition-colors tracking-tight">
                                             {room.name}
                                         </h2>
+                                        {room.startDate && (
+                                            <div className="flex items-center gap-1 mb-1">
+                                                <Calendar className="w-3 h-3 text-k9-orange shrink-0" />
+                                                <span className="text-[10px] font-black text-k9-orange uppercase tracking-wide">
+                                                    {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    {room.endDate && room.endDate !== room.startDate && (
+                                                        <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        )}
                                         <p className="text-xs text-gray-600 uppercase tracking-wide mb-6 font-semibold">
                                             {room.description}
                                         </p>
 
                                         <div className="mt-auto flex items-center justify-between text-xs text-gray-500 border-t-2 border-gray-200 pt-4 font-bold">
-                                            <div className="flex items-center gap-1">
-                                                <Calendar className="w-3 h-3" />
-                                                <span>{new Date(room.createdAt).toLocaleDateString()}</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <Calendar className="w-3 h-3 shrink-0" />
+                                                {room.startDate ? (
+                                                    <span className="text-k9-black font-black">
+                                                        {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                        {room.endDate && room.endDate !== room.startDate && (
+                                                            <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</>
+                                                        )}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400">{new Date(room.createdAt).toLocaleDateString()}</span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-1 text-k9-orange group-hover:translate-x-1 transition-transform">
                                                 {t('adminDashboard.manage')} <ChevronRight className="w-3 h-3" />
@@ -309,16 +421,72 @@ export default function AdminDashboard() {
                             <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
                                 <PlusCircle className="text-k9-orange w-5 h-5" /> {t('adminDashboard.createRoomTitle')}
                             </h2>
-                            <input
-                                type="text"
-                                value={newRoomName}
-                                onChange={(e) => setNewRoomName(e.target.value)}
-                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg mb-6 focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange uppercase font-semibold placeholder-gray-400"
-                                placeholder={t('adminDashboard.roomNamePlaceholder')}
-                            />
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Nome da Sala</label>
+                                    <input
+                                        type="text"
+                                        value={newRoomName}
+                                        onChange={(e) => setNewRoomName(e.target.value)}
+                                        className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange uppercase font-semibold placeholder-gray-400"
+                                        placeholder={t('adminDashboard.roomNamePlaceholder')}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" /> Data de Início
+                                        </label>
+                                        <MaskedDateInput
+                                            value={newRoomStartDate}
+                                            onChange={(iso) => { setNewRoomStartDate(iso); if (iso) setDateErrors(prev => ({ ...prev, start: '' })); }}
+                                            onError={(msg) => setDateErrors(prev => ({ ...prev, start: msg }))}
+                                            min={minStartDate}
+                                            max={maxEndDate}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <Clock className="w-3 h-3" /> Hora de Início
+                                        </label>
+                                        <input
+                                            type="time"
+                                            value={newRoomStartTime}
+                                            onChange={(e) => setNewRoomStartTime(e.target.value)}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" /> Data de Fim
+                                        </label>
+                                        <MaskedDateInput
+                                            value={newRoomEndDate}
+                                            onChange={(iso) => { setNewRoomEndDate(iso); if (iso) setDateErrors(prev => ({ ...prev, end: '' })); }}
+                                            onError={(msg) => setDateErrors(prev => ({ ...prev, end: msg }))}
+                                            min={newRoomStartDate || minStartDate}
+                                            max={maxEndDate}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <Clock className="w-3 h-3" /> Hora de Encerramento
+                                        </label>
+                                        <input
+                                            type="time"
+                                            value={newRoomEndTime}
+                                            onChange={(e) => setNewRoomEndTime(e.target.value)}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-[9px] text-gray-400 uppercase font-bold">* Datas são opcionais</p>
+                            </div>
                             <div className="flex gap-4">
                                 <button
-                                    onClick={() => setShowCreateModal(false)}
+                                    onClick={() => { setShowCreateModal(false); setNewRoomStartDate(''); setNewRoomStartTime('00:00'); setNewRoomEndDate(''); setNewRoomEndTime('23:59'); setDateErrors({}); }}
                                     className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
                                 >
                                     {t('adminDashboard.cancelRoom')}
@@ -326,9 +494,91 @@ export default function AdminDashboard() {
                                 <button
                                     onClick={handleCreateRoom}
                                     disabled={!newRoomName}
-                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105 cursor-pointer"
+                                    className={`flex-1 py-3 font-black uppercase text-xs rounded-lg tracking-wider transition-all border-2 ${
+                                        newRoomName
+                                            ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500 hover:border-orange-600 shadow-md cursor-pointer hover:scale-105"
+                                            : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                    }`}
                                 >
                                     {t('adminDashboard.confirmRoom')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Room Dates Modal */}
+                {showEditDatesModal && (
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+                        <div className="bg-white border-2 border-gray-200 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+                            <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
+                                <Pencil className="text-k9-orange w-5 h-5" /> Editar Datas do Torneio
+                            </h2>
+                            <div className="space-y-4 mb-6">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" /> Data de Início
+                                        </label>
+                                        <MaskedDateInput
+                                            value={editRoomStartDate}
+                                            onChange={(iso) => { setEditRoomStartDate(iso); if (iso) setDateErrors(prev => ({ ...prev, start: '' })); }}
+                                            onError={(msg) => setDateErrors(prev => ({ ...prev, start: msg }))}
+                                            min={minStartDate}
+                                            max={maxEndDate}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <Clock className="w-3 h-3" /> Hora de Início
+                                        </label>
+                                        <input
+                                            type="time"
+                                            value={editRoomStartTime}
+                                            onChange={(e) => setEditRoomStartTime(e.target.value)}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" /> Data de Fim
+                                        </label>
+                                        <MaskedDateInput
+                                            value={editRoomEndDate}
+                                            onChange={(iso) => { setEditRoomEndDate(iso); if (iso) setDateErrors(prev => ({ ...prev, end: '' })); }}
+                                            onError={(msg) => setDateErrors(prev => ({ ...prev, end: msg }))}
+                                            min={editRoomStartDate || minStartDate}
+                                            max={maxEndDate}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <Clock className="w-3 h-3" /> Hora de Encerramento
+                                        </label>
+                                        <input
+                                            type="time"
+                                            value={editRoomEndTime}
+                                            onChange={(e) => setEditRoomEndTime(e.target.value)}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-[9px] text-gray-400 uppercase font-bold">* Datas são opcionais. Você pode limpá-las se quiser.</p>
+                            </div>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => { setShowEditDatesModal(false); setEditingRoomId(null); setEditRoomStartDate(''); setEditRoomStartTime('00:00'); setEditRoomEndDate(''); setEditRoomEndTime('23:59'); setDateErrors({}); }}
+                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleSaveEditDates}
+                                    className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer shadow-md transition-all border-2 border-green-500 hover:border-green-600 flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircle className="w-4 h-4" /> Salvar Datas
                                 </button>
                             </div>
                         </div>
@@ -540,5 +790,7 @@ export default function AdminDashboard() {
                 )}
             </div>
         </div>
+        <DateToast errors={dateErrors} onClose={(key) => setDateErrors(prev => ({ ...prev, [key]: '' }))} />
+        </>
     );
 }

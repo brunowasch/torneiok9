@@ -2,14 +2,18 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest } from '@/types/schema';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, activateReserve, deactivateReserve } from '@/services/adminService';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, activateReserve, deactivateReserve, updateRoom } from '@/services/adminService';
 import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
+import RoomCountdown from '@/components/RoomCountdown';
+import MaskedDateInput from '@/components/MaskedDateInput';
+import DateToast from '@/components/DateToast';
 import {
     ArrowLeft,
     Users,
@@ -37,7 +41,9 @@ import {
     Clock,
     CheckCircle,
     XCircle,
-    Send
+    Send,
+    Calendar,
+    Save
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -91,6 +97,12 @@ export default function RoomDetailsPage() {
     const [modalities, setModalities] = useState<Modality[]>([]);
     const [selectedModalities, setSelectedModalities] = useState<Modality[]>([]);
     const [user, setUser] = useState<any>(null);
+
+    // Date editing
+    const [editingDates, setEditingDates] = useState(false);
+    const [dateForm, setDateForm] = useState({ startDate: '', startTime: '00:00', endDate: '', endTime: '23:59' });
+    const [savingDates, setSavingDates] = useState(false);
+    const [dateErrors, setDateErrors] = useState<Record<string, string>>({});
 
     // Deletion Modal State
     const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string, type: 'competitor' | 'test' | 'judge' } | null>(null);
@@ -398,10 +410,48 @@ export default function RoomDetailsPage() {
         }
     };
 
+    const validateDates = (startDate: string, endDate: string, min: string, max: string): Record<string, string> => {
+        const errors: Record<string, string> = {};
+        const fmt = (iso: string) => { const [y,m,d] = splitDate(iso); return `${d}/${m}/${y}`; };
+        const splitDate = (iso: string) => iso.split('-');
+        if (startDate && startDate < min) errors.start = `Data de início inválida! O mínimo permitido é ${fmt(min)}.`;
+        else if (startDate && startDate > max) errors.start = `Data de início inválida! O máximo permitido é ${fmt(max)}.`;
+        if (endDate && endDate < min) errors.end = `Data de fim inválida! O mínimo permitido é ${fmt(min)}.`;
+        else if (endDate && endDate > max) errors.end = `Data de fim inválida! O máximo permitido é ${fmt(max)}.`;
+        else if (startDate && endDate && endDate < startDate) errors.end = `Data de fim não pode ser anterior à data de início!`;
+        return errors;
+    };
+
+    const handleSaveDates = async () => {
+        const errors = validateDates(dateForm.startDate, dateForm.endDate, minStartDate, maxEndDate);
+        if (Object.keys(errors).length > 0) { setDateErrors(errors); return; }
+        setSavingDates(true);
+        try {
+            await updateRoom(roomId, {
+                startDate: dateForm.startDate || undefined,
+                startTime: dateForm.startDate && dateForm.startTime ? dateForm.startTime : undefined,
+                endDate: dateForm.endDate || undefined,
+                endTime: dateForm.endDate ? (dateForm.endTime || '23:59') : undefined,
+            });
+            setDateErrors({});
+            setEditingDates(false);
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao salvar as datas da sala.');
+        } finally {
+            setSavingDates(false);
+        }
+    };
+
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">{t('admin.loading')}</div>;
     if (!room) return <div className="p-8 text-k9-black">{t('admin.roomNotFound')}</div>;
 
+    const currentYear = new Date().getFullYear();
+    const minStartDate = `${currentYear}-01-01`;
+    const maxEndDate = `${currentYear + 1}-12-31`;
+
     return (
+        <>
         <div className="min-h-screen bg-k9-white text-k9-black">
             {/* Header */}
             <div className="bg-black border-b-4 border-k9-orange text-white shadow-md relative">
@@ -409,16 +459,32 @@ export default function RoomDetailsPage() {
                     <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                 </div>
                 <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8 relative z-10">
-                    <button onClick={() => router.push('/admin')} className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-md bg-gray-900 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-white transition-colors cursor-pointer mb-6 group">
+                    <Link href="/admin" className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-md bg-gray-900 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-white transition-colors cursor-pointer mb-6 group relative z-50 w-max pointer-events-auto">
                         <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" /> {t('admin.back')}
-                    </button>
+                    </Link>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div className="flex-1 min-w-0">
                             <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white uppercase tracking-tighter flex items-center gap-3 md:gap-4 leading-tight">
                                 <div className="w-10 h-10 md:w-12 md:h-12 relative flex items-center justify-center shrink-0 p-1 bg-white/5 rounded-xl border border-white/10">
                                     <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
                                 </div>
-                                <span className="truncate">{room.name}</span>
+                                <div className="min-w-0">
+                                    <div className="truncate">{room.name}</div>
+                                    {room.startDate && (
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            <Calendar className="w-3.5 h-3.5 text-k9-orange shrink-0" />
+                                            <span className="text-k9-orange text-sm md:text-base font-black tracking-wide">
+                                                {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                {room.endDate && room.endDate !== room.startDate && (
+                                                    <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</>
+                                                )}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="mt-2">
+                                        <RoomCountdown room={room} variant="dark" />
+                                    </div>
+                                </div>
                             </h1>
                             <div className="flex flex-wrap items-center gap-3 mt-4">
                                 <span className="text-[9px] md:text-xs font-mono text-k9-orange bg-orange-900/20 px-2 py-1 md:px-3 md:py-1 rounded border border-orange-900/50">ID: {room.id}</span>
@@ -426,6 +492,7 @@ export default function RoomDetailsPage() {
                                     <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${room.active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
                                     {room.active ? t('admin.active') : t('admin.finished')}
                                 </span>
+
                             </div>
                         </div>
                         <div className="flex items-center gap-3 relative z-10 self-end md:self-center">
@@ -1202,6 +1269,7 @@ export default function RoomDetailsPage() {
 
                 {activeTab === 'rankings' && (
                     <div className="space-y-12">
+
                         {tests.sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0)).map(test => {
                             const testCompetitors = competitors.filter(c => c.modality === test.modality);
                             const judgeReserves = room?.judgeReserves || [];
@@ -1477,5 +1545,7 @@ export default function RoomDetailsPage() {
                 </Modal>
             </div>
         </div>
+        <DateToast errors={dateErrors} onClose={(key) => setDateErrors(prev => ({ ...prev, [key]: '' }))} />
+        </>
     );
 }

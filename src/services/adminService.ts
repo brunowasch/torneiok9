@@ -49,6 +49,17 @@ export const getRooms = async (adminId?: string) => {
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
 };
 
+export const updateRoom = async (roomId: string, data: Partial<Room>) => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    await updateDoc(roomRef, data);
+  } catch (error) {
+    console.error('Error updating room: ', error);
+    throw error;
+  }
+};
+
+
 export const addCompetitor = async (competitorData: Omit<Competitor, 'id' | 'createdAt'>) => {
   try {
     const docRef = await addDoc(collection(db, 'competitors'), {
@@ -127,7 +138,7 @@ export const removeJudgeFromRoom = async (roomId: string, judgeUid: string) => {
     const roomRef = doc(db, 'rooms', roomId);
     await updateDoc(roomRef, {
       judges: arrayRemove(judgeUid),
-      judgeReserves: arrayRemove(judgeUid)  // limpa reserva também
+      judgeReserves: arrayRemove(judgeUid) 
     });
   } catch (error) {
     console.error("Error removing judge from room: ", error);
