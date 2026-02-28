@@ -5,9 +5,14 @@ import Navbar from '@/components/Navbar';
 import { getAllCompetitors } from '@/services/rankingService';
 import { getModalities } from '@/services/adminService';
 import { Competitor, Evaluation, TestTemplate, AppUser } from '@/types/schema';
-import { Users, Search, Flame, X, Trophy, ChevronDown, ChevronRight, Shield, AlertCircle } from 'lucide-react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { Users, Search, Flame, X, Trophy, ChevronDown, ChevronRight, Shield, AlertCircle, Calendar } from 'lucide-react';
+import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import RoomSelect from '@/components/RoomSelect';
+import RoomCountdown from '@/components/RoomCountdown';
+import { Room } from '@/types/schema';
+import { useTranslation } from 'react-i18next';
+import '@/i18n/config';
 
 interface JudgeScore {
     judgeName: string;
@@ -26,6 +31,7 @@ interface CompetitorDetail extends Competitor {
 }
 
 export default function CompetitorsPage() {
+    const { t } = useTranslation();
     const [competitors, setCompetitors] = useState<Competitor[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -34,27 +40,60 @@ export default function CompetitorsPage() {
     const [selectedCompetitor, setSelectedCompetitor] = useState<CompetitorDetail | null>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
+    const [rooms, setRooms] = useState<Room[]>([]);
+    const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchMods = async () => {
             try {
-                const [comps, mods] = await Promise.all([
-                    getAllCompetitors(),
-                    getModalities()
-                ]);
+                const mods = await getModalities();
                 const validModalityNames = mods.map(m => m.name);
-                const validComps = comps.filter(c => validModalityNames.includes(c.modality));
-                setCompetitors(validComps);
                 setModalities(validModalityNames);
-                // null = Todos (primeiro item)
                 setSelectedModality(null);
             } catch (e) {
-                console.error("Error fetching competitors", e);
-            } finally {
-                setLoading(false);
+                console.error("Error fetching modalities", e);
             }
         };
-        fetchData();
+        fetchMods();
+
+        const q = query(collection(db, 'rooms'), where('active', '==', true));
+        const unsubRooms = onSnapshot(q, (snap) => {
+            const roomsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
+            setRooms(roomsData);
+
+            setSelectedRoomId(prev => {
+                const saved = localStorage.getItem('lastVisitedRoomId');
+                if ((!prev || prev === '') && roomsData.length > 0) {
+                    if (saved && roomsData.find(r => r.id === saved)) return saved;
+                    return roomsData[0].id;
+                }
+                if (prev && !roomsData.find(r => r.id === prev) && roomsData.length > 0) return roomsData[0].id;
+                return prev;
+            });
+        });
+
+        return () => unsubRooms();
     }, []);
+
+    useEffect(() => {
+        if (!selectedRoomId) {
+            setCompetitors([]);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        const qComps = query(collection(db, 'competitors'), where('roomId', '==', selectedRoomId));
+        const unsubComps = onSnapshot(qComps, (snap) => {
+            const comps = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+            setCompetitors(comps);
+            setLoading(false);
+        });
+
+        localStorage.setItem('lastVisitedRoomId', selectedRoomId);
+
+        return () => unsubComps();
+    }, [selectedRoomId]);
 
     const openCompetitorDetail = async (comp: Competitor) => {
         setLoadingDetail(true);
@@ -146,9 +185,9 @@ export default function CompetitorsPage() {
                     <div>
                         <h1 className="text-3xl font-black text-k9-black uppercase tracking-tighter flex items-center gap-3">
                             <Users className="w-8 h-8 text-k9-orange" />
-                            Lista de Competidores
+                            {t('competitorsPage.title')}
                         </h1>
-                        <p className="text-gray-500 text-sm uppercase tracking-widest pl-11 mt-1">Registro Oficial de Binômios</p>
+                        <p className="text-gray-500 text-sm uppercase tracking-widest pl-11 mt-1">{t('competitorsPage.subtitle')}</p>
                     </div>
 
                     <div className="relative w-full md:w-72">
@@ -158,12 +197,40 @@ export default function CompetitorsPage() {
                         <input
                             type="text"
                             className="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-xl bg-white text-k9-black placeholder-gray-400 focus:outline-none focus:border-k9-orange focus:ring-2 focus:ring-orange-100 text-sm uppercase tracking-wider transition-all shadow-sm"
-                            placeholder="BUSCAR..."
+                            placeholder={t('competitorsPage.search')}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
-                </div>  
+
+                    <div className="w-full md:w-auto max-w-md mx-auto md:mx-0">
+                        <RoomSelect
+                            value={selectedRoomId}
+                            onChange={setSelectedRoomId}
+                            rooms={rooms}
+                        />
+                    </div>
+                </div>
+
+                {/* Room Date & Countdown Badge */}
+                {(() => {
+                    const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+                    if (!selectedRoom?.startDate) return null;
+                    return (
+                        <div className="flex flex-col items-center md:items-start gap-3 -mt-4 mb-6">
+                            <div className="inline-flex items-center gap-2 bg-k9-orange/10 border border-k9-orange/30 text-k9-orange px-4 py-2 rounded-full">
+                                <Calendar className="w-3.5 h-3.5 shrink-0" />
+                                <span className="text-[11px] font-black uppercase tracking-wider">
+                                    {new Date(selectedRoom.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                    {selectedRoom.endDate && selectedRoom.endDate !== selectedRoom.startDate && (
+                                        <> - {new Date(selectedRoom.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</>
+                                    )}
+                                </span>
+                            </div>
+                            <RoomCountdown room={selectedRoom} variant="light" />
+                        </div>
+                    );
+                })()}
 
                 {/* Tabs: Todos + Modalidades */}
                 {!loading && modalities.length > 0 && (
@@ -177,7 +244,7 @@ export default function CompetitorsPage() {
                                         : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
                                     }`}
                             >
-                                Todos
+                                {t('competitorsPage.all')}
                             </button>
 
                             {modalities.map(mod => (
@@ -210,7 +277,7 @@ export default function CompetitorsPage() {
                         {Object.keys(groupedByModality).length === 0 ? (
                             <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                                 <Users className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-                                <div className="text-gray-400 font-black uppercase tracking-widest">NENHUM COMPETIDOR ENCONTRADO</div>
+                                <div className="text-gray-400 font-black uppercase tracking-widest">{t('competitorsPage.noCompetitor')}</div>
                             </div>
                         ) : (
                             Object.entries(groupedByModality).map(([mod, comps]) => (
@@ -222,10 +289,10 @@ export default function CompetitorsPage() {
                                             <Shield className="w-4 h-4 text-k9-orange" />
                                             <h2 className="text-sm font-black uppercase tracking-widest text-k9-black">{mod}</h2>
                                         </div>
-                                        <span className="text-xs text-gray-400 font-bold">— {comps.length} competidor{comps.length !== 1 ? 'es' : ''}</span>
+                                        <span className="text-xs text-gray-400 font-bold">— {comps.length} {comps.length !== 1 ? t('competitorsPage.competitor_other') : t('competitorsPage.competitor_one')}</span>
                                         <div className="flex-1 h-px bg-gray-100"></div>
                                     </div>
-                                    <CompetitorGrid comps={comps} onSelect={openCompetitorDetail} />
+                                    <CompetitorGrid comps={comps} onSelect={openCompetitorDetail} t={t} />
                                 </div>
                             ))
                         )}
@@ -235,15 +302,15 @@ export default function CompetitorsPage() {
                         <div className="flex items-center gap-2 mb-5">
                             <div className="w-1 h-5 bg-k9-orange rounded-full"></div>
                             <h2 className="text-sm font-black uppercase tracking-widest text-k9-black">{selectedModality}</h2>
-                            <span className="text-xs text-gray-400 font-bold">— {filteredCompetitors.length} competidores</span>
+                            <span className="text-xs text-gray-400 font-bold">— {filteredCompetitors.length} {filteredCompetitors.length !== 1 ? t('competitorsPage.competitor_other') : t('competitorsPage.competitor_one')}</span>
                         </div>
                         {filteredCompetitors.length === 0 ? (
                             <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                                 <Users className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-                                <div className="text-gray-400 font-black uppercase tracking-widest">NENHUM COMPETIDOR ENCONTRADO</div>
+                                <div className="text-gray-400 font-black uppercase tracking-widest">{t('competitorsPage.noCompetitor')}</div>
                             </div>
                         ) : (
-                            <CompetitorGrid comps={filteredCompetitors} onSelect={openCompetitorDetail} />
+                            <CompetitorGrid comps={filteredCompetitors} onSelect={openCompetitorDetail} t={t} />
                         )}
                     </div>
                 )}
@@ -292,7 +359,7 @@ export default function CompetitorsPage() {
                         {/* Modal Body */}
                         <div className="overflow-y-auto flex-1 p-6 space-y-6">
                             <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                                <Trophy className="w-4 h-4 text-k9-orange" /> Notas dos Juízes por Prova
+                                <Trophy className="w-4 h-4 text-k9-orange" /> {t('competitorsPage.judgeScores')}
                             </h3>
 
                             {loadingDetail ? (
@@ -304,8 +371,8 @@ export default function CompetitorsPage() {
                             ) : Object.keys(selectedCompetitor.judgeScores).length === 0 ? (
                                 <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-100 rounded-2xl">
                                     <AlertCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                                    <p className="font-bold uppercase text-sm tracking-wide">Nenhuma avaliação registrada</p>
-                                    <p className="text-xs mt-1 text-gray-300">Este competidor ainda não foi avaliado</p>
+                                    <p className="font-bold uppercase text-sm tracking-wide">{t('competitorsPage.noEvals')}</p>
+                                    <p className="text-xs mt-1 text-gray-300">{t('competitorsPage.notEvaluatedYet')}</p>
                                 </div>
                             ) : (
                                 selectedCompetitor.tests
@@ -328,6 +395,7 @@ export default function CompetitorsPage() {
                                                 judgeEntries={judgeEntries}
                                                 avg={avg}
                                                 isNC={isNC}
+                                                t={t}
                                             />
                                         );
                                     })
@@ -343,10 +411,12 @@ export default function CompetitorsPage() {
 /* ─── Sub-componente: Grid de Cards de Competidores ─── */
 function CompetitorGrid({
     comps,
-    onSelect
+    onSelect,
+    t
 }: {
     comps: Competitor[];
     onSelect: (comp: Competitor) => void;
+    t: any;
 }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -372,12 +442,12 @@ function CompetitorGrid({
                         </h3>
                         <div className="flex items-center gap-1.5 mt-1">
                             <Flame className="w-3 h-3 text-k9-orange shrink-0" />
-                            <span className="text-[10px] font-black text-gray-400 uppercase">Cão:</span>
+                            <span className="text-[10px] font-black text-gray-400 uppercase">{t('competitorsPage.dog')}:</span>
                             <span className="text-xs font-bold text-gray-700 truncate uppercase">{comp.dogName}</span>
                         </div>
                         <div className="mt-2">
                             <span className="text-[9px] text-gray-400 uppercase font-black px-2 py-0.5 bg-gray-50 rounded-full border border-gray-100 tracking-widest">
-                                {comp.dogBreed || 'RAÇA NÃO DEFINIDA'}
+                                {comp.dogBreed || t('competitorsPage.breedNotDefined')}
                             </span>
                         </div>
                     </div>
@@ -400,12 +470,14 @@ function TestScoreSection({
     test,
     judgeEntries,
     avg,
-    isNC
+    isNC,
+    t
 }: {
     test: TestTemplate;
     judgeEntries: JudgeScore[];
     avg: number;
     isNC: boolean;
+    t: any;
 }) {
     const [expanded, setExpanded] = useState(false);
 
@@ -423,7 +495,7 @@ function TestScoreSection({
                     </div>
                     <div>
                         <div className="font-black text-base text-k9-black uppercase tracking-tight">{test.title}</div>
-                        <div className="text-[10px] text-gray-400 font-bold uppercase">{judgeEntries.length} juiz{judgeEntries.length !== 1 ? 'es' : ''} · Máx: {test.maxScore} pts</div>
+                        <div className="text-[10px] text-gray-400 font-bold uppercase">{judgeEntries.length} {t('competitorsPage.judge')}{judgeEntries.length !== 1 ? 's' : ''} · {t('competitorsPage.max')} {test.maxScore} {t('competitorsPage.pts')}</div>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -431,7 +503,7 @@ function TestScoreSection({
                         <div className={`text-2xl font-black leading-none ${isNC ? 'text-red-500' : 'text-k9-orange'}`}>
                             {isNC ? 'NC' : avg.toFixed(1)}
                         </div>
-                        <div className="text-[9px] text-gray-400 font-black uppercase">{isNC ? 'Ausência' : 'Média'}</div>
+                        <div className="text-[9px] text-gray-400 font-black uppercase">{isNC ? t('competitorsPage.absence') : t('competitorsPage.average')}</div>
                     </div>
                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                 </div>
@@ -452,12 +524,12 @@ function TestScoreSection({
                                         </div>
                                         <div>
                                             <div className="text-xs font-black text-gray-700 uppercase">{judge.judgeName}</div>
-                                            <div className="text-[9px] text-gray-400 uppercase font-bold">Juiz</div>
+                                            <div className="text-[9px] text-gray-400 uppercase font-bold">{t('competitorsPage.judge')}</div>
                                         </div>
                                     </div>
                                     <div className={`text-xl font-black ${isJudgeNC ? 'text-red-500' : 'text-k9-black'}`}>
                                         {isJudgeNC ? 'NC' : judge.finalScore.toFixed(1)}
-                                        {!isJudgeNC && <span className="text-xs text-gray-300 font-bold ml-1">pts</span>}
+                                        {!isJudgeNC && <span className="text-xs text-gray-300 font-bold ml-1">{t('competitorsPage.pts')}</span>}
                                     </div>
                                 </div>
 
@@ -487,7 +559,7 @@ function TestScoreSection({
                                         {judge.penaltiesApplied.map((pen, pIdx) => (
                                             <div key={pIdx} className="flex items-start justify-between text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                                                 <span className="text-red-600 font-semibold">{pen.description}</span>
-                                                <span className="font-black text-red-600 shrink-0 ml-2">{pen.value} pts</span>
+                                                <span className="font-black text-red-600 shrink-0 ml-2">{pen.value} {t('competitorsPage.pts')}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -496,7 +568,7 @@ function TestScoreSection({
                                 {/* Observações */}
                                 {judge.notes && (
                                     <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
-                                        <div className="font-black uppercase text-[9px] text-blue-400 mb-1">Observações</div>
+                                        <div className="font-black uppercase text-[9px] text-blue-400 mb-1">{t('competitorsPage.observations')}</div>
                                         <p className="font-medium leading-relaxed">{judge.notes}</p>
                                     </div>
                                 )}
@@ -504,7 +576,7 @@ function TestScoreSection({
                                 {isJudgeNC && (
                                     <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-xs text-red-500 font-bold flex items-center gap-2">
                                         <AlertCircle className="w-4 h-4 shrink-0" />
-                                        Competidor marcado como ausente nesta prova
+                                        {t('competitorsPage.absentNote')}
                                     </div>
                                 )}
                             </div>

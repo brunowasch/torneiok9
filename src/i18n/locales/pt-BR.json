@@ -355,5 +355,52 @@
         "ptBR": "🇧🇷 Português",
         "esAR": "🇦🇷 Espanhol (AR)",
         "esUY": "🇺🇾 Espanhol (UY)"
+    },
+    "countdown": {
+        "finished": "Encerrado",
+        "ongoing": "Em andamento",
+        "endsIn": "Termina em",
+        "startsIn": "Começa em",
+        "days": "dias",
+        "day": "dia",
+        "hours": "horas",
+        "min": "min",
+        "sec": "seg"
+    },
+    "competitorsPage": {
+        "title": "Lista de Competidores",
+        "subtitle": "Registro Oficial de Binômios",
+        "search": "BUSCAR...",
+        "all": "Todos",
+        "noCompetitor": "NENHUM COMPETIDOR ENCONTRADO",
+        "competitor_one": "competidor",
+        "competitor_other": "competidores",
+        "modality": "Modalidade",
+        "dog": "Cão",
+        "breedNotDefined": "RAÇA NÃO DEFINIDA",
+        "judgeScores": "Notas dos Juízes por Prova",
+        "noEvals": "Nenhuma avaliação registrada",
+        "notEvaluatedYet": "Este competidor ainda não foi avaliado",
+        "average": "Média",
+        "absence": "Ausência",
+        "judge": "Juiz",
+        "pts": "pts",
+        "observations": "Observações",
+        "absentNote": "Competidor marcado como ausente nesta prova",
+        "max": "Máx:"
+    },
+    "testsPage": {
+        "title": "Catálogo de Provas",
+        "subtitle": "Protocolos de Avaliação Disponíveis",
+        "viewCompetitors": "Ver Competidores",
+        "all": "Todas",
+        "noTests": "NENHUMA PROVA CADASTRADA",
+        "test_one": "prova",
+        "test_other": "provas",
+        "max": "Max:",
+        "criteria": "Critérios de Avaliação",
+        "noCriteria": "Nenhum critério definido.",
+        "penalties": "Penalidades",
+        "noPenalties": "Nenhuma penalidade definida."
     }
 }

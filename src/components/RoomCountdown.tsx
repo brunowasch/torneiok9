@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, CalendarCheck } from 'lucide-react';
 import { Room } from '@/types/schema';
+import { useTranslation } from 'react-i18next';
 
 interface TimeLeft {
     days: number;
@@ -52,6 +53,7 @@ interface Props {
 }
 
 export default function RoomCountdown({ room, variant = 'dark' }: Props) {
+    const { t } = useTranslation();
     const { status, target } = getStatus(room);
     const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
 
@@ -90,7 +92,7 @@ export default function RoomCountdown({ room, variant = 'dark' }: Props) {
                     : 'bg-gray-100 border-gray-200 text-gray-400'
             }`}>
                 <CalendarCheck className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">Encerrado</span>
+                <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">{t('countdown.finished')}</span>
             </div>
         );
     }
@@ -103,7 +105,7 @@ export default function RoomCountdown({ room, variant = 'dark' }: Props) {
                     : 'bg-green-50 border-green-200 text-green-700'
             }`}>
                 <span className="w-2 h-2 rounded-full bg-current animate-pulse shrink-0" />
-                <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">Em andamento</span>
+                <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">{t('countdown.ongoing')}</span>
             </div>
         );
     }
@@ -124,10 +126,10 @@ export default function RoomCountdown({ room, variant = 'dark' }: Props) {
         : isDark ? 'bg-k9-orange/10 border-k9-orange/30 text-k9-orange' : 'bg-k9-orange/10 border-k9-orange/30 text-k9-orange';
 
     const units = [
-        { value: timeLeft.days,    label: timeLeft.days === 1 ? 'dia' : 'dias' },
-        { value: timeLeft.hours,   label: 'horas' },
-        { value: timeLeft.minutes, label: 'min' },
-        { value: timeLeft.seconds, label: 'seg' },
+        { value: timeLeft.days,    label: timeLeft.days === 1 ? t('countdown.day') : t('countdown.days') },
+        { value: timeLeft.hours,   label: t('countdown.hours') },
+        { value: timeLeft.minutes, label: t('countdown.min') },
+        { value: timeLeft.seconds, label: t('countdown.sec') },
     ];
 
     return (
@@ -135,7 +137,7 @@ export default function RoomCountdown({ room, variant = 'dark' }: Props) {
             {/* Label above */}
             <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border self-start text-xs font-black uppercase tracking-widest ${badgeBg}`}>
                 <Clock className="w-3.5 h-3.5 animate-pulse shrink-0" />
-                <span>{isOngoing ? 'Termina em' : 'Começa em'}</span>
+                <span>{isOngoing ? t('countdown.endsIn') : t('countdown.startsIn')}</span>
             </div>
 
             {/* Countdown blocks */}

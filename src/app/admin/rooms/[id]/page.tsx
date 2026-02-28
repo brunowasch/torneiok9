@@ -146,6 +146,10 @@ export default function RoomDetailsPage() {
     }, [router]);
 
     useEffect(() => {
+        if (roomId) localStorage.setItem('lastVisitedRoomId', roomId);
+    }, [roomId]);
+
+    useEffect(() => {
         if (!roomId) return;
 
         let unsubRoom: (() => void) | undefined;

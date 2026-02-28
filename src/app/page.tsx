@@ -62,7 +62,11 @@ export default function Home() {
                 setRooms(roomsData);
 
                 setSelectedRoomId(prev => {
-                  if ((!prev || prev === '') && roomsData.length > 0) return roomsData[0].id;
+                  const saved = localStorage.getItem('lastVisitedRoomId');
+                  if ((!prev || prev === '') && roomsData.length > 0) {
+                    if (saved && roomsData.find(r => r.id === saved)) return saved;
+                    return roomsData[0].id;
+                  }
                   if (prev && !roomsData.find(r => r.id === prev) && roomsData.length > 0) return roomsData[0].id;
                   return prev;
                 });
@@ -126,6 +130,10 @@ export default function Home() {
       if (unsubscribeTests) unsubscribeTests();
       if (unsubscribeLeaderboard) unsubscribeLeaderboard();
     };
+  }, [selectedRoomId]);
+
+  useEffect(() => {
+    if (selectedRoomId) localStorage.setItem('lastVisitedRoomId', selectedRoomId);
   }, [selectedRoomId]);
 
   useEffect(() => {
