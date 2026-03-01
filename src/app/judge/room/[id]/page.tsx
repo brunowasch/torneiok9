@@ -385,6 +385,12 @@ export default function JudgeRoomPage() {
                 return;
             }
 
+            const currentPenaltiesSum = penalties.reduce((sum, p) => sum + Math.abs(p.value), 0);
+            if (activeTest && (currentPenaltiesSum + Math.abs(val)) > activeTest.maxScore) {
+                alert(`A soma de penalidades não pode ser maior que o total da prova (${activeTest.maxScore} pontos).`);
+                return;
+            }
+
             setPenalties([...penalties, {
                 penaltyId: 'custom',
                 value: val,
@@ -393,6 +399,12 @@ export default function JudgeRoomPage() {
         } else {
             if (!tempPenalty || !tempPenaltyDescription.trim()) {
                 alert(t('judge.room.penaltyDescRequired'));
+                return;
+            }
+
+            const currentPenaltiesSum = penalties.reduce((sum, p) => sum + Math.abs(p.value), 0);
+            if (activeTest && (currentPenaltiesSum + Math.abs(tempPenalty.value)) > activeTest.maxScore) {
+                alert(`A soma de penalidades não pode ser maior que o total da prova (${activeTest.maxScore} pontos).`);
                 return;
             }
 
@@ -423,7 +435,7 @@ export default function JudgeRoomPage() {
             total += p.value;
         });
 
-        return total;
+        return Math.max(0, total);
     };
 
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">{t('judge.room.loading')}</div>;
