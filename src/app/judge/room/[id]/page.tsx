@@ -97,7 +97,7 @@ export default function JudgeRoomPage() {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (!currentUser) {
                 if (authDetermined || !auth.currentUser) {
-                    router.push('/secret-access');
+                    router.push('/');
                 }
                 setAuthDetermined(true);
                 return;

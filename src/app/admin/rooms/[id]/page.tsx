@@ -59,7 +59,7 @@ export default function RoomDetailsPage() {
     const handleLogout = async () => {
         const { signOut } = await import('firebase/auth');
         await signOut(auth);
-        router.push('/secret-access');
+        router.push('/');
     };
     const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges' | 'rankings'>('tests');
     const [compToMarkNC, setCompToMarkNC] = useState<{ test: TestTemplate, comp: Competitor } | null>(null);

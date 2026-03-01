@@ -94,7 +94,7 @@ export default function AdminDashboard() {
 
     const handleLogout = async () => {
         await signOut(auth);
-        router.push('/secret-access');
+        router.push('/');
     };
 
     const validateDates = (startDate: string, endDate: string): Record<string, string> => {

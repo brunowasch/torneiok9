@@ -36,7 +36,7 @@ export default function ModalitiesPage() {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (!user) {
-                router.push('/secret-access');
+                router.push('/');
             } else {
                 fetchModalities();
             }

@@ -27,6 +27,8 @@ export default function SecretLoginPage() {
             const { getUserRole } = await import('@/services/userService');
             const role = await getUserRole(user.uid);
 
+            localStorage.setItem('hasLoggedInBefore', 'true');
+
             if (role === 'judge') {
                 router.push('/judge');
             } else {

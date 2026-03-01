@@ -9,6 +9,7 @@ import { Trophy, Medal, Crown, ListFilter, Target, Flame, Calendar } from 'lucid
 import { LeaderboardEntry, subscribeToLeaderboard } from '@/services/rankingService';
 import RoomCountdown from '@/components/RoomCountdown';
 import { useTranslation } from 'react-i18next';
+import Link from 'next/link';
 import '@/i18n/config';
 
 export default function Home() {
@@ -21,6 +22,14 @@ export default function Home() {
   const [selectedModality, setSelectedModality] = useState<Modality | null>(null);
   const [selectedTestId, setSelectedTestId] = useState<string | 'geral'>('geral');
   const [loading, setLoading] = useState(true);
+  const [authRole, setAuthRole] = useState<string | null>(null);
+  const [hasLoggedInBefore, setHasLoggedInBefore] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setHasLoggedInBefore(localStorage.getItem('hasLoggedInBefore') === 'true');
+    }
+  }, []);
 
   useEffect(() => {
     let unsubscribeRooms: (() => void) | undefined;
@@ -39,6 +48,18 @@ export default function Home() {
               console.error('Error signing in anonymously', e);
             }
             return;
+          }
+
+          if (!user.isAnonymous) {
+            try {
+              const { getUserRole } = await import('@/services/userService');
+              const role = await getUserRole(user.uid);
+              setAuthRole(role);
+            } catch (e) {
+              console.error('Error fetching user role', e);
+            }
+          } else {
+            setAuthRole(null);
           }
 
           try {
@@ -197,12 +218,29 @@ export default function Home() {
             <p className="text-gray-500 text-[10px] sm:text-xs md:text-sm font-semibold uppercase tracking-[0.2em] md:pl-16 mt-2">{t('home.subtitle')}</p>
           </div>
 
-          <div className="w-full md:w-auto max-w-md mx-auto md:mx-0">
-            <RoomSelect
-              value={selectedRoomId}
-              onChange={setSelectedRoomId}
-              rooms={rooms}
-            />
+          <div className="w-full md:w-auto mx-auto md:mx-0 flex flex-col md:flex-row items-center gap-4">
+            {authRole ? (
+              <Link 
+                href={authRole === 'admin' ? '/admin' : '/judge'}
+                className="px-4 py-2.5 bg-k9-black text-white text-[10px] md:text-xs font-black uppercase tracking-wider rounded-lg border-2 border-k9-black hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap"
+              >
+                {authRole === 'admin' ? t('home.returnAdmin', 'VOLTAR PARA ADMIN') : t('home.returnJudge', 'VOLTAR À AVALIAÇÃO')}
+              </Link>
+            ) : hasLoggedInBefore ? (
+              <Link 
+                href="/secret-access"
+                className="px-4 py-2.5 bg-k9-black text-white text-[10px] md:text-xs font-black uppercase tracking-wider rounded-lg border-2 border-k9-black hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap"
+              >
+                {t('home.accessEvaluation', 'ÁREA DE AVALIAÇÃO')}
+              </Link>
+            ) : null}
+            <div className="w-full md:w-auto max-w-md">
+              <RoomSelect
+                value={selectedRoomId}
+                onChange={setSelectedRoomId}
+                rooms={rooms}
+              />
+            </div>
           </div>
         </div>
 

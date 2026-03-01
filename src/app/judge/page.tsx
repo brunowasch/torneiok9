@@ -42,7 +42,7 @@ export default function JudgeDashboard() {
 
     const handleLogout = async () => {
         await signOut(auth);
-        router.push('/secret-access');
+        router.push('/');
     };
 
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">{t('judge.loading')}</div>;
