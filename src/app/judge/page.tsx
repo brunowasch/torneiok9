@@ -107,17 +107,6 @@ export default function JudgeDashboard() {
                                     <h3 className="text-xl font-black text-k9-black uppercase leading-tight mb-1 group-hover:text-k9-orange transition-colors tracking-tight text-left">
                                         {room.name}
                                     </h3>
-                                    {room.startDate && (
-                                        <div className="flex items-center gap-1 mb-2">
-                                            <Calendar className="w-3 h-3 text-k9-orange shrink-0" />
-                                            <span className="text-[10px] font-black text-k9-orange uppercase tracking-wide">
-                                                {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                {room.endDate && room.endDate !== room.startDate && (
-                                                    <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</>
-                                                )}
-                                            </span>
-                                        </div>
-                                    )}
                                     <div className="mb-3">
                                         <RoomCountdown room={room} variant="light" />
                                     </div>

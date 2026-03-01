@@ -28,7 +28,8 @@ type Status = 'upcoming' | 'ongoing_with_end' | 'ongoing_no_end' | 'finished' | 
 function getStatus(room: Room): { status: Status; target: Date | null } {
     if (!room.startDate) return { status: 'none', target: null };
 
-    const start = new Date(room.startDate + 'T00:00:00');
+    const startTimeVal = room.startTime || '00:00';
+    const start = new Date(`${room.startDate}T${startTimeVal}:00`);
     const now = Date.now();
 
     if (now < start.getTime()) {
@@ -116,14 +117,14 @@ export default function RoomCountdown({ room, variant = 'dark' }: Props) {
     const pad = (n: number) => String(n).padStart(2, '0');
 
     const blockClass = isDark
-        ? 'bg-white/5 border border-white/10 text-white'
-        : 'bg-white border-2 border-k9-orange/20 text-k9-black shadow-sm';
+        ? 'bg-blue-900/20 border border-blue-500/30 text-blue-100 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+        : (isOngoing ? 'bg-white border-2 border-green-200 text-k9-black shadow-sm' : 'bg-white border-2 border-blue-200 text-k9-black shadow-sm');
 
-    const labelClass = isDark ? 'text-gray-500' : 'text-gray-400';
+    const labelClass = isDark ? 'text-blue-300' : (isOngoing ? 'text-green-600' : 'text-blue-500');
 
     const badgeBg = isOngoing
         ? isDark ? 'bg-green-900/30 border-green-700/40 text-green-400' : 'bg-green-50 border-green-200 text-green-700'
-        : isDark ? 'bg-k9-orange/10 border-k9-orange/30 text-k9-orange' : 'bg-k9-orange/10 border-k9-orange/30 text-k9-orange';
+        : isDark ? 'bg-blue-900/40 border-blue-500/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700';
 
     const units = [
         { value: timeLeft.days,    label: timeLeft.days === 1 ? t('countdown.day') : t('countdown.days') },
@@ -135,7 +136,7 @@ export default function RoomCountdown({ room, variant = 'dark' }: Props) {
     return (
         <div className="flex flex-col gap-2">
             {/* Label above */}
-            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border self-start text-xs font-black uppercase tracking-widest ${badgeBg}`}>
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border self-start text-[10px] md:text-xs font-black uppercase tracking-widest ${badgeBg}`}>
                 <Clock className="w-3.5 h-3.5 animate-pulse shrink-0" />
                 <span>{isOngoing ? t('countdown.endsIn') : t('countdown.startsIn')}</span>
             </div>

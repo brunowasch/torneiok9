@@ -64,13 +64,10 @@ export default function SecretLoginPage() {
     return (
         <div className="min-h-screen bg-k9-white flex items-center justify-center p-4">
             <div className="max-w-md w-full bg-white border-2 border-gray-200 p-8 rounded-xl shadow-2xl relative overflow-hidden">
-                {/* Decorative */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-bl from-k9-orange/10 to-transparent pointer-events-none"></div>
-
                 <div className="text-center mb-8 relative">
-                    <div className="w-32 h-32 mx-auto mb-4 relative flex items-center justify-center bg-black rounded-full p-4 shadow-lg border-2 border-k9-orange">
+                    <div className="w-32 h-32 mx-auto mb-4 relative flex items-center justify-center bg-black rounded-full p-4">
                         <img
-                            src="/logo.png"
+                            src="/transparent-logo.png"
                             alt="Logo Torneio K9"
                             className="object-contain w-full h-full"
                         />

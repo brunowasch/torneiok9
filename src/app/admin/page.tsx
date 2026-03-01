@@ -260,7 +260,7 @@ export default function AdminDashboard() {
                     </button>
                     <button
                         onClick={() => setShowCreateAdminModal(true)}
-                        className="flex-1 md:flex-none justify-center bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-3 py-3 md:px-4 md:py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-[10px] md:text-xs cursor-pointer border border-gray-700 shadow-sm hover:border-k9-orange whitespace-nowrap"
+                        className="flex-1 md:flex-none justify-center bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-3 py-3 md:px-4 md:py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-[10px] md:text-xs cursor-pointer border border-gray-700 shadow-sm hover:border-k9-black whitespace-nowrap"
                     >
                         <Users className="w-4 h-4 text-k9-orange" />
                         {t('adminDashboard.newAdmin')}
@@ -362,17 +362,6 @@ export default function AdminDashboard() {
                                         <h2 className="text-xl font-black text-k9-black uppercase leading-tight mb-1 group-hover:text-k9-orange transition-colors tracking-tight">
                                             {room.name}
                                         </h2>
-                                        {room.startDate && (
-                                            <div className="flex items-center gap-1 mb-1">
-                                                <Calendar className="w-3 h-3 text-k9-orange shrink-0" />
-                                                <span className="text-[10px] font-black text-k9-orange uppercase tracking-wide">
-                                                    {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                    {room.endDate && room.endDate !== room.startDate && (
-                                                        <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</>
-                                                    )}
-                                                </span>
-                                            </div>
-                                        )}
                                         <p className="text-xs text-gray-600 uppercase tracking-wide mb-6 font-semibold">
                                             {room.description}
                                         </p>

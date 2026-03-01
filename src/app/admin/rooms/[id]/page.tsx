@@ -466,45 +466,51 @@ export default function RoomDetailsPage() {
                     <Link href="/admin" className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-md bg-gray-900 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-white transition-colors cursor-pointer mb-6 group relative z-50 w-max pointer-events-auto">
                         <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" /> {t('admin.back')}
                     </Link>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white uppercase tracking-tighter flex items-center gap-3 md:gap-4 leading-tight">
-                                <div className="w-10 h-10 md:w-12 md:h-12 relative flex items-center justify-center shrink-0 p-1 bg-white/5 rounded-xl border border-white/10">
-                                    <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                        <div className="flex-1 min-w-0 flex flex-col gap-5">
+                            {/* Logo and Name row */}
+                            <div className="flex items-center gap-4 md:gap-5">
+                                <div className="w-14 h-14 md:w-16 md:h-16 relative flex items-center justify-center shrink-0 p-2 bg-white/5 rounded-2xl border border-white/10 shadow-lg">
+                                    <img src="/logo.png" alt="Logo" className="object-contain w-full h-full drop-shadow-md" />
                                 </div>
-                                <div className="min-w-0">
-                                    <div className="truncate">{room.name}</div>
-                                    {room.startDate && (
-                                        <div className="flex items-center gap-1.5 mt-1">
-                                            <Calendar className="w-3.5 h-3.5 text-k9-orange shrink-0" />
-                                            <span className="text-k9-orange text-sm md:text-base font-black tracking-wide">
-                                                {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                {room.endDate && room.endDate !== room.startDate && (
-                                                    <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</>
-                                                )}
-                                            </span>
-                                        </div>
-                                    )}
-                                    <div className="mt-2">
-                                        <RoomCountdown room={room} variant="dark" />
+                                <div className="min-w-0 flex flex-col justify-center">
+                                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white uppercase tracking-tighter leading-none truncate mb-2.5">
+                                        {room.name}
+                                    </h1>
+                                    <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                                        <span className="text-[10px] md:text-xs font-mono text-blue-400 bg-blue-900/20 px-2 py-1 md:px-3 md:py-1 rounded-md border border-blue-900/50">ID: {room.id}</span>
+                                        <span className={`text-[10px] md:text-xs font-bold uppercase flex items-center gap-2 px-2 py-1 md:px-3 md:py-1 rounded-full border ${room.active ? 'bg-green-900/20 text-green-400 border-green-900/30' : 'bg-red-900/20 text-red-400 border-red-900/30'}`}>
+                                            <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${room.active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                            {room.active ? t('admin.active') : t('admin.finished')}
+                                        </span>
                                     </div>
                                 </div>
-                            </h1>
-                            <div className="flex flex-wrap items-center gap-3 mt-4">
-                                <span className="text-[9px] md:text-xs font-mono text-k9-orange bg-orange-900/20 px-2 py-1 md:px-3 md:py-1 rounded border border-orange-900/50">ID: {room.id}</span>
-                                <span className={`text-[9px] md:text-xs font-bold uppercase flex items-center gap-2 px-2 py-1 md:px-3 md:py-1 rounded-full border ${room.active ? 'bg-green-900/20 text-green-400 border-green-900/30' : 'bg-red-900/20 text-red-400 border-red-900/30'}`}>
-                                    <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${room.active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                                    {room.active ? t('admin.active') : t('admin.finished')}
-                                </span>
-
+                            </div>
+                            
+                            {/* Dates and Countdown row */}
+                            <div className="flex flex-col gap-3">
+                                {room.startDate && (
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-k9-orange shrink-0" />
+                                        <span className="text-k9-orange text-sm md:text-base font-black tracking-wide">
+                                            {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            {room.endDate && room.endDate !== room.startDate && (
+                                                <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</>
+                                            )}
+                                        </span>
+                                    </div>
+                                )}
+                                <div className="mt-1">
+                                    <RoomCountdown room={room} variant="dark" />
+                                </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 relative z-10 self-end md:self-center">
+                        <div className="flex items-center gap-3 relative z-10 self-end md:self-start mt-2 md:mt-0">
                             <button
                                 onClick={handleLogout}
-                                className="text-white hover:text-red-400 text-[10px] md:text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-3 py-2 md:px-4 md:py-3 rounded-lg hover:border-red-500/50 hover:bg-red-900/10 shadow-sm"
+                                className="text-white hover:text-red-400 text-[10px] md:text-xs font-bold uppercase flex items-center gap-2 transition-colors border border-gray-700 bg-gray-900 px-4 py-2.5 md:px-5 md:py-3 rounded-xl hover:border-red-500/50 hover:bg-red-900/10 shadow-lg"
                             >
-                                <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('admin.logout')}
+                                <LogOut className="w-4 h-4" /> {t('admin.logout')}
                             </button>
                         </div>
                     </div>

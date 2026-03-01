@@ -705,7 +705,7 @@ export default function JudgeRoomPage() {
                                             </h1>
                                             {!selectedTestView && room.startDate && (
                                                 <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="text-k9-orange text-[8px] md:text-[10px] font-black tracking-widest">
+                                                    <span className="text-gray-400 text-[8px] md:text-[10px] font-black tracking-widest">
                                                         {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                         {room.endDate && room.endDate !== room.startDate && (
                                                             <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</>
@@ -939,14 +939,12 @@ export default function JudgeRoomPage() {
                                                     }
                                             `}
                                             >
-                                                {/* Badge de Acionamento — só aparece quando acionado e pode avaliar */}
                                                 {isActivatedForMe && !isDone && (
                                                     <div className="absolute top-0 left-0 right-0 bg-amber-400 text-amber-900 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
                                                         <Bell className="w-3 h-3 animate-bounce" />
                                                         Você foi acionado! Avalie este competidor
                                                     </div>
                                                 )}
-                                                {/* Badge de aguardando acionamento */}
                                                 {blockReason === 'not_activated' && !isDone && (
                                                     <div className="absolute top-0 left-0 right-0 bg-gray-200 text-gray-500 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
                                                         <LockIcon className="w-3 h-3" />
