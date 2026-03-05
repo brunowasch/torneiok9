@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest } from '@/types/schema';
@@ -43,7 +44,8 @@ import {
     XCircle,
     Send,
     Calendar,
-    Save
+    Save,
+    GripVertical
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -820,256 +822,310 @@ export default function RoomDetailsPage() {
                     )}
 
                     {/* TESTS VIEW */}
-                    {activeTab === 'tests' && (
-                        <div>
-                            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6">
-                                <button
-                                    onClick={async () => {
-                                        if (!confirm(t('admin.tests.autoNumberConfirm'))) return;
-                                        try {
-                                            const grouped: Record<string, TestTemplate[]> = {};
-                                            tests.forEach(t => {
-                                                const mod = t.modality || 'SEM_MODALIDADE';
-                                                if (!grouped[mod]) grouped[mod] = [];
-                                                grouped[mod].push(t);
-                                            });
+                    {activeTab === 'tests' && (() => {
+                        // Group and sort tests by modality
+                        const testsByModality: Record<string, TestTemplate[]> = {};
+                        const sortedModalities: string[] = [];
+                        [...tests].sort((a, b) => {
+                            if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
+                            return (a.testNumber || 0) - (b.testNumber || 0);
+                        }).forEach(t => {
+                            const mod = t.modality || 'SEM_MODALIDADE';
+                            if (!testsByModality[mod]) { testsByModality[mod] = []; sortedModalities.push(mod); }
+                            testsByModality[mod].push(t);
+                        });
 
-                                            for (const mod in grouped) {
-                                                const modTests = grouped[mod];
-                                                for (let i = 0; i < modTests.length; i++) {
-                                                    await updateTestTemplate(modTests[i].id, {
-                                                        ...modTests[i],
-                                                        testNumber: i + 1
-                                                    });
-                                                }
-                                            }
-                                            alert(t('admin.tests.autoNumberSuccess'));
-                                            loadRoomData();
-                                        } catch (err) {
-                                            console.error(err);
-                                            alert(t('admin.tests.autoNumberError'));
-                                        }
-                                    }}
-                                    className="flex-1 sm:flex-none justify-center px-4 py-3 sm:py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg border-2 border-gray-200 bg-white text-gray-400 hover:bg-gray-50 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
-                                >
-                                    <ShieldCheck className="w-4 h-4" /> {t('admin.tests.autoNumber')}
-                                </button>
+                        const handleDragEnd = async (result: DropResult) => {
+                            const { source, destination, draggableId } = result;
+                            if (!destination) return;
+                            const mod = source.droppableId;
+                            if (mod !== destination.droppableId) return; // cross-modality not allowed
+                            if (source.index === destination.index) return;
 
-                                <button
-                                    onClick={() => {
-                                        setEditingTestId(null);
-                                        setScoreItems([]);
-                                        setTemplateTitle('');
-                                        setSelectedModality('');
-                                        setShowAddTest(true);
-                                    }}
-                                    className="flex-1 sm:flex-none justify-center px-4 py-3 sm:py-2 text-[10px] sm:text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100 cursor-pointer"
-                                >
-                                    <Wand2 className="w-4 h-4 text-purple-700" /> {t('admin.tests.create')}
-                                </button>
-                            </div>
+                            const modTests = [...(testsByModality[mod] || [])];
+                            const [moved] = modTests.splice(source.index, 1);
+                            modTests.splice(destination.index, 0, moved);
 
-                            <div className="space-y-4">
-                                {[...tests].sort((a, b) => {
-                                    if (a.modality !== b.modality) return (a.modality || '').localeCompare(b.modality || '');
-                                    return (a.testNumber || 0) - (b.testNumber || 0);
-                                }).map(test => (
-                                    <div key={test.id} className="bg-white border border-gray-100 rounded-2xl p-4 md:p-5 hover:shadow-md transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
-                                        <div className="flex items-start sm:items-center gap-3 md:gap-4 w-full sm:w-auto">
-                                            <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-900 text-white rounded-lg flex items-center justify-center font-black text-sm shrink-0 border border-gray-800 shadow-sm mt-1 sm:mt-0">
-                                                {test.testNumber ? test.testNumber.toString().padStart(2, '0') : '--'}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-black text-k9-black uppercase text-sm md:text-base leading-tight truncate">{test.title}</h3>
-                                                {test.description && (
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 line-clamp-1">{test.description}</p>
-                                                )}
-                                                <div className="text-[10px] text-gray-400 mt-2 flex flex-wrap gap-x-3 gap-y-1 font-bold items-center">
-                                                    <span className="px-2 py-0.5 bg-gray-50 rounded text-gray-500 uppercase border border-gray-100">{test.modality}</span>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                                                        <span className="text-gray-400 uppercase">{t('admin.tests.maxScore')}: {test.maxScore} {t('admin.tests.pts')}</span>
-                                                    </div>
+                            // Optimistically update local state
+                            const updatedTests = tests.map(t => {
+                                const newIdx = modTests.findIndex(mt => mt.id === t.id);
+                                if (newIdx !== -1) return { ...t, testNumber: newIdx + 1 };
+                                return t;
+                            });
+                            setTests(updatedTests);
+
+                            // Persist to Firestore
+                            try {
+                                await Promise.all(modTests.map((t, idx) =>
+                                    updateTestTemplate(t.id, { testNumber: idx + 1 })
+                                ));
+                            } catch (err) {
+                                console.error('Error saving order', err);
+                                loadRoomData(); // revert on error
+                            }
+                        };
+
+                        return (
+                            <div>
+                                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6">
+                                    <div className="flex items-center gap-2 text-xs text-gray-400 font-bold uppercase bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                                        <GripVertical className="w-4 h-4 text-blue-400" />
+                                        Arraste as provas para reordenar
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setEditingTestId(null);
+                                            setScoreItems([]);
+                                            setTemplateTitle('');
+                                            setSelectedModality('');
+                                            setShowAddTest(true);
+                                        }}
+                                        className="flex-1 sm:flex-none justify-center px-4 py-3 sm:py-2 text-[10px] sm:text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center gap-2 bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100 cursor-pointer"
+                                    >
+                                        <Wand2 className="w-4 h-4 text-purple-700" /> {t('admin.tests.create')}
+                                    </button>
+                                </div>
+
+                                <DragDropContext onDragEnd={handleDragEnd}>
+                                    <div className="space-y-8">
+                                        {sortedModalities.map(mod => (
+                                            <div key={mod}>
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <div className="w-1 h-5 bg-orange-400 rounded-full" />
+                                                    <span className="text-xs font-black uppercase tracking-widest text-gray-500">{mod}</span>
+                                                    <span className="text-[10px] text-gray-400 font-bold">— {testsByModality[mod].length} prova(s)</span>
+                                                    <div className="flex-1 h-px bg-gray-100" />
                                                 </div>
+                                                <Droppable droppableId={mod}>
+                                                    {(provided, snapshot) => (
+                                                        <div
+                                                            ref={provided.innerRef}
+                                                            {...provided.droppableProps}
+                                                            className={`space-y-3 min-h-12 rounded-xl transition-colors ${snapshot.isDraggingOver ? 'bg-orange-50/50 ring-2 ring-orange-200' : ''}`}
+                                                        >
+                                                            {testsByModality[mod].map((test, index) => (
+                                                                <Draggable key={test.id} draggableId={test.id} index={index}>
+                                                                    {(provided, snapshot) => (
+                                                                        <div
+                                                                            ref={provided.innerRef}
+                                                                            {...provided.draggableProps}
+                                                                            className={`bg-white border rounded-2xl p-4 md:p-5 transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group
+                                                                            ${snapshot.isDragging
+                                                                                    ? 'border-orange-400 shadow-xl ring-2 ring-orange-300 rotate-1 scale-[1.02]'
+                                                                                    : 'border-gray-100 hover:shadow-md'
+                                                                                }`}
+                                                                        >
+                                                                            <div className="flex items-start sm:items-center gap-3 md:gap-4 w-full sm:w-auto">
+                                                                                {/* Drag handle */}
+                                                                                <div
+                                                                                    {...provided.dragHandleProps}
+                                                                                    className="text-gray-300 hover:text-orange-400 cursor-grab active:cursor-grabbing transition-colors shrink-0 mt-1 sm:mt-0"
+                                                                                    title="Arraste para reordenar"
+                                                                                >
+                                                                                    <GripVertical className="w-5 h-5" />
+                                                                                </div>
+                                                                                <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-900 text-white rounded-lg flex items-center justify-center font-black text-sm shrink-0 border border-gray-800 shadow-sm">
+                                                                                    {test.testNumber ? test.testNumber.toString().padStart(2, '0') : '--'}
+                                                                                </div>
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <h3 className="font-black text-k9-black uppercase text-sm md:text-base leading-tight truncate">{test.title}</h3>
+                                                                                    {test.description && (
+                                                                                        <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 line-clamp-1">{test.description}</p>
+                                                                                    )}
+                                                                                    <div className="text-[10px] text-gray-400 mt-2 flex flex-wrap gap-x-3 gap-y-1 font-bold items-center">
+                                                                                        <div className="flex items-center gap-1.5">
+                                                                                            <span className="text-gray-400 uppercase">{t('admin.tests.maxScore')}: {test.maxScore} {t('admin.tests.pts')}</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-3 sm:pt-0 border-t border-gray-50 sm:border-0">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <button
+                                                                                        onClick={() => editTest(test)}
+                                                                                        className="w-9 h-9 flex items-center justify-center bg-gray-50 rounded-lg text-gray-400 hover:bg-orange-50 hover:text-orange-500 transition-colors cursor-pointer border border-gray-100"
+                                                                                        title="Editar Prova"
+                                                                                    >
+                                                                                        <Pencil className="w-4 h-4" />
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => handleDeleteTest(test.id, test.title)}
+                                                                                        className="w-9 h-9 flex items-center justify-center bg-gray-50 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors cursor-pointer border border-gray-100"
+                                                                                        title="Excluir Prova"
+                                                                                    >
+                                                                                        <Trash2 className="w-4 h-4" />
+                                                                                    </button>
+                                                                                </div>
+                                                                                <div className="px-3 py-1.5 bg-orange-50 text-orange-600 text-[10px] font-black uppercase rounded border border-orange-100 tracking-wider">
+                                                                                    {t('admin.tests.active')}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </Draggable>
+                                                            ))}
+                                                            {provided.placeholder}
+                                                        </div>
+                                                    )}
+                                                </Droppable>
                                             </div>
+                                        ))}
+                                        {tests.length === 0 && <div className="text-gray-500 text-center py-8">{t('admin.tests.noTests')}</div>}
+                                    </div>
+                                </DragDropContext>
+
+                                <Modal
+                                    isOpen={showAddTest}
+                                    onClose={() => { setShowAddTest(false); setEditingTestId(null); }}
+                                    title={<div className="flex items-center gap-2"><Wand2 className="text-police-gold w-5 h-5" /> {editingTestId ? t('admin.tests.editTitle') : t('admin.tests.createTitle')}</div>}
+                                    maxWidth="max-w-2xl"
+                                >
+                                    <div className="">
+                                        <div className="mb-6">
+                                            <label className="text-xs font-bold text-gray-500 uppercase">{t('admin.tests.title')}</label>
+                                            <input
+                                                value={templateTitle}
+                                                onChange={e => setTemplateTitle(e.target.value)}
+                                                className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1 font-semibold uppercase"
+                                                placeholder={t('admin.tests.titlePlaceholder')}
+                                            />
                                         </div>
-                                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-3 sm:pt-0 border-t border-gray-50 sm:border-0">
-                                            <div className="flex items-center gap-2">
+
+                                        <div className="mb-6">
+                                            <label className="text-xs font-bold text-gray-500 uppercase">{t('admin.tests.description')}</label>
+                                            <textarea
+                                                value={templateDescription}
+                                                onChange={e => setTemplateDescription(e.target.value)}
+                                                className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1 text-sm h-24 resize-none"
+                                                placeholder={t('admin.tests.descriptionPlaceholder')}
+                                            />
+                                        </div>
+
+                                        <div className="mb-6">
+                                            <label className="text-xs font-bold text-gray-500 uppercase">{t('admin.tests.modality')}</label>
+                                            <select
+                                                value={selectedModality}
+                                                onChange={e => setSelectedModality(e.target.value as Modality)}
+                                                className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1"
+                                            >
+                                                <option value="">{t('admin.tests.selectModality')}</option>
+                                                {modalities.map(m => (
+                                                    <option key={m} value={m}>{m}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Evaluation Items */}
+                                        <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
+                                            <div className="flex justify-between mb-2">
+                                                <h3 className="text-sm font-bold text-k9-black uppercase">{t('admin.tests.criteria')}</h3>
+                                                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{totalScore} pts</span>
+                                            </div>
+                                            <div className="space-y-2 mb-3">
+                                                {scoreItems.map((item, i) => (
+                                                    <div key={i} className="text-xs bg-tactical-gray p-2 rounded">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-gray-300 font-semibold">{item.label}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-police-gold font-mono">{item.maxPoints} pts</span>
+                                                                <button onClick={() => removeScoreItem(i)} className="text-red-500 cursor-pointer"><X className="w-4 h-4" /></button>
+                                                            </div>
+                                                        </div>
+                                                        {item.description && (
+                                                            <p className="text-gray-400 text-[10px] mt-1 leading-relaxed">{item.description}</p>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                {scoreItems.length === 0 && <div className="text-xs text-gray-400 font-mono text-center">{t('admin.tests.noCriteria')}</div>}
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex gap-2">
+                                                    <input id="score-lbl" placeholder={t('admin.tests.criteriaPlaceholder')} className="flex-1 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
+                                                    <input id="score-pts" placeholder={t('admin.tests.ptsPh')} type="number" step="0.5" defaultValue={10} className="w-16 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
+                                                </div>
+                                                <textarea
+                                                    id="score-desc"
+                                                    placeholder="Descrição do critério (opcional)"
+                                                    className="w-full bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded resize-none h-16 focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
+                                                />
                                                 <button
-                                                    onClick={() => editTest(test)}
-                                                    className="w-9 h-9 flex items-center justify-center bg-gray-50 rounded-lg text-gray-400 hover:bg-orange-50 hover:text-orange-500 transition-colors cursor-pointer border border-gray-100"
-                                                    title="Editar Prova"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteTest(test.id, test.title)}
-                                                    className="w-9 h-9 flex items-center justify-center bg-gray-50 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors cursor-pointer border border-gray-100"
-                                                    title="Excluir Prova"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                            <div className="px-3 py-1.5 bg-orange-50 text-orange-600 text-[10px] font-black uppercase rounded border border-orange-100 tracking-wider">
-                                                {t('admin.tests.active')}
+                                                    onClick={() => {
+                                                        const lblEl = document.getElementById('score-lbl') as HTMLInputElement;
+                                                        const ptsEl = document.getElementById('score-pts') as HTMLInputElement;
+                                                        const descEl = document.getElementById('score-desc') as HTMLTextAreaElement;
+                                                        const l = lblEl.value;
+                                                        const p = parseFloat(ptsEl.value) || 10;
+                                                        const d = descEl.value;
+                                                        if (l) {
+                                                            addScoreItem(l, p, d);
+                                                            lblEl.value = '';
+                                                            descEl.value = '';
+                                                            lblEl.focus();
+                                                        }
+                                                    }}
+                                                    className="self-end bg-gray-100 text-k9-black px-4 py-2 rounded text-xs uppercase font-bold cursor-pointer hover:bg-gray-200 transition-colors"
+                                                >{t('admin.tests.add')}</button>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                                {tests.length === 0 && <div className="text-gray-500 text-center py-8">{t('admin.tests.noTests')}</div>}
-                            </div>
 
-                            <Modal
-                                isOpen={showAddTest}
-                                onClose={() => { setShowAddTest(false); setEditingTestId(null); }}
-                                title={<div className="flex items-center gap-2"><Wand2 className="text-police-gold w-5 h-5" /> {editingTestId ? t('admin.tests.editTitle') : t('admin.tests.createTitle')}</div>}
-                                maxWidth="max-w-2xl"
-                            >
-                                <div className="">
-                                    <div className="mb-6">
-                                        <label className="text-xs font-bold text-gray-500 uppercase">{t('admin.tests.title')}</label>
-                                        <input
-                                            value={templateTitle}
-                                            onChange={e => setTemplateTitle(e.target.value)}
-                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1 font-semibold uppercase"
-                                            placeholder={t('admin.tests.titlePlaceholder')}
-                                        />
-                                    </div>
-
-                                    <div className="mb-6">
-                                        <label className="text-xs font-bold text-gray-500 uppercase">{t('admin.tests.description')}</label>
-                                        <textarea
-                                            value={templateDescription}
-                                            onChange={e => setTemplateDescription(e.target.value)}
-                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1 text-sm h-24 resize-none"
-                                            placeholder={t('admin.tests.descriptionPlaceholder')}
-                                        />
-                                    </div>
-
-                                    <div className="mb-6">
-                                        <label className="text-xs font-bold text-gray-500 uppercase">{t('admin.tests.modality')}</label>
-                                        <select
-                                            value={selectedModality}
-                                            onChange={e => setSelectedModality(e.target.value as Modality)}
-                                            className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange mt-1"
-                                        >
-                                            <option value="">{t('admin.tests.selectModality')}</option>
-                                            {modalities.map(m => (
-                                                <option key={m} value={m}>{m}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* Evaluation Items */}
-                                    <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
-                                        <div className="flex justify-between mb-2">
-                                            <h3 className="text-sm font-bold text-k9-black uppercase">{t('admin.tests.criteria')}</h3>
-                                            <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded text-police-gold`}>{totalScore} pts</span>
-                                        </div>
-                                        <div className="space-y-2 mb-3">
-                                            {scoreItems.map((item, i) => (
-                                                <div key={i} className="text-xs bg-tactical-gray p-2 rounded">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-gray-300 font-semibold">{item.label}</span>
+                                        {/* Penalty Items */}
+                                        <div className="mb-6 p-4 bg-red-50 rounded border border-red-100">
+                                            <div className="flex justify-between mb-2">
+                                                <h3 className="text-sm font-bold text-red-900 uppercase">{t('admin.tests.penalties')}</h3>
+                                                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded text-red-600 bg-white border border-red-100">{penaltyItems.length} {t('admin.tests.items')}</span>
+                                            </div>
+                                            <div className="space-y-2 mb-3">
+                                                {penaltyItems.map((item, i) => (
+                                                    <div key={i} className="flex justify-between items-center text-xs bg-white p-2 rounded border border-red-100">
+                                                        <span className="text-red-900 font-bold">{item.label}</span>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-police-gold font-mono">{item.maxPoints} pts</span>
-                                                            <button onClick={() => removeScoreItem(i)} className="text-red-500 cursor-pointer"><X className="w-4 h-4" /></button>
+                                                            <span className="text-red-600 font-mono font-bold">{item.value} pts</span>
+                                                            <button
+                                                                onClick={() => setPenaltyItems(penaltyItems.filter((_, idx) => idx !== i))}
+                                                                className="text-red-400 hover:text-red-600 cursor-pointer"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
                                                         </div>
                                                     </div>
-                                                    {item.description && (
-                                                        <p className="text-gray-400 text-[10px] mt-1 leading-relaxed">{item.description}</p>
-                                                    )}
-                                                </div>
-                                            ))}
-                                            {scoreItems.length === 0 && <div className="text-xs text-gray-400 font-mono text-center">{t('admin.tests.noCriteria')}</div>}
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex gap-2">
-                                                <input id="score-lbl" placeholder={t('admin.tests.criteriaPlaceholder')} className="flex-1 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
-                                                <input id="score-pts" placeholder={t('admin.tests.ptsPh')} type="number" step="0.5" defaultValue={10} className="w-16 bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded" />
+                                                ))}
+                                                {penaltyItems.length === 0 && <div className="text-xs text-red-400 font-mono text-center py-2">{t('admin.tests.noPenalties')}</div>}
                                             </div>
-                                            <textarea
-                                                id="score-desc"
-                                                placeholder="Descrição do critério (opcional)"
-                                                className="w-full bg-gray-50 border border-gray-300 text-k9-black text-xs p-2 rounded resize-none h-16 focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
-                                            />
+                                            <div className="flex gap-2">
+                                                <input id="penalty-lbl" placeholder={t('admin.tests.penaltyPlaceholder')} className="flex-1 bg-white border border-red-200 text-k9-black text-xs p-2 rounded" />
+                                                <input id="penalty-pts" placeholder="Pts" type="number" step="0.5" defaultValue={-2.0} className="w-16 bg-white border border-red-200 text-red-600 text-xs p-2 rounded font-bold" />
+                                                <button
+                                                    onClick={() => {
+                                                        const l = (document.getElementById('penalty-lbl') as HTMLInputElement).value;
+                                                        const v = parseFloat((document.getElementById('penalty-pts') as HTMLInputElement).value);
+                                                        if (l && !isNaN(v)) {
+                                                            setPenaltyItems([...penaltyItems, { id: `penalty-${Date.now()}`, label: l, value: v }]);
+                                                            (document.getElementById('penalty-lbl') as HTMLInputElement).value = '';
+                                                            (document.getElementById('penalty-pts') as HTMLInputElement).value = '-2.0';
+                                                        }
+                                                    }}
+                                                    className="bg-red-100 text-red-700 px-3 rounded text-xs uppercase font-black cursor-pointer hover:bg-red-200 transition-colors"
+                                                >Add</button>
+                                            </div>
+                                        </div>
+
+                                        {genMsg && <div className="text-red-400 text-xs font-mono mb-4">{genMsg}</div>}
+
+                                        <div className="flex gap-4">
+                                            <button onClick={() => { setShowAddTest(false); setEditingTestId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-800 text-gray-300 border-gray-700 transition-all">{t('admin.tests.cancel')}</button>
                                             <button
-                                                onClick={() => {
-                                                    const lblEl = document.getElementById('score-lbl') as HTMLInputElement;
-                                                    const ptsEl = document.getElementById('score-pts') as HTMLInputElement;
-                                                    const descEl = document.getElementById('score-desc') as HTMLTextAreaElement;
-                                                    const l = lblEl.value;
-                                                    const p = parseFloat(ptsEl.value) || 10;
-                                                    const d = descEl.value;
-                                                    if (l) {
-                                                        addScoreItem(l, p, d);
-                                                        lblEl.value = '';
-                                                        descEl.value = '';
-                                                        lblEl.focus();
-                                                    }
-                                                }}
-                                                className="self-end bg-gray-100 text-k9-black px-4 py-2 rounded text-xs uppercase font-bold cursor-pointer hover:bg-gray-200 transition-colors"
-                                            >{t('admin.tests.add')}</button>
+                                                onClick={saveTest}
+                                                disabled={!templateTitle || !selectedModality || scoreItems.length === 0}
+                                                className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-black border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                            >
+                                                {editingTestId ? t('admin.tests.update') : t('admin.tests.save')}
+                                            </button>
                                         </div>
                                     </div>
-
-                                    {/* Penalty Items */}
-                                    <div className="mb-6 p-4 bg-red-50 rounded border border-red-100">
-                                        <div className="flex justify-between mb-2">
-                                            <h3 className="text-sm font-bold text-red-900 uppercase">{t('admin.tests.penalties')}</h3>
-                                            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded text-red-600 bg-white border border-red-100">{penaltyItems.length} {t('admin.tests.items')}</span>
-                                        </div>
-                                        <div className="space-y-2 mb-3">
-                                            {penaltyItems.map((item, i) => (
-                                                <div key={i} className="flex justify-between items-center text-xs bg-white p-2 rounded border border-red-100">
-                                                    <span className="text-red-900 font-bold">{item.label}</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-red-600 font-mono font-bold">{item.value} pts</span>
-                                                        <button
-                                                            onClick={() => setPenaltyItems(penaltyItems.filter((_, idx) => idx !== i))}
-                                                            className="text-red-400 hover:text-red-600 cursor-pointer"
-                                                        >
-                                                            <X className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {penaltyItems.length === 0 && <div className="text-xs text-red-400 font-mono text-center py-2">{t('admin.tests.noPenalties')}</div>}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <input id="penalty-lbl" placeholder={t('admin.tests.penaltyPlaceholder')} className="flex-1 bg-white border border-red-200 text-k9-black text-xs p-2 rounded" />
-                                            <input id="penalty-pts" placeholder="Pts" type="number" step="0.5" defaultValue={-2.0} className="w-16 bg-white border border-red-200 text-red-600 text-xs p-2 rounded font-bold" />
-                                            <button
-                                                onClick={() => {
-                                                    const l = (document.getElementById('penalty-lbl') as HTMLInputElement).value;
-                                                    const v = parseFloat((document.getElementById('penalty-pts') as HTMLInputElement).value);
-                                                    if (l && !isNaN(v)) {
-                                                        setPenaltyItems([...penaltyItems, { id: `penalty-${Date.now()}`, label: l, value: v }]);
-                                                        (document.getElementById('penalty-lbl') as HTMLInputElement).value = '';
-                                                        (document.getElementById('penalty-pts') as HTMLInputElement).value = '-2.0';
-                                                    }
-                                                }}
-                                                className="bg-red-100 text-red-700 px-3 rounded text-xs uppercase font-black cursor-pointer hover:bg-red-200 transition-colors"
-                                            >Add</button>
-                                        </div>
-                                    </div>
-
-                                    {genMsg && <div className="text-red-400 text-xs font-mono mb-4">{genMsg}</div>}
-
-                                    <div className="flex gap-4">
-                                        <button onClick={() => { setShowAddTest(false); setEditingTestId(null); }} className="flex-1 px-6 py-3 text-sm font-bold uppercase tracking-wider rounded-lg border-2 bg-gray-800 text-gray-300 border-gray-700 transition-all">{t('admin.tests.cancel')}</button>
-                                        <button
-                                            onClick={saveTest}
-                                            disabled={!templateTitle || !selectedModality || scoreItems.length === 0}
-                                            className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 bg-white text-black border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                        >
-                                            {editingTestId ? t('admin.tests.update') : t('admin.tests.save')}
-                                        </button>
-                                    </div>
-                                </div>
-                            </Modal>
-                        </div>
-                    )}
+                                </Modal>
+                            </div>
+                        );
+                    })()}
 
                     {activeTab === 'judges' && (
                         <div>
@@ -1569,7 +1625,7 @@ export default function RoomDetailsPage() {
                         </div>
                     </Modal>
                 </div>
-            </div>
+            </div >
             <DateToast errors={dateErrors} onClose={(key) => setDateErrors(prev => ({ ...prev, [key]: '' }))} />
         </>
     );

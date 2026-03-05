@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import RoomSelect from '@/components/RoomSelect';
-import { Room, TestTemplate, Modality, INITIAL_MODALITIES, ModalityConfig } from '@/types/schema';
+import { Room, TestTemplate, Modality, INITIAL_MODALITIES, ModalityConfig, Competitor } from '@/types/schema';
 import { getModalities } from '@/services/adminService';
 import { Trophy, Medal, Crown, ListFilter, Target, Flame, Calendar } from 'lucide-react';
 import { LeaderboardEntry, subscribeToLeaderboard } from '@/services/rankingService';
 import RoomCountdown from '@/components/RoomCountdown';
 import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
+import JudgeScoresModal from '@/components/JudgeScoresModal';
 import '@/i18n/config';
 
 export default function Home() {
@@ -24,6 +25,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [authRole, setAuthRole] = useState<string | null>(null);
   const [hasLoggedInBefore, setHasLoggedInBefore] = useState(false);
+  const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -170,6 +172,7 @@ export default function Home() {
     const modalityTestIds = modalityTests.map(t => t.id);
 
     return leaderboard
+      .filter(entry => entry.modality === selectedModality)
       .map(entry => {
         let score = 0;
         let count = 0;
@@ -193,15 +196,23 @@ export default function Home() {
 
         return { ...entry, currentScore: score, currentCount: count, isNC: hasNC };
       })
-      .filter(e => e.currentCount > 0)
       .sort((a, b) => {
+        // Competidores sem avaliação vão para o final
+        const aHasEval = a.currentCount > 0;
+        const bHasEval = b.currentCount > 0;
+        if (aHasEval && !bHasEval) return -1;
+        if (!aHasEval && bHasEval) return 1;
+
+        // Entre os que têm avaliação, ordena por score desc; empate: alfabético
         if (b.currentScore !== a.currentScore) return b.currentScore - a.currentScore;
         return a.handlerName.localeCompare(b.handlerName);
       });
   };
 
   const filteredData = getFilteredLeaderboard();
-  const modalityTests = tests.filter(t => t.modality === selectedModality);
+  const modalityTests = tests
+    .filter(t => t.modality === selectedModality)
+    .sort((a, b) => (a.testNumber ?? 999) - (b.testNumber ?? 999));
 
   return (
     <div className="min-h-screen bg-white text-k9-black font-sans">
@@ -220,14 +231,14 @@ export default function Home() {
 
           <div className="w-full md:w-auto mx-auto md:mx-0 flex flex-col md:flex-row items-center gap-4">
             {authRole ? (
-              <Link 
+              <Link
                 href={authRole === 'admin' ? '/admin' : '/judge'}
                 className="px-4 py-2.5 bg-k9-black text-white text-[10px] md:text-xs font-black uppercase tracking-wider rounded-lg border-2 border-k9-black hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap"
               >
                 {authRole === 'admin' ? t('home.returnAdmin', 'VOLTAR PARA ADMIN') : t('home.returnJudge', 'VOLTAR À AVALIAÇÃO')}
               </Link>
             ) : hasLoggedInBefore ? (
-              <Link 
+              <Link
                 href="/secret-access"
                 className="px-4 py-2.5 bg-k9-black text-white text-[10px] md:text-xs font-black uppercase tracking-wider rounded-lg border-2 border-k9-black hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap"
               >
@@ -354,7 +365,12 @@ export default function Home() {
                 )}
 
                 {filteredData.map((entry, index) => (
-                  <tr key={entry.id} className={`hover:bg-orange-50/50 transition-colors group ${index < 3 ? 'bg-orange-50/10' : ''}`}>
+                  <tr
+                    key={entry.id}
+                    className={`hover:bg-orange-50 transition-colors group cursor-pointer ${index < 3 ? 'bg-orange-50/10' : ''}`}
+                    onClick={() => setSelectedCompetitor(entry)}
+                    title={entry.handlerName}
+                  >
                     <td className="p-4 md:p-5 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <div className={`font-black text-xl md:text-3xl ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-amber-700' : 'text-gray-300'} flex justify-center items-center relative`}>
@@ -412,6 +428,14 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* Modal de Notas dos Juízes */}
+      {selectedCompetitor && (
+        <JudgeScoresModal
+          competitor={selectedCompetitor}
+          onClose={() => setSelectedCompetitor(null)}
+        />
+      )}
     </div>
   );
 }
