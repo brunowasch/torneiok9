@@ -113,6 +113,8 @@ export default function RoomDetailsPage() {
     const [editRequests, setEditRequests] = useState<EditScoreRequest[]>([]);
     // Modal de configuração de reserva por competidor
     const [competitorReserveConfig, setCompetitorReserveConfig] = useState<Competitor | null>(null);
+    const [testModalityFilter, setTestModalityFilter] = useState<string>('');
+    const [rankingsModalityFilter, setRankingsModalityFilter] = useState<string>('');
 
     const loadRoomData = useCallback(async () => {
         try {
@@ -888,9 +890,36 @@ export default function RoomDetailsPage() {
                                     </button>
                                 </div>
 
+                                {/* Filtro por modalidade */}
+                                {sortedModalities.length > 1 && (
+                                    <div className="flex flex-wrap gap-2 mb-6">
+                                        <button
+                                            onClick={() => setTestModalityFilter('')}
+                                            className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${testModalityFilter === ''
+                                                ? 'bg-orange-400 text-white border-orange-400'
+                                                : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                                }`}
+                                        >
+                                            Todas
+                                        </button>
+                                        {sortedModalities.map(mod => (
+                                            <button
+                                                key={mod}
+                                                onClick={() => setTestModalityFilter(mod)}
+                                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${testModalityFilter === mod
+                                                    ? 'bg-orange-400 text-white border-orange-400'
+                                                    : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                                    }`}
+                                            >
+                                                {mod} <span className="opacity-60">({testsByModality[mod].length})</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
                                 <DragDropContext onDragEnd={handleDragEnd}>
                                     <div className="space-y-8">
-                                        {sortedModalities.map(mod => (
+                                        {sortedModalities.filter(mod => !testModalityFilter || mod === testModalityFilter).map(mod => (
                                             <div key={mod}>
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <div className="w-1 h-5 bg-orange-400 rounded-full" />
@@ -1375,173 +1404,221 @@ export default function RoomDetailsPage() {
                     {activeTab === 'rankings' && (
                         <div className="space-y-12">
 
-                            {tests.sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0)).map(test => {
-                                const testCompetitors = competitors.filter(c => c.modality === test.modality);
-                                const judgeReserves = room?.judgeReserves || [];
-                                const reserveActivations = room?.reserveActivations || [];
-
-                                return (
-                                    <div key={test.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                                        <div className="bg-gray-900 p-4 flex justify-between items-center">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-orange-400 flex items-center justify-center text-white font-black text-xs">
-                                                    {test.testNumber?.toString().padStart(2, '0')}
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-sm font-black text-white uppercase tracking-tight">{test.title}</h3>
-                                                    <div className="text-[10px] text-orange-400 font-bold uppercase">{test.modality}</div>
-                                                </div>
-                                            </div>
-                                            <div className="text-[10px] text-gray-400 font-bold uppercase">
-                                                {t('admin.rankings.total')}: {testCompetitors.length}
-                                            </div>
-                                        </div>
-
-                                        <div className="divide-y divide-gray-50">
-                                            {testCompetitors.map(comp => {
-                                                const titularEvals = evaluations.filter(e => {
-                                                    if (e.testId !== test.id || e.competitorId !== comp.id) return false;
-                                                    // Reserva específica para este competidor
-                                                    const compReserves = room?.judgeCompetitorReserves?.[comp.id] || [];
-                                                    if (compReserves.includes(e.judgeId)) return false;
-                                                    // Reserva por modalidade
-                                                    const judgeReserveMods = room?.judgeReserveModalities?.[e.judgeId] || [];
-                                                    if (test.modality && judgeReserveMods.length > 0) {
-                                                        return !judgeReserveMods.includes(test.modality);
-                                                    }
-                                                    return !(room?.judgeReserves || []).includes(e.judgeId);
-                                                });
-                                                const titularCount = titularEvals.length;
-                                                const needsReserve = titularCount < 3;
-
-                                                const isActivated = (room?.reserveActivations || []).some(
-                                                    a => a.competitorId === comp.id && a.testId === test.id
-                                                );
-
-                                                const evaluation = evaluations.find(e => e.testId === test.id && e.competitorId === comp.id);
-                                                const isDNS = evaluation?.status === 'did_not_participate';
-
-                                                return (
-                                                    <div key={comp.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50/50 transition-colors">
-                                                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-400 text-xs overflow-hidden border border-gray-100 shadow-inner shrink-0">
-                                                                {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
-                                                            </div>
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="text-sm font-black text-k9-black uppercase truncate">{comp.handlerName}</div>
-                                                                <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.rankings.dog')}: {comp.dogName}</div>
-
-                                                                {/* Indicador de juízes titulares */}
-                                                                <div className="flex items-center gap-2 mt-1.5 overflow-x-auto no-scrollbar">
-                                                                    <div className="flex gap-1 shrink-0">
-                                                                        {[1, 2, 3].map(i => (
-                                                                            <div
-                                                                                key={i}
-                                                                                className={`w-3.5 h-3.5 rounded-full border-2 transition-colors ${i <= titularCount
-                                                                                    ? 'bg-orange-400 border-orange-500'
-                                                                                    : 'bg-gray-100 border-gray-300'
-                                                                                    }`}
-                                                                                title={`Juiz titular ${i}`}
-                                                                            />
-                                                                        ))}
-                                                                    </div>
-                                                                    <span className={`text-[9px] font-black uppercase whitespace-nowrap ${titularCount >= 3 ? 'text-green-600' : 'text-gray-400'
-                                                                        }`}>
-                                                                        {titularCount}/3 {t('admin.rankings.titulars')}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t border-gray-50 sm:border-0 w-full sm:w-auto shrink-0">
-                                                            {/* Botão Configurar Reserva por Competidor */}
-                                                            {(room?.judges && room.judges.length > 0) && (
-                                                                <button
-                                                                    onClick={() => setCompetitorReserveConfig(comp)}
-                                                                    className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 cursor-pointer"
-                                                                    title="Configurar Juiz Reserva para este competidor"
-                                                                >
-                                                                    <Gavel className="w-3 h-3" />
-                                                                    Reserva
-                                                                </button>
-                                                            )}
-
-                                                            {/* Botão Acionar / Desacionar Reserva */}
-                                                            {needsReserve && !isDNS && (
-                                                                <button
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            if (isActivated) {
-                                                                                await deactivateReserve(roomId, comp.id, test.id);
-                                                                            } else {
-                                                                                await activateReserve(roomId, comp.id, test.id, user?.uid || 'admin');
-                                                                            }
-                                                                        } catch (err) {
-                                                                            console.error(err);
-                                                                            alert('Erro ao acionar/desacionar o reserva.');
-                                                                        }
-                                                                    }}
-                                                                    className={`flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all ${isActivated
-                                                                        ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 shadow-sm'
-                                                                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
-                                                                        }`}
-                                                                    title={isActivated ? 'Clique para desacionar o reserva' : 'Acionar Juiz Reserva'}
-                                                                >
-                                                                    {isActivated ? (
-                                                                        <>
-                                                                            <BellOff className="w-3 h-3" />
-                                                                            {t('admin.rankings.activated') || 'Acionado'}
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Bell className="w-3 h-3" />
-                                                                            {t('admin.rankings.activateReserve') || 'Acionar Reserva'}
-                                                                        </>
-                                                                    )}
-                                                                </button>
-                                                            )}
-
-                                                            {evaluation ? (
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className={`text-right ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
-                                                                        <div className="text-xs font-black uppercase leading-none">{isDNS ? 'NC' : evaluation.finalScore.toFixed(1)}</div>
-                                                                        <div className="text-[8px] font-bold uppercase opacity-60">{t('admin.rankings.status')}</div>
-                                                                    </div>
-                                                                    <button
-                                                                        onClick={() => setEvalToDelete({
-                                                                            id: evaluation.id,
-                                                                            name: comp.handlerName,
-                                                                            testTitle: test.title,
-                                                                            isNC: isDNS,
-                                                                            photoUrl: comp.photoUrl
-                                                                        })}
-                                                                        className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                                                        title="Remover"
-                                                                    >
-                                                                        <Trash2 className="w-4 h-4" />
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => setCompToMarkNC({ test, comp })}
-                                                                    className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-600 text-[10px] font-black uppercase rounded-lg border border-gray-200 hover:border-red-100 transition-all flex items-center gap-2"
-                                                                >
-                                                                    <AlertCircle className="w-3.5 h-3.5" /> {t('admin.rankings.markAbsence')}
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                            {testCompetitors.length === 0 && (
-                                                <div className="p-8 text-center text-gray-300 text-[10px] font-bold uppercase italic">
-                                                    {t('admin.rankings.noCompetitors')}
-                                                </div>
-                                            )}
-                                        </div>
+                            {/* Filtro por modalidade */}
+                            {(() => {
+                                const rankingModalities = [...new Set(tests.map(t => t.modality).filter(Boolean))] as string[];
+                                return rankingModalities.length > 1 && (
+                                    <div className="flex flex-wrap gap-2 mb-6">
+                                        <button
+                                            onClick={() => setRankingsModalityFilter('')}
+                                            className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${rankingsModalityFilter === ''
+                                                    ? 'bg-orange-400 text-white border-orange-400'
+                                                    : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                                }`}
+                                        >
+                                            Todas
+                                        </button>
+                                        {rankingModalities.map(mod => (
+                                            <button
+                                                key={mod}
+                                                onClick={() => setRankingsModalityFilter(mod)}
+                                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${rankingsModalityFilter === mod
+                                                        ? 'bg-orange-400 text-white border-orange-400'
+                                                        : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                                    }`}
+                                            >
+                                                {mod} <span className="opacity-60">({tests.filter(t => t.modality === mod).length})</span>
+                                            </button>
+                                        ))}
                                     </div>
                                 );
-                            })}
+                            })()}
+
+                            {tests
+                                .filter(test => !rankingsModalityFilter || test.modality === rankingsModalityFilter)
+                                .sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0)).map(test => {
+                                    const testCompetitors = competitors.filter(c => c.modality === test.modality);
+                                    const judgeReserves = room?.judgeReserves || [];
+                                    const reserveActivations = room?.reserveActivations || [];
+
+                                    return (
+                                        <div key={test.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                                            <div className="bg-gray-900 p-4 flex justify-between items-center">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-orange-400 flex items-center justify-center text-white font-black text-xs">
+                                                        {test.testNumber?.toString().padStart(2, '0')}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-sm font-black text-white uppercase tracking-tight">{test.title}</h3>
+                                                        <div className="text-[10px] text-orange-400 font-bold uppercase">{test.modality}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-[10px] text-gray-400 font-bold uppercase">
+                                                    {t('admin.rankings.total')}: {testCompetitors.length}
+                                                </div>
+                                            </div>
+
+                                            <div className="divide-y divide-gray-50">
+                                                {testCompetitors.map(comp => {
+                                                    const titularEvals = evaluations.filter(e => {
+                                                        if (e.testId !== test.id || e.competitorId !== comp.id) return false;
+                                                        // Reserva específica para este competidor
+                                                        const compReserves = room?.judgeCompetitorReserves?.[comp.id] || [];
+                                                        if (compReserves.includes(e.judgeId)) return false;
+                                                        // Reserva por modalidade
+                                                        const judgeReserveMods = room?.judgeReserveModalities?.[e.judgeId] || [];
+                                                        if (test.modality && judgeReserveMods.length > 0) {
+                                                            return !judgeReserveMods.includes(test.modality);
+                                                        }
+                                                        return !(room?.judgeReserves || []).includes(e.judgeId);
+                                                    });
+                                                    const titularCount = titularEvals.length;
+                                                    const needsReserve = titularCount < 3;
+
+                                                    const isActivated = (room?.reserveActivations || []).some(
+                                                        a => a.competitorId === comp.id && a.testId === test.id
+                                                    );
+
+                                                    const allCompEvals = evaluations.filter(e => e.testId === test.id && e.competitorId === comp.id);
+                                                    const evaluation = allCompEvals[0];
+                                                    const isDNS = allCompEvals.some(e => e.status === 'did_not_participate');
+
+                                                    const isRes = (judgeId: string) => {
+                                                        const compReserves = room?.judgeCompetitorReserves?.[comp.id] || [];
+                                                        if (compReserves.includes(judgeId)) return true;
+                                                        const mods = room?.judgeReserveModalities?.[judgeId] || [];
+                                                        if (mods.length > 0) return mods.includes(test.modality || '');
+                                                        return (room?.judgeReserves || []).includes(judgeId);
+                                                    };
+                                                    const validEvals = allCompEvals.filter(e => e.status !== 'did_not_participate');
+                                                    const titularsForAvg = validEvals.filter(e => !isRes(e.judgeId)).slice(0, 3);
+                                                    const reservesForAvg = validEvals.filter(e => isRes(e.judgeId)).slice(0, Math.max(0, 3 - titularsForAvg.length));
+                                                    const evalsToAvg = titularsForAvg.length > 0 ? [...titularsForAvg, ...reservesForAvg] : reservesForAvg.slice(0, 3);
+                                                    const calculatedAvg = evalsToAvg.length > 0
+                                                        ? evalsToAvg.reduce((s, e) => s + e.finalScore, 0) / evalsToAvg.length
+                                                        : null;
+
+                                                    return (
+                                                        <div key={comp.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50/50 transition-colors">
+                                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-400 text-xs overflow-hidden border border-gray-100 shadow-inner shrink-0">
+                                                                    {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="text-sm font-black text-k9-black uppercase truncate">{comp.handlerName}</div>
+                                                                    <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.rankings.dog')}: {comp.dogName}</div>
+
+                                                                    {/* Indicador de juízes titulares */}
+                                                                    <div className="flex items-center gap-2 mt-1.5 overflow-x-auto no-scrollbar">
+                                                                        <div className="flex gap-1 shrink-0">
+                                                                            {[1, 2, 3].map(i => (
+                                                                                <div
+                                                                                    key={i}
+                                                                                    className={`w-3.5 h-3.5 rounded-full border-2 transition-colors ${i <= titularCount
+                                                                                        ? 'bg-orange-400 border-orange-500'
+                                                                                        : 'bg-gray-100 border-gray-300'
+                                                                                        }`}
+                                                                                    title={`Juiz titular ${i}`}
+                                                                                />
+                                                                            ))}
+                                                                        </div>
+                                                                        <span className={`text-[9px] font-black uppercase whitespace-nowrap ${titularCount >= 3 ? 'text-green-600' : 'text-gray-400'
+                                                                            }`}>
+                                                                            {titularCount}/3 {t('admin.rankings.titulars')}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t border-gray-50 sm:border-0 w-full sm:w-auto shrink-0">
+                                                                {/* Botão Configurar Reserva por Competidor */}
+                                                                {(room?.judges && room.judges.length > 0) && (
+                                                                    <button
+                                                                        onClick={() => setCompetitorReserveConfig(comp)}
+                                                                        className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 cursor-pointer"
+                                                                        title="Configurar Juiz Reserva para este competidor"
+                                                                    >
+                                                                        <Gavel className="w-3 h-3" />
+                                                                        Reserva
+                                                                    </button>
+                                                                )}
+
+                                                                {/* Botão Acionar / Desacionar Reserva */}
+                                                                {needsReserve && !isDNS && (
+                                                                    <button
+                                                                        onClick={async () => {
+                                                                            try {
+                                                                                if (isActivated) {
+                                                                                    await deactivateReserve(roomId, comp.id, test.id);
+                                                                                } else {
+                                                                                    await activateReserve(roomId, comp.id, test.id, user?.uid || 'admin');
+                                                                                }
+                                                                            } catch (err) {
+                                                                                console.error(err);
+                                                                                alert('Erro ao acionar/desacionar o reserva.');
+                                                                            }
+                                                                        }}
+                                                                        className={`flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all ${isActivated
+                                                                            ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 shadow-sm'
+                                                                            : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
+                                                                            }`}
+                                                                        title={isActivated ? 'Clique para desacionar o reserva' : 'Acionar Juiz Reserva'}
+                                                                    >
+                                                                        {isActivated ? (
+                                                                            <>
+                                                                                <BellOff className="w-3 h-3" />
+                                                                                {t('admin.rankings.activated') || 'Acionado'}
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Bell className="w-3 h-3" />
+                                                                                {t('admin.rankings.activateReserve') || 'Acionar Reserva'}
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                )}
+
+                                                                {(allCompEvals.length > 0) ? (
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className={`text-right ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
+                                                                            <div className="text-xs font-black uppercase leading-none">{isDNS ? 'NC' : calculatedAvg !== null ? calculatedAvg.toFixed(1) : '--'}</div>
+                                                                            <div className="text-[8px] font-bold uppercase opacity-60">{t('admin.rankings.status')}</div>
+                                                                        </div>
+                                                                        <button
+                                                                            onClick={() => setEvalToDelete({
+                                                                                id: allCompEvals[0]?.id || '',
+                                                                                name: comp.handlerName,
+                                                                                testTitle: test.title,
+                                                                                isNC: isDNS,
+                                                                                photoUrl: comp.photoUrl
+                                                                            })}
+                                                                            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                                                            title="Remover"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => setCompToMarkNC({ test, comp })}
+                                                                        className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-600 text-[10px] font-black uppercase rounded-lg border border-gray-200 hover:border-red-100 transition-all flex items-center gap-2"
+                                                                    >
+                                                                        <AlertCircle className="w-3.5 h-3.5" /> {t('admin.rankings.markAbsence')}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                                {testCompetitors.length === 0 && (
+                                                    <div className="p-8 text-center text-gray-300 text-[10px] font-bold uppercase italic">
+                                                        {t('admin.rankings.noCompetitors')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                         </div>
                     )}
 
@@ -1587,7 +1664,7 @@ export default function RoomDetailsPage() {
                                             {judgesAvailable.map(judge => {
                                                 const isSelected = currentReserves.includes(judge.uid);
                                                 return (
-                                                    <label key={judge.uid} className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-purple-50 border border-gray-200 hover:border-purple-200 rounded-xl cursor-pointer transition-all group">
+                                                    <label key={judge.uid} className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-orange-400 border border-gray-200 hover:border-orange-400 rounded-xl cursor-pointer transition-all group">
                                                         <input
                                                             type="checkbox"
                                                             checked={isSelected}

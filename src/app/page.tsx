@@ -10,7 +10,6 @@ import { LeaderboardEntry, subscribeToLeaderboard } from '@/services/rankingServ
 import RoomCountdown from '@/components/RoomCountdown';
 import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
-import JudgeScoresModal from '@/components/JudgeScoresModal';
 import '@/i18n/config';
 
 export default function Home() {
@@ -25,7 +24,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [authRole, setAuthRole] = useState<string | null>(null);
   const [hasLoggedInBefore, setHasLoggedInBefore] = useState(false);
-  const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -180,17 +178,19 @@ export default function Home() {
 
         if (selectedTestId === 'geral') {
           modalityTestIds.forEach(tId => {
-            if (entry.scoresByTest[tId] !== undefined) {
+            if (entry.scoresByTest[tId] !== undefined && entry.scoresByTest[tId] > 0) {
               score += entry.scoresByTest[tId];
               count++;
             }
           });
         } else {
-          if (entry.scoresByTest[selectedTestId] !== undefined) {
+          const ev = entry.evaluations.find(e => e.testId === selectedTestId);
+          if (ev?.status === 'did_not_participate') {
+            hasNC = true;
+            count = 1;
+          } else if (entry.scoresByTest[selectedTestId] !== undefined && entry.scoresByTest[selectedTestId] > 0) {
             score = entry.scoresByTest[selectedTestId];
             count = 1;
-            const ev = entry.evaluations.find(e => e.testId === selectedTestId);
-            if (ev?.status === 'did_not_participate') hasNC = true;
           }
         }
 
@@ -367,8 +367,7 @@ export default function Home() {
                 {filteredData.map((entry, index) => (
                   <tr
                     key={entry.id}
-                    className={`hover:bg-orange-50 transition-colors group cursor-pointer ${index < 3 ? 'bg-orange-50/10' : ''}`}
-                    onClick={() => setSelectedCompetitor(entry)}
+                    className={`transition-colors group ${index < 3 ? 'bg-orange-50/10' : ''}`}
                     title={entry.handlerName}
                   >
                     <td className="p-4 md:p-5 text-center">
@@ -429,13 +428,6 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Modal de Notas dos Juízes */}
-      {selectedCompetitor && (
-        <JudgeScoresModal
-          competitor={selectedCompetitor}
-          onClose={() => setSelectedCompetitor(null)}
-        />
-      )}
     </div>
   );
 }

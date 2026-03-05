@@ -78,11 +78,11 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
                         evalsToAverage = reserveEvals.slice(0, 3);
                     }
 
-                    if (evalsToAverage.length > 0) {
-                        const avg = evalsToAverage.reduce((sum, e) => sum + e.finalScore, 0) / evalsToAverage.length;
+                    if (evalsToAverage.length >= 3) {
+                        const avg = evalsToAverage.slice(0, 3).reduce((sum, e) => sum + e.finalScore, 0) / 3;
                         scoresByTest[testId] = avg;
                     } else {
-                        scoresByTest[testId] = 0;
+                        scoresByTest[testId] = 0; // Menos de 3 avaliações: não contabiliza ainda
                     }
                 }
                 totalScore += scoresByTest[testId];
