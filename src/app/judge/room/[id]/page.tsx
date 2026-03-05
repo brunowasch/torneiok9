@@ -468,12 +468,12 @@ export default function JudgeRoomPage() {
                     {/* Competitor Card */}
                     <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
                         <div className="w-16 h-16 rounded-xl flex items-center justify-center text-xl font-black shrink-0 shadow-sm overflow-hidden bg-orange-50 text-orange-600 border-2 border-orange-100 group-hover:border-k9-orange transition-colors">
-                        {selectedCompetitor.photoUrl ? (
-                            <img src={selectedCompetitor.photoUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <span>{selectedCompetitor.handlerName.substring(0, 2).toUpperCase()}</span>
-                        )}
-                    </div>
+                            {selectedCompetitor.photoUrl ? (
+                                <img src={selectedCompetitor.photoUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <span>{selectedCompetitor.handlerName.substring(0, 2).toUpperCase()}</span>
+                            )}
+                        </div>
                         <div className="min-w-0 flex-1">
                             <h1 className="font-black text-lg md:text-xl uppercase text-k9-black leading-tight truncate">{selectedCompetitor.handlerName}</h1>
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] md:text-xs font-bold text-gray-400 uppercase mt-1">
@@ -494,10 +494,13 @@ export default function JudgeRoomPage() {
                             <div className="p-5 space-y-8">
                                 {group.items.map(item => (
                                     <div key={item.id} className="min-w-0">
-                                        <div className="flex justify-between items-start gap-3 mb-3">
+                                        <div className="flex justify-between items-start gap-3 mb-1">
                                             <label className="text-sm font-bold text-k9-black break-words flex-1">{item.label}</label>
                                             <span className="text-[10px] font-mono font-bold text-k9-orange bg-orange-50 px-2 py-1 rounded border border-orange-100 whitespace-nowrap shrink-0">Max: {item.maxPoints}</span>
                                         </div>
+                                        {item.description && (
+                                            <p className="text-gray-400 text-[11px] mb-3 leading-relaxed">{item.description}</p>
+                                        )}
 
                                         <div className="flex items-center gap-4">
                                             <input

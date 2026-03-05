@@ -240,9 +240,14 @@ export default function TestsPage() {
                                                                 <div className="font-bold text-k9-black mb-2 border-b border-gray-300 pb-1 text-xs uppercase tracking-wider">{group.name}</div>
                                                                 <ul className="space-y-1">
                                                                     {group.items.map(item => (
-                                                                        <li key={item.id} className="flex justify-between text-gray-600 text-xs">
-                                                                            <span>• {item.label}</span>
-                                                                            <span className="text-gray-800 font-mono font-bold">{item.maxPoints} {t('competitorsPage.pts')}</span>
+                                                                        <li key={item.id} className="text-gray-600 text-xs">
+                                                                            <div className="flex justify-between">
+                                                                                <span>• {item.label}</span>
+                                                                                <span className="text-gray-800 font-mono font-bold ml-2 shrink-0">{item.maxPoints} {t('competitorsPage.pts')}</span>
+                                                                            </div>
+                                                                            {item.description && (
+                                                                                <p className="text-gray-400 text-[10px] mt-0.5 pl-3 leading-relaxed">{item.description}</p>
+                                                                            )}
                                                                         </li>
                                                                     ))}
                                                                 </ul>
