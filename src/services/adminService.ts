@@ -138,7 +138,7 @@ export const removeJudgeFromRoom = async (roomId: string, judgeUid: string) => {
     const roomRef = doc(db, 'rooms', roomId);
     await updateDoc(roomRef, {
       judges: arrayRemove(judgeUid),
-      judgeReserves: arrayRemove(judgeUid) 
+      judgeReserves: arrayRemove(judgeUid)
     });
   } catch (error) {
     console.error("Error removing judge from room: ", error);
@@ -169,6 +169,28 @@ export const setJudgeReserveModalities = async (
     });
   } catch (error) {
     console.error('Error setting judge reserve modalities: ', error);
+    throw error;
+  }
+};
+
+export const setJudgeCompetitorReserves = async (
+  roomId: string,
+  competitorId: string,
+  judgeIds: string[]
+): Promise<void> => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+    if (!roomSnap.exists()) return;
+    const current: Record<string, string[]> = roomSnap.data().judgeCompetitorReserves || {};
+    await updateDoc(roomRef, {
+      judgeCompetitorReserves: {
+        ...current,
+        [competitorId]: judgeIds
+      }
+    });
+  } catch (error) {
+    console.error('Error setting judge competitor reserves: ', error);
     throw error;
   }
 };

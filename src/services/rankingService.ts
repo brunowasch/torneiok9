@@ -18,12 +18,14 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
         const { doc: docFn, getDoc } = await import('firebase/firestore');
         let judgeReserves: string[] = [];
         let judgeReserveModalities: Record<string, string[]> = {};
+        let judgeCompetitorReserves: Record<string, string[]> = {};
         try {
             const roomSnap = await getDoc(docFn(db, 'rooms', roomId));
             if (roomSnap.exists()) {
                 const data = roomSnap.data();
                 judgeReserves = data.judgeReserves || [];
                 judgeReserveModalities = data.judgeReserveModalities || {};
+                judgeCompetitorReserves = data.judgeCompetitorReserves || {};
             }
         } catch { }
 
@@ -48,18 +50,20 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
                 if (ncEval) {
                     scoresByTest[testId] = 0;
                 } else {
-                    const isRes = (judgeId: string) => {
+                    const isRes = (judgeId: string, competitorId: string) => {
+                        const compReserves = judgeCompetitorReserves[competitorId] || [];
+                        if (compReserves.includes(judgeId)) return true;
                         const mods = judgeReserveModalities[judgeId] || [];
                         if (mods.length > 0) return mods.includes(comp.modality);
                         return judgeReserves.includes(judgeId);
                     };
 
                     const titularEvals = testEvals
-                        .filter(e => !isRes(e.judgeId))
+                        .filter(e => !isRes(e.judgeId, comp.id))
                         .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
                     const reserveEvals = testEvals
-                        .filter(e => isRes(e.judgeId))
+                        .filter(e => isRes(e.judgeId, comp.id))
                         .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
                     let evalsToAverage: Evaluation[];

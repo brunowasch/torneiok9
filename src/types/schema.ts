@@ -34,13 +34,14 @@ export interface Room {
   judges: string[];
   judgeReserves?: string[];
   judgeReserveModalities?: Record<string, string[]>;
+  judgeCompetitorReserves?: Record<string, string[]>;
   reserveActivations?: ReserveActivation[];
   judgeAssignments?: Record<string, string[]>;
   judgeModalities?: Record<string, Modality[]>;
   createdAt: number;
-  startDate?: string; 
-  startTime?: string; 
-  endDate?: string;  
+  startDate?: string;
+  startTime?: string;
+  endDate?: string;
   endTime?: string;
 }
 
@@ -73,7 +74,7 @@ export interface ScoreGroup {
 export interface PenaltyOption {
   id: string;
   label: string;
-  value: number; 
+  value: number;
 }
 
 export interface TestTemplate {

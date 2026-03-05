@@ -5,7 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest } from '@/types/schema';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, activateReserve, deactivateReserve, updateRoom } from '@/services/adminService';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, setJudgeCompetitorReserves, activateReserve, deactivateReserve, updateRoom } from '@/services/adminService';
 import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
@@ -111,6 +111,8 @@ export default function RoomDetailsPage() {
 
     // Edit Score Requests
     const [editRequests, setEditRequests] = useState<EditScoreRequest[]>([]);
+    // Modal de configuração de reserva por competidor
+    const [competitorReserveConfig, setCompetitorReserveConfig] = useState<Competitor | null>(null);
 
     const loadRoomData = useCallback(async () => {
         try {
@@ -1216,6 +1218,28 @@ export default function RoomDetailsPage() {
                                                     Clique na modalidade para alternar Titular ↔ Reserva
                                                 </div>
                                             )}
+
+                                            {/* Competidores específicos desta reserva */}
+                                            {(() => {
+                                                const linkedComps = competitors.filter(c =>
+                                                    (room?.judgeCompetitorReserves?.[c.id] || []).includes(j.uid)
+                                                );
+                                                if (linkedComps.length === 0) return null;
+                                                return (
+                                                    <div className="mt-3 pt-3 border-t border-yellow-200">
+                                                        <div className="text-[8px] text-purple-600 font-black uppercase tracking-widest mb-1.5">
+                                                            Reserva específico de:
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {linkedComps.map(c => (
+                                                                <span key={c.id} className="text-[9px] font-black uppercase px-2 py-0.5 bg-purple-100 text-purple-700 border border-purple-200 rounded-full">
+                                                                    {c.handlerName}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     );
                                 })}
@@ -1377,6 +1401,10 @@ export default function RoomDetailsPage() {
                                             {testCompetitors.map(comp => {
                                                 const titularEvals = evaluations.filter(e => {
                                                     if (e.testId !== test.id || e.competitorId !== comp.id) return false;
+                                                    // Reserva específica para este competidor
+                                                    const compReserves = room?.judgeCompetitorReserves?.[comp.id] || [];
+                                                    if (compReserves.includes(e.judgeId)) return false;
+                                                    // Reserva por modalidade
                                                     const judgeReserveMods = room?.judgeReserveModalities?.[e.judgeId] || [];
                                                     if (test.modality && judgeReserveMods.length > 0) {
                                                         return !judgeReserveMods.includes(test.modality);
@@ -1426,6 +1454,18 @@ export default function RoomDetailsPage() {
                                                         </div>
 
                                                         <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t border-gray-50 sm:border-0 w-full sm:w-auto shrink-0">
+                                                            {/* Botão Configurar Reserva por Competidor */}
+                                                            {(room?.judges && room.judges.length > 0) && (
+                                                                <button
+                                                                    onClick={() => setCompetitorReserveConfig(comp)}
+                                                                    className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 cursor-pointer"
+                                                                    title="Configurar Juiz Reserva para este competidor"
+                                                                >
+                                                                    <Gavel className="w-3 h-3" />
+                                                                    Reserva
+                                                                </button>
+                                                            )}
+
                                                             {/* Botão Acionar / Desacionar Reserva */}
                                                             {needsReserve && !isDNS && (
                                                                 <button
@@ -1504,6 +1544,100 @@ export default function RoomDetailsPage() {
                             })}
                         </div>
                     )}
+
+
+
+                    {/* MODAL: Configurar reserva específica por competidor */}
+                    {competitorReserveConfig && (() => {
+                        const comp = competitorReserveConfig;
+                        // Todos os juízes da sala (qualquer um pode ser reserva de um competidor específico)
+                        const judgesAvailable = allJudges.filter(j => room?.judges?.includes(j.uid) ?? false);
+                        const currentReserves = room?.judgeCompetitorReserves?.[comp.id] || [];
+
+                        return (
+                            <div
+                                className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-md"
+                                onClick={(e) => { if (e.target === e.currentTarget) setCompetitorReserveConfig(null); }}
+                            >
+                                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border-2 border-purple-200">
+                                    {/* Header */}
+                                    <div className="bg-gradient-to-r from-purple-600 to-purple-800 p-5 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-black text-white text-sm border border-white/20 overflow-hidden">
+                                                {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] text-purple-200 font-black uppercase tracking-widest">Juiz Reserva Específico</div>
+                                                <div className="text-white font-black text-base uppercase tracking-tight leading-tight">{comp.handlerName}</div>
+                                                <div className="text-purple-200 text-[10px] font-bold uppercase">{comp.modality}</div>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setCompetitorReserveConfig(null)} className="text-white/60 hover:text-white p-1 rounded cursor-pointer">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    {/* Body */}
+                                    <div className="p-6">
+                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-4">
+                                            Juízes marcados abaixo <span className="text-red-600">não poderão avaliar</span> <span className="text-purple-700">{comp.handlerName}</span>. Os demais competidores da sala não serão afetados.
+                                        </p>
+
+                                        <div className="space-y-2 mb-6">
+                                            {judgesAvailable.map(judge => {
+                                                const isSelected = currentReserves.includes(judge.uid);
+                                                return (
+                                                    <label key={judge.uid} className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-purple-50 border border-gray-200 hover:border-purple-200 rounded-xl cursor-pointer transition-all group">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={async (e) => {
+                                                                const newReserves = e.target.checked
+                                                                    ? [...currentReserves, judge.uid]
+                                                                    : currentReserves.filter(id => id !== judge.uid);
+                                                                try {
+                                                                    await setJudgeCompetitorReserves(roomId, comp.id, newReserves);
+                                                                    loadRoomData();
+                                                                } catch (err) {
+                                                                    console.error(err);
+                                                                    alert('Erro ao salvar configuração de reserva.');
+                                                                }
+                                                            }}
+                                                            className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                                                        />
+                                                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-[10px] text-purple-700 font-black border border-purple-200 shrink-0">
+                                                            {judge.name.substring(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm font-black text-gray-800 uppercase truncate group-hover:text-purple-700 transition-colors">{judge.name}</div>
+                                                            <div className="text-[10px] text-gray-400 font-mono truncate">{judge.email}</div>
+                                                        </div>
+                                                        {isSelected && (
+                                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded-full shrink-0">
+                                                                Reserva
+                                                            </span>
+                                                        )}
+                                                    </label>
+                                                );
+                                            })}
+                                            {judgesAvailable.length === 0 && (
+                                                <div className="text-center py-8 text-gray-400 text-xs font-bold uppercase">
+                                                    Nenhum juiz cadastrado na sala.
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            onClick={() => setCompetitorReserveConfig(null)}
+                                            className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-black uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                                        >
+                                            Fechar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* Confirm Deletion Modal */}
                     {itemToDelete && (

@@ -145,12 +145,16 @@ export default function JudgeRoomPage() {
 
     /**
      * Verifica se o usuário logado é juiz reserva nesta sala.
-     * Aceita uma modalidade opcional: se fornecida, checa apenas se é reserva
-     * naquela modalidade específica. Sem modalidade, retorna true se for reserva
-     * em QUALQUER modalidade ou globalmente (legado).
+     * Aceita uma modalidade e competitorId opcionais para checar vínculos
+     * específicos por competidor.
      */
-    const isReserveJudge = (modality?: string): boolean => {
+    const isReserveJudge = (modality?: string, competitorId?: string): boolean => {
         if (!user || !room) return false;
+        // Verifica vínculo especifico por competidor
+        if (competitorId) {
+            const compReserves = room.judgeCompetitorReserves?.[competitorId] || [];
+            if (compReserves.includes(user.uid)) return true;
+        }
         const reserveModalities: string[] = room.judgeReserveModalities?.[user.uid] || [];
         if (modality) {
             // Verifica reserva nessa modalidade específica
@@ -163,13 +167,17 @@ export default function JudgeRoomPage() {
 
     /**
      * Retorna quantos juízes TITULARES (não-reserva) já avaliaram o competidor naquela prova.
-     * Titular = não é reserva naquela modalidade específica.
+     * Titular = não é reserva naquela modalidade específica, nem reserva especifico desse competidor.
      */
     const getTitularEvalCount = (competitorId: string, testId: string, modality?: string): number => {
         const reserves = room?.judgeReserves || [];
         const reserveModalitiesMap = room?.judgeReserveModalities || {};
+        const judgeCompetitorReserves = room?.judgeCompetitorReserves || {};
         return evaluations.filter(e => {
             if (e.competitorId !== competitorId || e.testId !== testId) return false;
+            // Reserva específica para este competidor
+            const compReserves = judgeCompetitorReserves[competitorId] || [];
+            if (compReserves.includes(e.judgeId)) return false;
             // Verifica se o juiz dessa avaliação é reserva na modalidade
             const judgeReserveMods = reserveModalitiesMap[e.judgeId] || [];
             if (modality && judgeReserveMods.length > 0) {
@@ -192,20 +200,20 @@ export default function JudgeRoomPage() {
      * Verifica se o admin acionou o reserva para um competidor/prova específico.
      */
     const isAdminActivated = (competitorId: string, testId: string, modality?: string): boolean => {
-        if (!isReserveJudge(modality)) return false;
+        if (!isReserveJudge(modality, competitorId)) return false;
         return (room?.reserveActivations || []).some(
             a => a.competitorId === competitorId && a.testId === testId
         );
     };
 
     const isBlockedAsReserve = (competitorId: string, testId: string, modality?: string): boolean => {
-        if (!isReserveJudge(modality)) return false;
+        if (!isReserveJudge(modality, competitorId)) return false;
         if (!isAdminActivated(competitorId, testId, modality)) return true;
         return getTitularEvalCount(competitorId, testId, modality) >= 3;
     };
 
     const getBlockReason = (competitorId: string, testId: string, modality?: string): 'not_activated' | 'full' | null => {
-        if (!isReserveJudge(modality)) return null;
+        if (!isReserveJudge(modality, competitorId)) return null;
         if (!isAdminActivated(competitorId, testId, modality)) return 'not_activated';
         if (getTitularEvalCount(competitorId, testId, modality) >= 3) return 'full';
         return null;
@@ -751,7 +759,7 @@ export default function JudgeRoomPage() {
                     </div>
                 </div>
 
-                {/* Banner de Juiz Reserva */}
+                {/* Banner de Juiz Reserva - apenas para reservas globais/por modalidade */}
                 {isReserveJudge(selectedTestView?.modality) && (
                     <div className="bg-yellow-400 text-yellow-900 px-6 py-3 sticky top-0 z-20">
                         <div className="max-w-4xl mx-auto flex items-center gap-3">
@@ -921,6 +929,7 @@ export default function JudgeRoomPage() {
                             <div className="grid md:grid-cols-2 gap-4">
                                 {competitors
                                     .filter(c => c.modality === selectedTestView.modality)
+                                    .sort((a, b) => a.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').localeCompare(b.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, '')))
                                     .map(comp => {
                                         const isDone = isTestEvaluated(comp.id, selectedTestView.id);
                                         const titularCount = getTitularEvalCount(comp.id, selectedTestView.id, selectedTestView.modality);
@@ -960,13 +969,20 @@ export default function JudgeRoomPage() {
                                                         Você foi acionado! Avalie este competidor
                                                     </div>
                                                 )}
-                                                {blockReason === 'not_activated' && !isDone && (
+                                                {blockReason === 'not_activated' && !isDone && !((room?.judgeCompetitorReserves?.[comp.id] || []).includes(user?.uid || '')) && (
                                                     <div className="absolute top-0 left-0 right-0 bg-gray-200 text-gray-500 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
                                                         <LockIcon className="w-3 h-3" />
                                                         Aguardando acionamento do admin
                                                     </div>
                                                 )}
-                                                <div className={`p-5 flex items-start justify-between gap-6 h-full min-h-[140px] ${(isActivatedForMe || blockReason === 'not_activated') && !isDone ? 'pt-8 pl-5' : 'pl-8'}`}>
+                                                {/* Aviso minimalista: juiz é reserva específico deste competidor */}
+                                                {!isDone && (room?.judgeCompetitorReserves?.[comp.id] || []).includes(user?.uid || '') && !isActivatedForMe && (
+                                                    <div className="absolute top-0 left-0 right-0 bg-purple-100 text-purple-700 text-[9px] font-black uppercase tracking-wider px-3 py-1 flex items-center gap-1.5 z-20">
+                                                        <LockIcon className="w-3 h-3" />
+                                                        Você é reserva desta pessoa
+                                                    </div>
+                                                )}
+                                                <div className={`p-5 flex items-start justify-between gap-6 h-full min-h-[140px] ${((isActivatedForMe || blockReason === 'not_activated' || (room?.judgeCompetitorReserves?.[comp.id] || []).includes(user?.uid || '')) && !isDone) ? 'pt-8 pl-5' : 'pl-8'}`}>
                                                     <div className="flex items-start gap-4 flex-1 min-w-0">
                                                         <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border shrink-0 relative z-10 ${isDone
                                                             ? 'bg-green-100 border-green-200 text-green-600'
