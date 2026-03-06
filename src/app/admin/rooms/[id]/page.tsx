@@ -115,6 +115,7 @@ export default function RoomDetailsPage() {
     const [competitorReserveConfig, setCompetitorReserveConfig] = useState<Competitor | null>(null);
     const [testModalityFilter, setTestModalityFilter] = useState<string>('');
     const [rankingsModalityFilter, setRankingsModalityFilter] = useState<string>('');
+    const [competitorsModalityFilter, setCompetitorsModalityFilter] = useState<string>('');
 
     const loadRoomData = useCallback(async () => {
         try {
@@ -650,6 +651,39 @@ export default function RoomDetailsPage() {
 
                     {activeTab === 'competitors' && (
                         <div>
+                            {/* Filtro por modalidade */}
+                            {(() => {
+                                const competitorModalities = [...new Set(competitors.map(c => c.modality).filter(Boolean))] as string[];
+                                return competitorModalities.length > 1 && (
+                                    <div className="flex flex-wrap gap-2 mb-6">
+                                        <button
+                                            onClick={() => setCompetitorsModalityFilter('')}
+                                            className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${competitorsModalityFilter === ''
+                                                ? 'bg-orange-400 text-white border-orange-400'
+                                                : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                                }`}
+                                        >
+                                            Todas
+                                        </button>
+                                        {competitorModalities.sort().map(mod => {
+                                            const count = competitors.filter(c => c.modality === mod).length;
+                                            return (
+                                                <button
+                                                    key={mod}
+                                                    onClick={() => setCompetitorsModalityFilter(mod)}
+                                                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${competitorsModalityFilter === mod
+                                                        ? 'bg-orange-400 text-white border-orange-400'
+                                                        : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                                        }`}
+                                                >
+                                                    {mod} <span className="opacity-60">({count})</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+
                             <div className="flex justify-end mb-6">
                                 <button
                                     onClick={() => {
@@ -665,57 +699,59 @@ export default function RoomDetailsPage() {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {competitors.map(comp => {
-                                    const testCount = tests.filter(t => t.modality === comp.modality).length;
+                                {competitors
+                                    .filter(c => !competitorsModalityFilter || c.modality === competitorsModalityFilter)
+                                    .map(comp => {
+                                        const testCount = tests.filter(t => t.modality === comp.modality).length;
 
-                                    return (
-                                        <div key={comp.id} className="bg-white border border-gray-100 p-4 sm:p-5 sm:pl-8 rounded-2xl hover:shadow-md transform md:hover:-translate-y-1 transition-all flex items-start justify-between gap-6 group min-h-[130px]">
-                                            <div className="flex items-start gap-4 flex-1 min-w-0">
-                                                <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border border-orange-100 shrink-0">
-                                                    {comp.photoUrl ? (
-                                                        <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <span className="text-sm">{comp.handlerName.substring(0, 2).toUpperCase()}</span>
-                                                    )}
-                                                </div>
-                                                <div className="flex-1 pt-0.5 min-w-0">
-                                                    <div className="font-black text-k9-black uppercase text-sm leading-tight truncate">{comp.handlerName}</div>
-                                                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{t('admin.competitors.handler')}</div>
-                                                    <div className="text-xs text-k9-orange font-mono uppercase mt-1 font-bold truncate">{t('admin.competitors.dog')}: {comp.dogName}</div>
-                                                    <div className="flex flex-col gap-1.5 mt-3">
-                                                        {modalities.includes(comp.modality) && (
-                                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-100 inline-block">
-                                                                {comp.modality}
-                                                            </span>
+                                        return (
+                                            <div key={comp.id} className="bg-white border border-gray-100 p-4 sm:p-5 sm:pl-8 rounded-2xl hover:shadow-md transform md:hover:-translate-y-1 transition-all flex items-start justify-between gap-6 group min-h-[130px]">
+                                                <div className="flex items-start gap-4 flex-1 min-w-0">
+                                                    <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center font-extrabold shadow-sm overflow-hidden border border-orange-100 shrink-0">
+                                                        {comp.photoUrl ? (
+                                                            <img src={comp.photoUrl} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <span className="text-sm">{comp.handlerName.substring(0, 2).toUpperCase()}</span>
                                                         )}
-                                                        <div className="flex items-center">
-                                                            <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded inline-block ${testCount > 0 ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-gray-50 text-gray-400 border border-gray-200'}`}>
-                                                                {testCount > 0 ? `${testCount} ${testCount === 1 ? t('admin.competitors.withTest') : t('admin.competitors.withTests')}` : t('admin.competitors.noTests')}
-                                                            </span>
+                                                    </div>
+                                                    <div className="flex-1 pt-0.5 min-w-0">
+                                                        <div className="font-black text-k9-black uppercase text-sm leading-tight truncate">{comp.handlerName}</div>
+                                                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{t('admin.competitors.handler')}</div>
+                                                        <div className="text-xs text-k9-orange font-mono uppercase mt-1 font-bold truncate">{t('admin.competitors.dog')}: {comp.dogName}</div>
+                                                        <div className="flex flex-col gap-1.5 mt-3">
+                                                            {modalities.includes(comp.modality) && (
+                                                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-100 inline-block">
+                                                                    {comp.modality}
+                                                                </span>
+                                                            )}
+                                                            <div className="flex items-center">
+                                                                <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded inline-block ${testCount > 0 ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-gray-50 text-gray-400 border border-gray-200'}`}>
+                                                                    {testCount > 0 ? `${testCount} ${testCount === 1 ? t('admin.competitors.withTest') : t('admin.competitors.withTests')}` : t('admin.competitors.noTests')}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
+                                                <div className="flex flex-col gap-2 pt-0.5 shrink-0">
+                                                    <button
+                                                        onClick={() => handleEditCompetitor(comp)}
+                                                        className="inline-flex items-center justify-center w-8 h-8 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors shadow-sm"
+                                                        title="Editar"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteCompetitor(comp.id, comp.handlerName)}
+                                                        className="inline-flex items-center justify-center w-8 h-8 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer shadow-sm"
+                                                        title="Remover Competidor"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col gap-2 pt-0.5 shrink-0">
-                                                <button
-                                                    onClick={() => handleEditCompetitor(comp)}
-                                                    className="inline-flex items-center justify-center w-8 h-8 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors shadow-sm"
-                                                    title="Editar"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteCompetitor(comp.id, comp.handlerName)}
-                                                    className="inline-flex items-center justify-center w-8 h-8 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer shadow-sm"
-                                                    title="Remover Competidor"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {competitors.length === 0 && <div className="text-gray-500 col-span-full text-center py-8">{t('admin.competitors.noCompetitors')}</div>}
+                                        );
+                                    })}
+                                {competitors.filter(c => !competitorsModalityFilter || c.modality === competitorsModalityFilter).length === 0 && <div className="text-gray-500 col-span-full text-center py-8">{t('admin.competitors.noCompetitors')}</div>}
                             </div>
 
                             <Modal
@@ -1412,8 +1448,8 @@ export default function RoomDetailsPage() {
                                         <button
                                             onClick={() => setRankingsModalityFilter('')}
                                             className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${rankingsModalityFilter === ''
-                                                    ? 'bg-orange-400 text-white border-orange-400'
-                                                    : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                                ? 'bg-orange-400 text-white border-orange-400'
+                                                : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
                                                 }`}
                                         >
                                             Todas
@@ -1423,8 +1459,8 @@ export default function RoomDetailsPage() {
                                                 key={mod}
                                                 onClick={() => setRankingsModalityFilter(mod)}
                                                 className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${rankingsModalityFilter === mod
-                                                        ? 'bg-orange-400 text-white border-orange-400'
-                                                        : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                                    ? 'bg-orange-400 text-white border-orange-400'
+                                                    : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
                                                     }`}
                                             >
                                                 {mod} <span className="opacity-60">({tests.filter(t => t.modality === mod).length})</span>
