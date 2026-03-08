@@ -14,6 +14,8 @@ export default function JudgeDashboard() {
     const router = useRouter();
     const { t } = useTranslation();
     const [rooms, setRooms] = useState<Room[]>([]);
+    const [searchRoom, setSearchRoom] = useState('');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [loading, setLoading] = useState(true);
     const [authDetermined, setAuthDetermined] = useState(false);
 
@@ -47,6 +49,13 @@ export default function JudgeDashboard() {
 
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">{t('judge.loading')}</div>;
 
+    const filteredRooms = rooms
+        .filter(room => room.name.toLowerCase().includes(searchRoom.toLowerCase()) || (room.description && room.description.toLowerCase().includes(searchRoom.toLowerCase())))
+        .sort((a, b) => {
+            const result = a.name.localeCompare(b.name);
+            return sortOrder === 'asc' ? result : -result;
+        });
+
     return (
         <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
             <div className="max-w-6xl mx-auto">
@@ -76,17 +85,38 @@ export default function JudgeDashboard() {
                     </div>
                 </header>
 
-                <h2 className="text-k9-black text-lg font-black uppercase mb-6 flex items-center gap-2 tracking-tight">
-                    <ShieldAlert className="w-5 h-5 text-k9-orange" /> {t('judge.assignedOps')}
-                </h2>
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between mb-6 gap-4">
+                    <h2 className="text-k9-black text-lg font-black uppercase flex items-center gap-2 tracking-tight">
+                        <ShieldAlert className="w-5 h-5 text-k9-orange" /> {t('judge.assignedOps')}
+                    </h2>
+                    
+                    <div className="flex flex-col md:flex-row items-stretch gap-3">
+                        <div className="relative w-full md:w-64">
+                            <input
+                                type="text"
+                                placeholder={t('judge.searchRooms', 'Buscar salas...')}
+                                value={searchRoom}
+                                onChange={e => setSearchRoom(e.target.value)}
+                                className="w-full bg-white border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-k9-black focus:border-k9-orange focus:ring-2 focus:ring-k9-orange/20 transition-all outline-none"
+                            />
+                        </div>
+                        <button
+                            onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                            className="bg-white border-2 border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors shrink-0"
+                            title="Alternar ordem de classificação"
+                        >
+                            {sortOrder === 'asc' ? 'A-Z ↓' : 'Z-A ↑'}
+                        </button>
+                    </div>
+                </div>
 
-                {rooms.length === 0 ? (
+                {filteredRooms.length === 0 ? (
                     <div className="p-8 border-2 border-dashed border-gray-300 rounded-xl text-center text-gray-600 bg-gray-50 font-semibold">
-                        {t('judge.noRooms')}
+                        {rooms.length === 0 ? t('judge.noRooms') : t('judge.noRoomsFound', 'Nenhuma sala encontrada.')}
                     </div>
                 ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {rooms.map(room => (
+                        {filteredRooms.map(room => (
                             <button
                                 key={room.id}
                                 onClick={() => router.push(`/judge/room/${room.id}`)}

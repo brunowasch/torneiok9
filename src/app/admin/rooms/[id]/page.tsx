@@ -45,7 +45,8 @@ import {
     Send,
     Calendar,
     Save,
-    GripVertical
+    GripVertical,
+    Search
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -116,6 +117,14 @@ export default function RoomDetailsPage() {
     const [testModalityFilter, setTestModalityFilter] = useState<string>('');
     const [rankingsModalityFilter, setRankingsModalityFilter] = useState<string>('');
     const [competitorsModalityFilter, setCompetitorsModalityFilter] = useState<string>('');
+
+    const [competitorsSortOrder, setCompetitorsSortOrder] = useState<'asc' | 'desc'>('asc');
+    const [judgesSortOrder, setJudgesSortOrder] = useState<'asc' | 'desc'>('asc');
+    const [rankingsSortOrder, setRankingsSortOrder] = useState<'asc' | 'desc'>('asc');
+
+    const [competitorsSearch, setCompetitorsSearch] = useState('');
+    const [judgesSearch, setJudgesSearch] = useState('');
+    const [rankingsSearch, setRankingsSearch] = useState('');
 
     const loadRoomData = useCallback(async () => {
         try {
@@ -684,7 +693,26 @@ export default function RoomDetailsPage() {
                                 );
                             })()}
 
-                            <div className="flex justify-end mb-6">
+                            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                                    <div className="relative flex-1 sm:min-w-[250px]">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Pesquisar..."
+                                            value={competitorsSearch}
+                                            onChange={e => setCompetitorsSearch(e.target.value)}
+                                            className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => setCompetitorsSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                        className="px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center justify-center gap-2 bg-white text-gray-600 border-gray-200 hover:bg-gray-50 active:scale-95 shrink-0"
+                                        title="Alternar ordem de classificação"
+                                    >
+                                        {competitorsSortOrder === 'asc' ? 'A-Z ↓' : 'Z-A ↑'}
+                                    </button>
+                                </div>
                                 <button
                                     onClick={() => {
                                         setEditingCompetitorId(null);
@@ -701,6 +729,8 @@ export default function RoomDetailsPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {competitors
                                     .filter(c => !competitorsModalityFilter || c.modality === competitorsModalityFilter)
+                                    .filter(c => c.handlerName.toLowerCase().includes(competitorsSearch.toLowerCase()) || c.dogName.toLowerCase().includes(competitorsSearch.toLowerCase()))
+                                    .sort((a, b) => competitorsSortOrder === 'asc' ? a.handlerName.localeCompare(b.handlerName) : b.handlerName.localeCompare(a.handlerName))
                                     .map(comp => {
                                         const testCount = tests.filter(t => t.modality === comp.modality).length;
 
@@ -751,7 +781,7 @@ export default function RoomDetailsPage() {
                                             </div>
                                         );
                                     })}
-                                {competitors.filter(c => !competitorsModalityFilter || c.modality === competitorsModalityFilter).length === 0 && <div className="text-gray-500 col-span-full text-center py-8">{t('admin.competitors.noCompetitors')}</div>}
+                                {competitors.filter(c => !competitorsModalityFilter || c.modality === competitorsModalityFilter).filter(c => c.handlerName.toLowerCase().includes(competitorsSearch.toLowerCase()) || c.dogName.toLowerCase().includes(competitorsSearch.toLowerCase())).length === 0 && <div className="text-gray-500 col-span-full text-center py-8">{t('admin.competitors.noCompetitors')}</div>}
                             </div>
 
                             <Modal
@@ -1196,7 +1226,26 @@ export default function RoomDetailsPage() {
 
                     {activeTab === 'judges' && (
                         <div>
-                            <div className="flex justify-end mb-6">
+                            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                                    <div className="relative flex-1 sm:min-w-[250px]">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Pesquisar..."
+                                            value={judgesSearch}
+                                            onChange={e => setJudgesSearch(e.target.value)}
+                                            className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => setJudgesSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                        className="px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center justify-center gap-2 bg-white text-gray-600 border-gray-200 hover:bg-gray-50 active:scale-95 shrink-0"
+                                        title="Alternar ordem de classificação"
+                                    >
+                                        {judgesSortOrder === 'asc' ? 'A-Z ↓' : 'Z-A ↑'}
+                                    </button>
+                                </div>
                                 <button
                                     onClick={() => {
                                         setEditingJudge(null);
@@ -1211,7 +1260,10 @@ export default function RoomDetailsPage() {
                             </div>
 
                             <div className="grid md:grid-cols-2 gap-4">
-                                {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false).map(j => {
+                                {allJudges.filter(j => room?.judges?.includes(j.uid) ?? false)
+                                    .filter(j => j.name.toLowerCase().includes(judgesSearch.toLowerCase()) || j.email.toLowerCase().includes(judgesSearch.toLowerCase()))
+                                    .sort((a, b) => judgesSortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name))
+                                    .map(j => {
                                     const assignedMods = (room?.judgeModalities?.[j.uid] || []).filter(m => modalities.includes(m));
                                     const reserveMods: string[] = (room?.judgeReserveModalities?.[j.uid] || []);
                                     const isGlobalReserve = !room?.judgeReserveModalities?.[j.uid] && (room?.judgeReserves?.includes(j.uid) ?? false);
@@ -1346,7 +1398,10 @@ export default function RoomDetailsPage() {
                                                 className="w-full bg-gray-50 border border-gray-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange"
                                             >
                                                 <option value="">{t('admin.judges.selectJudge')}</option>
-                                                {allJudges.filter(j => !(room?.judges?.includes(j.uid))).map(j => (
+                                                {allJudges.filter(j => !(room?.judges?.includes(j.uid)))
+                                                    .filter(j => j.name.toLowerCase().includes(judgesSearch.toLowerCase()) || j.email.toLowerCase().includes(judgesSearch.toLowerCase()))
+                                                    .sort((a, b) => judgesSortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name))
+                                                    .map(j => (
                                                     <option key={j.uid} value={j.uid}>{j.name} ({j.email})</option>
                                                 ))}
                                             </select>
@@ -1470,6 +1525,26 @@ export default function RoomDetailsPage() {
                                 );
                             })()}
 
+                            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6 -mt-2">
+                                <div className="relative flex-1 sm:max-w-[250px]">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Pesquisar..."
+                                        value={rankingsSearch}
+                                        onChange={e => setRankingsSearch(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => setRankingsSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                    className="px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center justify-center gap-2 bg-white text-gray-600 border-gray-200 hover:bg-gray-50 active:scale-95 shrink-0"
+                                    title="Alternar ordem de classificação"
+                                >
+                                    {rankingsSortOrder === 'asc' ? 'A-Z ↓' : 'Z-A ↑'}
+                                </button>
+                            </div>
+
                             {tests
                                 .filter(test => !rankingsModalityFilter || test.modality === rankingsModalityFilter)
                                 .sort((a, b) => (a.testNumber || 0) - (b.testNumber || 0)).map(test => {
@@ -1495,7 +1570,10 @@ export default function RoomDetailsPage() {
                                             </div>
 
                                             <div className="divide-y divide-gray-50">
-                                                {testCompetitors.map(comp => {
+                                                {testCompetitors
+                                                    .filter(c => c.handlerName.toLowerCase().includes(rankingsSearch.toLowerCase()) || c.dogName.toLowerCase().includes(rankingsSearch.toLowerCase()))
+                                                    .sort((a, b) => rankingsSortOrder === 'asc' ? a.handlerName.localeCompare(b.handlerName) : b.handlerName.localeCompare(a.handlerName))
+                                                    .map(comp => {
                                                     const titularEvals = evaluations.filter(e => {
                                                         if (e.testId !== test.id || e.competitorId !== comp.id) return false;
                                                         // Reserva específica para este competidor

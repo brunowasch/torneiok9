@@ -83,6 +83,8 @@ export default function JudgeRoomPage() {
     // View Selection State
     const [selectedTestView, setSelectedTestView] = useState<TestTemplate | null>(null);
     const [testSearch, setTestSearch] = useState('');
+    const [competitorSearch, setCompetitorSearch] = useState('');
+    const [competitorSortOrder, setCompetitorSortOrder] = useState<'asc' | 'desc'>('asc');
 
     // Edit Score Request State
     const [editRequests, setEditRequests] = useState<EditScoreRequest[]>([]);
@@ -914,7 +916,7 @@ export default function JudgeRoomPage() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-4">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-purple-100 rounded-lg">
                                         <Users className="w-5 h-5 text-purple-600" />
@@ -924,12 +926,36 @@ export default function JudgeRoomPage() {
                                         <p className="text-xs text-gray-400 font-bold uppercase">{t('judge.room.competitorQueueHint')}</p>
                                     </div>
                                 </div>
+                                <div className="flex gap-2">
+                                    <div className="relative w-full sm:w-auto flex-1 min-w-[200px]">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder={t('judge.room.searchCompetitor', 'Buscar competidor...')}
+                                            value={competitorSearch}
+                                            onChange={e => setCompetitorSearch(e.target.value)}
+                                            className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-sm font-bold text-k9-black focus:outline-none focus:border-k9-orange focus:ring-2 focus:ring-orange-50 transition-all shadow-sm placeholder:text-gray-300"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => setCompetitorSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                        className="bg-white border border-gray-200 text-gray-600 px-3 py-2 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors shrink-0 shadow-sm"
+                                        title="Alternar ordem de classificação"
+                                    >
+                                        {competitorSortOrder === 'asc' ? 'A-Z ↓' : 'Z-A ↑'}
+                                    </button>
+                                </div>
                             </div>
-
+                            
+                            {/* Competidores */}
                             <div className="grid md:grid-cols-2 gap-4">
                                 {competitors
                                     .filter(c => c.modality === selectedTestView.modality)
-                                    .sort((a, b) => a.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').localeCompare(b.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, '')))
+                                    .filter(c => !competitorSearch || c.handlerName.toLowerCase().includes(competitorSearch.toLowerCase()) || c.dogName.toLowerCase().includes(competitorSearch.toLowerCase()))
+                                    .sort((a, b) => {
+                                        const result = a.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').localeCompare(b.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+                                        return competitorSortOrder === 'asc' ? result : -result;
+                                    })
                                     .map(comp => {
                                         const isDone = isTestEvaluated(comp.id, selectedTestView.id);
                                         const titularCount = getTitularEvalCount(comp.id, selectedTestView.id, selectedTestView.modality);

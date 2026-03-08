@@ -19,6 +19,7 @@ export default function CompetitorsPage() {
     const { t } = useTranslation();
     const [competitors, setCompetitors] = useState<Competitor[]>([]);
     const [search, setSearch] = useState('');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [loading, setLoading] = useState(true);
     const [modalities, setModalities] = useState<string[]>([]);
     const [selectedModality, setSelectedModality] = useState<string | null>(null); // null = Todos
@@ -78,7 +79,7 @@ export default function CompetitorsPage() {
     }, [selectedRoomId]);
 
 
-    // Competidores filtrados pela busca + modalidade
+    // Competidores filtrados pela busca + modalidade + ordenação
     const filteredCompetitors = competitors.filter(c => {
         const matchesMod = !selectedModality || c.modality === selectedModality;
         const matchesSearch = !search ||
@@ -86,7 +87,7 @@ export default function CompetitorsPage() {
             c.dogName.toLowerCase().includes(search.toLowerCase()) ||
             c.dogBreed?.toLowerCase().includes(search.toLowerCase());
         return matchesMod && matchesSearch;
-    });
+    }).sort((a, b) => sortOrder === 'asc' ? a.handlerName.localeCompare(b.handlerName) : b.handlerName.localeCompare(a.handlerName));
 
     // Quando "Todos": agrupar por modalidade
     const groupedByModality: Record<string, Competitor[]> = {};
@@ -116,20 +117,29 @@ export default function CompetitorsPage() {
                         <p className="text-gray-500 text-sm uppercase tracking-widest pl-11 mt-1">{t('competitorsPage.subtitle')}</p>
                     </div>
 
-                    <div className="relative w-full md:w-72">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className="h-4 w-4 text-gray-400" />
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                        <div className="relative w-full md:w-72">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <input
+                                type="text"
+                                className="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-xl bg-white text-k9-black placeholder-gray-400 focus:outline-none focus:border-k9-orange focus:ring-2 focus:ring-orange-100 text-sm uppercase tracking-wider transition-all shadow-sm"
+                                placeholder={t('competitorsPage.search')}
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
                         </div>
-                        <input
-                            type="text"
-                            className="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-xl bg-white text-k9-black placeholder-gray-400 focus:outline-none focus:border-k9-orange focus:ring-2 focus:ring-orange-100 text-sm uppercase tracking-wider transition-all shadow-sm"
-                            placeholder={t('competitorsPage.search')}
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
+                        <button
+                            onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                            className="px-4 py-3 text-sm font-black uppercase tracking-wider rounded-xl border-2 transition-all duration-200 shadow-sm flex items-center justify-center gap-2 bg-white text-gray-600 border-gray-200 hover:bg-gray-50 active:scale-95 shrink-0"
+                            title="Alternar ordem de classificação"
+                        >
+                            {sortOrder === 'asc' ? 'A-Z ↓' : 'Z-A ↑'}
+                        </button>
                     </div>
 
-                    <div className="w-full md:w-auto max-w-md mx-auto md:mx-0">
+                    <div className="w-full md:w-auto max-w-md mx-auto md:mx-0 mt-4 md:mt-0">
                         <RoomSelect
                             value={selectedRoomId}
                             onChange={setSelectedRoomId}
