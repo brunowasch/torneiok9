@@ -385,11 +385,13 @@ export default function JudgeRoomPage() {
 
     const handleAddPenalty = () => {
         if (isCustomPenalty) {
-            const val = parseFloat(customValue);
-            if (isNaN(val) || val >= 0) {
-                alert(t('judge.room.penaltyMustBeNegative'));
+            let val = parseFloat(customValue);
+            if (isNaN(val) || val === 0) {
+                alert(t('judge.room.penaltyMustBeValid', 'A penalidade deve ser um número diferente de zero.'));
                 return;
             }
+            // Força o valor a ser sempre negativo
+            val = -Math.abs(val);
             if (!tempPenaltyDescription.trim()) {
                 alert(t('judge.room.penaltyDescRequired'));
                 return;
@@ -420,7 +422,7 @@ export default function JudgeRoomPage() {
 
             setPenalties([...penalties, {
                 penaltyId: tempPenalty.id,
-                value: tempPenalty.value,
+                value: -Math.abs(tempPenalty.value),
                 description: tempPenaltyDescription.trim()
             }]);
         }
@@ -608,7 +610,7 @@ export default function JudgeRoomPage() {
                                                     <option value="" disabled>{t('judge.room.penaltySelect')}</option>
                                                     {activeTest.penalties?.map(p => (
                                                         <option key={p.id} value={p.id}>
-                                                            {p.label} ({p.value} pts)
+                                                            {p.label} ({-Math.abs(p.value)} pts)
                                                         </option>
                                                     ))}
                                                     <option value="custom">{t('judge.room.penaltyCustom')}</option>
@@ -624,7 +626,6 @@ export default function JudgeRoomPage() {
                                                 <input
                                                     type="number"
                                                     step="0.5"
-                                                    max="-0.1"
                                                     value={customValue}
                                                     onChange={(e) => setCustomValue(e.target.value)}
                                                     className="w-full bg-gray-50 border border-gray-200 text-red-600 p-3 rounded-xl focus:outline-none focus:border-red-400 font-black text-center text-sm"
