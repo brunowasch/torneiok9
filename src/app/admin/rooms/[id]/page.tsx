@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest } from '@/types/schema';
 import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, setJudgeCompetitorReserves, activateReserve, deactivateReserve, updateRoom } from '@/services/adminService';
-import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest } from '@/services/evaluationService';
+import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest, getEvaluationHistory } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
@@ -46,7 +46,9 @@ import {
     Calendar,
     Save,
     GripVertical,
-    Search
+    Search,
+    History,
+    RotateCcw
 } from 'lucide-react';
 import { CldUploadWidget } from 'next-cloudinary';
 
@@ -66,7 +68,7 @@ export default function RoomDetailsPage() {
     };
     const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges' | 'rankings'>('tests');
     const [compToMarkNC, setCompToMarkNC] = useState<{ test: TestTemplate, comp: Competitor } | null>(null);
-    const [evalToDelete, setEvalToDelete] = useState<{ id: string, name: string, testTitle: string, isNC: boolean, photoUrl?: string } | null>(null);
+    const [evalToDelete, setEvalToDelete] = useState<{ id: string, name: string, testTitle: string, isNC: boolean, photoUrl?: string, deleteAll?: boolean, evalIds?: string[], judgeName?: string } | null>(null);
     const [allJudges, setAllJudges] = useState<AppUser[]>([]);
 
     // Data Lists
@@ -112,6 +114,7 @@ export default function RoomDetailsPage() {
 
     // Edit Score Requests
     const [editRequests, setEditRequests] = useState<EditScoreRequest[]>([]);
+    const [viewingHistoryFor, setViewingHistoryFor] = useState<{ comp: Competitor, test: TestTemplate, evals: (Evaluation & { archivedAt?: number })[] } | null>(null);
     // Modal de configuração de reserva por competidor
     const [competitorReserveConfig, setCompetitorReserveConfig] = useState<Competitor | null>(null);
     const [testModalityFilter, setTestModalityFilter] = useState<string>('');
@@ -1699,23 +1702,43 @@ export default function RoomDetailsPage() {
                                                                 )}
 
                                                                 {(allCompEvals.length > 0) ? (
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className={`text-right ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`text-right mr-2 ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
                                                                             <div className="text-xs font-black uppercase leading-none">{isDNS ? 'NC' : calculatedAvg !== null ? calculatedAvg.toFixed(1) : '--'}</div>
                                                                             <div className="text-[8px] font-bold uppercase opacity-60">{t('admin.rankings.status')}</div>
                                                                         </div>
+                                                                        
+                                                                        <button
+                                                                            onClick={async () => {
+                                                                                try {
+                                                                                    const history = await getEvaluationHistory(roomId, comp.id, test.id);
+                                                                                    const allNotes = [...allCompEvals, ...history].sort((a,b) => (b.archivedAt || b.createdAt) - (a.archivedAt || a.createdAt));
+                                                                                    setViewingHistoryFor({ comp, test, evals: allNotes });
+                                                                                } catch(err) {
+                                                                                    console.error('Error fetching history:', err);
+                                                                                    setViewingHistoryFor({ comp, test, evals: allCompEvals });
+                                                                                }
+                                                                            }}
+                                                                            className="p-1.5 sm:p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors border border-blue-100"
+                                                                            title="Ver Histórico de Notas"
+                                                                        >
+                                                                            <History className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                                        </button>
+
                                                                         <button
                                                                             onClick={() => setEvalToDelete({
-                                                                                id: allCompEvals[0]?.id || '',
+                                                                                id: allCompEvals[0]?.id || '', // Se for para remover 1; mas se for resetar todas, usaremos o modal "Tem certeza que deseja apagar TODAS as notas?"
                                                                                 name: comp.handlerName,
                                                                                 testTitle: test.title,
                                                                                 isNC: isDNS,
-                                                                                photoUrl: comp.photoUrl
+                                                                                photoUrl: comp.photoUrl,
+                                                                                deleteAll: true,
+                                                                                evalIds: allCompEvals.map(e => e.id)
                                                                             })}
-                                                                            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                                                                            title="Remover"
+                                                                            className="p-1.5 sm:p-2 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors border border-red-100"
+                                                                            title="Resetar Todas as Notas"
                                                                         >
-                                                                            <Trash2 className="w-4 h-4" />
+                                                                            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                                                         </button>
                                                                     </div>
                                                                 ) : (
@@ -1836,6 +1859,137 @@ export default function RoomDetailsPage() {
                         );
                     })()}
 
+                    {/* MODAL: Histórico de Notas */}
+                    {viewingHistoryFor && (
+                        <div
+                            className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-md"
+                            onClick={(e) => { if (e.target === e.currentTarget) setViewingHistoryFor(null); }}
+                        >
+                            <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden border-2 border-blue-200">
+                                <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-5 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white border border-white/20">
+                                            <History className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] text-blue-200 font-black uppercase tracking-widest">{t('admin.rankings.history', 'Histórico de Notas')}</div>
+                                            <div className="text-white font-black text-base uppercase tracking-tight leading-tight">{viewingHistoryFor.comp.handlerName}</div>
+                                            <div className="text-blue-200 text-[10px] font-bold uppercase">{viewingHistoryFor.test.title}</div>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setViewingHistoryFor(null)} className="text-white/60 hover:text-white p-1 rounded cursor-pointer">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <div className="p-6 max-h-[60vh] overflow-y-auto">
+                                    {viewingHistoryFor.evals.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-400 font-bold uppercase italic text-sm">
+                                            Nenhuma avaliação encontrada.
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {viewingHistoryFor.evals.map((ev, index) => {
+                                                const judge = allJudges.find(j => j.uid === ev.judgeId);
+                                                const judgeName = judge ? judge.name : 'Desconhecido';
+                                                
+                                                const isReserve = (() => {
+                                                    const currentReserves = room?.judgeCompetitorReserves?.[viewingHistoryFor.comp.id] || [];
+                                                    if (currentReserves.includes(ev.judgeId)) return true;
+                                                    const mods = room?.judgeReserveModalities?.[ev.judgeId] || [];
+                                                    if (mods.length > 0) return mods.includes(viewingHistoryFor.test.modality || '');
+                                                    return (room?.judgeReserves || []).includes(ev.judgeId);
+                                                })();
+
+                                                return (
+                                                    <div key={ev.id} className={`border rounded-xl p-4 flex flex-col sm:flex-row shadow-sm justify-between gap-4 ${ev.archivedAt ? 'bg-orange-50/50 border-orange-200 opacity-80' : 'bg-gray-50/50 border-gray-200'}`}>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                                <h4 className="font-black text-sm uppercase text-k9-black truncate">{judgeName}</h4>
+                                                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${isReserve ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                                                                    {isReserve ? 'Reserva' : 'Titular'}
+                                                                </span>
+                                                                {ev.status === 'did_not_participate' && (
+                                                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded uppercase bg-red-100 text-red-700 ml-auto sm:ml-0">
+                                                                        Ausente (NC)
+                                                                    </span>
+                                                                )}
+                                                                {ev.archivedAt && (
+                                                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded uppercase bg-gray-200 text-gray-600 sm:ml-auto shrink-0" title={`Substituída/Apagada em: ${new Date(ev.archivedAt).toLocaleString('pt-BR')}`}>
+                                                                        (Deletada/Editada)
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            {!ev.status || ev.status !== 'did_not_participate' ? (
+                                                                <>
+                                                                    <div className="grid grid-cols-2 gap-2 mt-2 bg-white p-3 rounded-lg border border-gray-100">
+                                                                        {Object.entries(ev.scores || {}).map(([cId, val]) => (
+                                                                            <div key={cId} className="text-xs flex justify-between">
+                                                                                <span className="text-gray-500 truncate mr-2" title={viewingHistoryFor.test.groups.flatMap(g => g.items).find(i => i.id === cId)?.label}>{viewingHistoryFor.test.groups.flatMap(g => g.items).find(i => i.id === cId)?.label || cId}:</span>
+                                                                                <span className="font-bold text-gray-800">{val}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                    {(ev.penaltiesApplied && ev.penaltiesApplied.length > 0) && (
+                                                                        <div className="mt-2 text-[10px] text-red-600 bg-red-50 p-2 rounded-lg border border-red-100 overflow-x-auto">
+                                                                            <strong className="uppercase block mb-1">Penalidades:</strong>
+                                                                            {ev.penaltiesApplied.map((p, i) => (
+                                                                                <div key={i}>- {p.description || p.penaltyId} ({p.value})</div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <p className="text-xs text-gray-400 italic mt-2">Competidor não se apresentou.</p>
+                                                            )}
+                                                            <div className="text-[10px] text-gray-400 mt-3 font-mono">
+                                                                Enviado em: {new Date(ev.createdAt).toLocaleString('pt-BR')}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-row sm:flex-col justify-end items-end gap-3 sm:border-l sm:border-gray-200 sm:pl-4">
+                                                            <div className="text-right">
+                                                                <div className="text-xs font-bold uppercase text-gray-400 mb-1">Nota Final</div>
+                                                                <div className={`text-xl sm:text-2xl font-black leading-none ${ev.status === 'did_not_participate' ? 'text-red-500' : 'text-blue-600'}`}>
+                                                                    {ev.status === 'did_not_participate' ? '0.0' : ev.finalScore.toFixed(1)}
+                                                                </div>
+                                                            </div>
+                                                            {!ev.archivedAt && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setViewingHistoryFor(null);
+                                                                        setEvalToDelete({
+                                                                            id: ev.id,
+                                                                            name: viewingHistoryFor.comp.handlerName,
+                                                                            testTitle: viewingHistoryFor.test.title,
+                                                                            isNC: ev.status === 'did_not_participate',
+                                                                            photoUrl: viewingHistoryFor.comp.photoUrl,
+                                                                            judgeName: judgeName
+                                                                        });
+                                                                    }}
+                                                                    className="px-3 py-1.5 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors border border-red-100 shrink-0"
+                                                                    title="Apagar esta avaliação"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" /> Excluir
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+                                    <button
+                                        onClick={() => setViewingHistoryFor(null)}
+                                        className="px-5 py-2.5 bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-800 rounded-xl font-black uppercase text-xs tracking-wider transition-colors shadow-sm"
+                                    >
+                                        {t('admin.rankings.close', 'Fechar')}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Confirm Deletion Modal */}
                     {itemToDelete && (
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-md">
@@ -1910,11 +2064,11 @@ export default function RoomDetailsPage() {
                         </div>
                     </Modal>
 
-                    {/* MODAL DE REMOÇÃO DE AVALIAÇÃO/NC */}
+                    {/* MODAL DE REMOÇÃO DE AVALIAÇÃO/NC/RESET */}
                     <Modal
                         isOpen={!!evalToDelete}
                         onClose={() => setEvalToDelete(null)}
-                        title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><Trash2 className="w-5 h-5" /> {t('admin.deletion.title')}</div>}
+                        title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><Trash2 className="w-5 h-5" /> {evalToDelete?.deleteAll ? t('admin.rankings.resetEvaluations', 'Resetar Notas') : t('admin.deletion.title')}</div>}
                         maxWidth="max-w-md"
                     >
                         <div className="flex flex-col items-center text-center p-2">
@@ -1926,15 +2080,21 @@ export default function RoomDetailsPage() {
                                 )}
                             </div>
                             <p className="text-gray-600 text-sm font-semibold mb-2 uppercase tracking-tight">
-                                {t('admin.evalDeletion.removing')} {evalToDelete?.isNC ? t('admin.evalDeletion.removingAbsence') : t('admin.evalDeletion.removingScore')} {t('admin.evalDeletion.of')}
+                                {evalToDelete?.deleteAll ? 'Removendo TODAS as notas de' : (t('admin.evalDeletion.removing') + ' ' + (evalToDelete?.isNC ? t('admin.evalDeletion.removingAbsence') : t('admin.evalDeletion.removingScore')) + ' ' + t('admin.evalDeletion.of'))}
                             </p>
                             <h3 className="text-2xl font-black text-k9-black uppercase mb-1 tracking-tighter">{evalToDelete?.name}</h3>
-                            <p className="text-k9-orange text-xs font-bold uppercase mb-6 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+                            <p className={`text-k9-orange text-xs font-bold uppercase ${evalToDelete?.judgeName && !evalToDelete.deleteAll ? 'mb-2' : 'mb-6'} bg-orange-50 px-3 py-1 rounded-full border border-orange-100`}>
                                 {t('admin.evalDeletion.test')}: {evalToDelete?.testTitle}
                             </p>
+                            {evalToDelete?.judgeName && !evalToDelete.deleteAll && (
+                                <p className="text-blue-600 text-[10px] font-black uppercase mb-6 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                                    Juiz: {evalToDelete.judgeName}
+                                </p>
+                            )}
                             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
                                 <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
-                                    {t('admin.evalDeletion.warning')} {evalToDelete?.isNC ? t('admin.evalDeletion.absenceRecord') : t('admin.evalDeletion.evaluation')} {t('admin.evalDeletion.warningEnd')}
+                                    {evalToDelete?.deleteAll ? `Esta ação apagará todas as ${evalToDelete.evalIds?.length} avaliações registradas. ` : ''} 
+                                    {t('admin.evalDeletion.warning')} {evalToDelete?.deleteAll ? 'estas avaliações' : (evalToDelete?.isNC ? t('admin.evalDeletion.absenceRecord') : t('admin.evalDeletion.evaluation'))} {t('admin.evalDeletion.warningEnd')}
                                 </p>
                             </div>
                             <div className="flex gap-4 w-full">
@@ -1944,13 +2104,18 @@ export default function RoomDetailsPage() {
                                 <button
                                     onClick={async () => {
                                         if (evalToDelete) {
-                                            await deleteEvaluation(evalToDelete.id);
+                                            if (evalToDelete.deleteAll && evalToDelete.evalIds) {
+                                                // Exclui múltiplas avaliações em paralelo
+                                                await Promise.all(evalToDelete.evalIds.map(id => deleteEvaluation(id)));
+                                            } else {
+                                                await deleteEvaluation(evalToDelete.id);
+                                            }
                                             setEvalToDelete(null);
                                         }
                                     }}
                                     className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
                                 >
-                                    {t('admin.evalDeletion.confirm')}
+                                    {evalToDelete?.deleteAll ? 'Resetar Notas' : t('admin.evalDeletion.confirm')}
                                 </button>
                             </div>
                         </div>

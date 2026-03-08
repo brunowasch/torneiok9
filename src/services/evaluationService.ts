@@ -69,12 +69,38 @@ export const getEvaluationsByCompetitor = async (competitorId: string) => {
 
 export const deleteEvaluation = async (evaluationId: string) => {
     try {
-        const { deleteDoc, doc } = await import('firebase/firestore');
-        await deleteDoc(doc(db, 'evaluations', evaluationId));
+        const { deleteDoc, doc, getDoc, addDoc, collection } = await import('firebase/firestore');
+        const evalRef = doc(db, 'evaluations', evaluationId);
+        const evalSnap = await getDoc(evalRef);
+        
+        if (evalSnap.exists()) {
+            // Salvar no histórico antes de deletar
+            await addDoc(collection(db, 'evaluationsHistory'), {
+                ...evalSnap.data(),
+                originalEvaluationId: evaluationId,
+                archivedAt: Date.now()
+            });
+        }
+        
+        await deleteDoc(evalRef);
     } catch (error) {
-        console.error("Error deleting evaluation: ", error);
+        console.error("Error deleting/archiving evaluation: ", error);
         throw error;
     }
+};
+
+export const getEvaluationHistory = async (roomId: string, competitorId: string, testId: string) => {
+    const q = query(
+        collection(db, 'evaluationsHistory'),
+        where('roomId', '==', roomId),
+        where('competitorId', '==', competitorId),
+        where('testId', '==', testId)
+    );
+    const snapshot = await getDocs(q);
+    // Retorna ordenado pelo timestamp de deleção decrescente, mais novos primeiro
+    return snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
 };
 
 export const setDidNotParticipate = async (roomId: string, testId: string, competitorId: string, adminId: string) => {
