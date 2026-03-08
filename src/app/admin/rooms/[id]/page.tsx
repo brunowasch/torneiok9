@@ -1921,13 +1921,33 @@ export default function RoomDetailsPage() {
                                                             </div>
                                                             {!ev.status || ev.status !== 'did_not_participate' ? (
                                                                 <>
-                                                                    <div className="grid grid-cols-2 gap-2 mt-2 bg-white p-3 rounded-lg border border-gray-100">
-                                                                        {Object.entries(ev.scores || {}).map(([cId, val]) => (
-                                                                            <div key={cId} className="text-xs flex justify-between">
-                                                                                <span className="text-gray-500 truncate mr-2" title={viewingHistoryFor.test.groups.flatMap(g => g.items).find(i => i.id === cId)?.label}>{viewingHistoryFor.test.groups.flatMap(g => g.items).find(i => i.id === cId)?.label || cId}:</span>
-                                                                                <span className="font-bold text-gray-800">{val}</span>
-                                                                            </div>
-                                                                        ))}
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-2 bg-white p-3 rounded-lg border border-gray-100">
+                                                                        {(() => {
+                                                                            const validItems = viewingHistoryFor.test.groups.flatMap(g => g.items).filter(item => ev.scores?.[item.id] !== undefined);
+                                                                            const mid = Math.ceil(validItems.length / 2);
+                                                                            const leftItems = validItems.slice(0, mid);
+                                                                            const rightItems = validItems.slice(mid);
+
+                                                                            const renderItem = (item: any) => (
+                                                                                <div key={item.id} className="text-xs flex justify-between">
+                                                                                    <span className="text-gray-500 truncate mr-2" title={item.label}>{item.label}:</span>
+                                                                                    <span className="font-bold text-gray-800">{ev.scores?.[item.id]}</span>
+                                                                                </div>
+                                                                            );
+
+                                                                            return (
+                                                                                <>
+                                                                                    <div className="space-y-2">
+                                                                                        {leftItems.map(renderItem)}
+                                                                                    </div>
+                                                                                    {rightItems.length > 0 && (
+                                                                                        <div className="space-y-2">
+                                                                                            {rightItems.map(renderItem)}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </>
+                                                                            );
+                                                                        })()}
                                                                     </div>
                                                                     {(ev.penaltiesApplied && ev.penaltiesApplied.length > 0) && (
                                                                         <div className="mt-2 text-[10px] text-red-600 bg-red-50 p-2 rounded-lg border border-red-100 overflow-x-auto">
