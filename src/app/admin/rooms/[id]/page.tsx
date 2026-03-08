@@ -730,7 +730,13 @@ export default function RoomDetailsPage() {
                                 {competitors
                                     .filter(c => !competitorsModalityFilter || c.modality === competitorsModalityFilter)
                                     .filter(c => c.handlerName.toLowerCase().includes(competitorsSearch.toLowerCase()) || c.dogName.toLowerCase().includes(competitorsSearch.toLowerCase()))
-                                    .sort((a, b) => competitorsSortOrder === 'asc' ? a.handlerName.localeCompare(b.handlerName) : b.handlerName.localeCompare(a.handlerName))
+                                    .sort((a, b) => {
+                                        if (a.modality !== b.modality) {
+                                            return (a.modality || '').localeCompare(b.modality || '');
+                                        }
+                                        const result = a.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').localeCompare(b.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+                                        return competitorsSortOrder === 'asc' ? result : -result;
+                                    })
                                     .map(comp => {
                                         const testCount = tests.filter(t => t.modality === comp.modality).length;
 

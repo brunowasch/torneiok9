@@ -87,7 +87,13 @@ export default function CompetitorsPage() {
             c.dogName.toLowerCase().includes(search.toLowerCase()) ||
             c.dogBreed?.toLowerCase().includes(search.toLowerCase());
         return matchesMod && matchesSearch;
-    }).sort((a, b) => sortOrder === 'asc' ? a.handlerName.localeCompare(b.handlerName) : b.handlerName.localeCompare(a.handlerName));
+    }).sort((a, b) => {
+        if (a.modality !== b.modality) {
+            return (a.modality || '').localeCompare(b.modality || '');
+        }
+        const result = a.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').localeCompare(b.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+        return sortOrder === 'asc' ? result : -result;
+    });
 
     // Quando "Todos": agrupar por modalidade
     const groupedByModality: Record<string, Competitor[]> = {};
