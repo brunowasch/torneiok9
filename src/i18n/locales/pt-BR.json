@@ -150,7 +150,8 @@
             "cancel": "Cancelar",
             "save": "Salvar Prova",
             "update": "Atualizar Prova",
-            "items": "itens"
+            "items": "itens",
+            "drugPointsAmount": "Quantidade de Pontos de Drogas"
         },
         "judges": {
             "create": "Criar Juiz",
@@ -184,7 +185,8 @@
             "activated": "Acionado",
             "titulars": "titulares",
             "noEval": "Nenhuma avaliação",
-            "status": "Status"
+            "status": "Status",
+            "drugPointsFound": "Pontos Achados"
         },
         "deletion": {
             "title": "Confirmar Remoção",

@@ -8,7 +8,10 @@ import {
     getRoomById,
     getCompetitorsByRoom,
     getTestTemplates,
-    getModalities
+    getModalities,
+    subscribeToRoom,
+    subscribeToCompetitorsByRoom,
+    subscribeToTestsByRoom
 } from '@/services/adminService';
 import {
     saveEvaluation,
@@ -16,7 +19,9 @@ import {
     createEditScoreRequest,
     getEditScoreRequestsByRoom,
     deleteEvaluation,
-    respondToEditScoreRequest
+    respondToEditScoreRequest,
+    subscribeToEvaluationsByRoom,
+    subscribeToEditScoreRequestsByRoom
 } from '@/services/evaluationService';
 import {
     Room,
@@ -96,7 +101,7 @@ export default function JudgeRoomPage() {
     const [authDetermined, setAuthDetermined] = useState(false);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
             if (!currentUser) {
                 if (authDetermined || !auth.currentUser) {
                     router.push('/');
@@ -107,10 +112,31 @@ export default function JudgeRoomPage() {
 
             setAuthDetermined(true);
             setUser(currentUser);
-            loadData();
         });
-        return () => unsubscribe();
-    }, [roomId, authDetermined, router]);
+
+        if (user) {
+            const unsubRoom = subscribeToRoom(roomId, setRoom);
+            const unsubComp = subscribeToCompetitorsByRoom(roomId, setCompetitors);
+            const unsubTests = subscribeToTestsByRoom(roomId, setTests);
+            const unsubEvals = subscribeToEvaluationsByRoom(roomId, setEvaluations);
+            const unsubRequests = subscribeToEditScoreRequestsByRoom(roomId, setEditRequests);
+
+            // Fetch non-real-time data (modalities)
+            getModalities().then(m => setModalities(m.map(mod => mod.name)));
+            setLoading(false);
+
+            return () => {
+                unsubscribeAuth();
+                unsubRoom();
+                unsubComp();
+                unsubTests();
+                unsubEvals();
+                unsubRequests();
+            };
+        }
+
+        return () => unsubscribeAuth();
+    }, [roomId, authDetermined, router, user]);
 
     const loadData = async () => {
         try {
@@ -947,7 +973,7 @@ export default function JudgeRoomPage() {
                                     </button>
                                 </div>
                             </div>
-                            
+
                             {/* Competidores */}
                             <div className="grid md:grid-cols-2 gap-4">
                                 {competitors

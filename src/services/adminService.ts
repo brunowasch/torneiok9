@@ -11,7 +11,8 @@ import {
   deleteDoc,
   arrayUnion,
   arrayRemove,
-  writeBatch
+  writeBatch,
+  onSnapshot
 } from 'firebase/firestore';
 import { Room, Competitor, TestTemplate, AppUser, ModalityConfig, ReserveActivation } from '../types/schema';
 
@@ -404,4 +405,41 @@ export const deleteModality = async (id: string) => {
     console.error("Error deleting modality: ", error);
     throw error;
   }
+};
+export const subscribeToRoom = (roomId: string, callback: (room: Room) => void) => {
+  const docRef = doc(db, 'rooms', roomId);
+  return onSnapshot(docRef, (snapshot) => {
+    if (snapshot.exists()) {
+      callback({ id: snapshot.id, ...snapshot.data() } as Room);
+    }
+  });
+};
+
+export const subscribeToCompetitorsByRoom = (roomId: string, callback: (competitors: Competitor[]) => void) => {
+  const q = query(collection(db, 'competitors'), where('roomId', '==', roomId));
+  return onSnapshot(q, (snapshot) => {
+    const competitors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+    callback(competitors);
+  });
+};
+
+export const subscribeToTestsByRoom = (roomId: string, callback: (tests: TestTemplate[]) => void) => {
+  const q = query(collection(db, 'tests'), where('roomId', '==', roomId));
+  return onSnapshot(q, (snapshot) => {
+    const tests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TestTemplate));
+    callback(tests);
+  });
+};
+
+export const subscribeToRooms = (callback: (rooms: Room[]) => void, adminId?: string) => {
+  let q;
+  if (adminId) {
+    q = query(collection(db, 'rooms'), where('createdBy', '==', adminId));
+  } else {
+    q = query(collection(db, 'rooms'));
+  }
+  return onSnapshot(q, (snapshot) => {
+    const rooms = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
+    callback(rooms);
+  });
 };

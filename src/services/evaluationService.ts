@@ -1,13 +1,14 @@
 import { db } from '../lib/firebase';
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
+import {
+  collection,
+  addDoc,
+  getDocs,
   getDoc,
   doc,
   updateDoc,
-  query, 
-  where 
+  query,
+  where,
+  onSnapshot
 } from 'firebase/firestore';
 import { Evaluation, TestTemplate, EditScoreRequest } from '../types/schema';
 
@@ -26,10 +27,10 @@ export const calculateFinalScore = (
   });
 
   penaltiesApplied.forEach(p => {
-    total += p.value; 
+    total += p.value;
   });
 
-  return total; 
+  return total;
 };
 
 export const saveEvaluation = async (
@@ -38,9 +39,9 @@ export const saveEvaluation = async (
 ) => {
   try {
     const finalScore = calculateFinalScore(
-        template, 
-        evaluationData.scores, 
-        evaluationData.penaltiesApplied || []
+      template,
+      evaluationData.scores,
+      evaluationData.penaltiesApplied || []
     );
 
     const docRef = await addDoc(collection(db, 'evaluations'), {
@@ -62,65 +63,65 @@ export const getEvaluationsByRoom = async (roomId: string) => {
 };
 
 export const getEvaluationsByCompetitor = async (competitorId: string) => {
-    const q = query(collection(db, 'evaluations'), where('competitorId', '==', competitorId));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evaluation));
-  };
+  const q = query(collection(db, 'evaluations'), where('competitorId', '==', competitorId));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evaluation));
+};
 
 export const deleteEvaluation = async (evaluationId: string) => {
-    try {
-        const { deleteDoc, doc, getDoc, addDoc, collection } = await import('firebase/firestore');
-        const evalRef = doc(db, 'evaluations', evaluationId);
-        const evalSnap = await getDoc(evalRef);
-        
-        if (evalSnap.exists()) {
-            // Salvar no histórico antes de deletar
-            await addDoc(collection(db, 'evaluationsHistory'), {
-                ...evalSnap.data(),
-                originalEvaluationId: evaluationId,
-                archivedAt: Date.now()
-            });
-        }
-        
-        await deleteDoc(evalRef);
-    } catch (error) {
-        console.error("Error deleting/archiving evaluation: ", error);
-        throw error;
+  try {
+    const { deleteDoc, doc, getDoc, addDoc, collection } = await import('firebase/firestore');
+    const evalRef = doc(db, 'evaluations', evaluationId);
+    const evalSnap = await getDoc(evalRef);
+
+    if (evalSnap.exists()) {
+      // Salvar no histórico antes de deletar
+      await addDoc(collection(db, 'evaluationsHistory'), {
+        ...evalSnap.data(),
+        originalEvaluationId: evaluationId,
+        archivedAt: Date.now()
+      });
     }
+
+    await deleteDoc(evalRef);
+  } catch (error) {
+    console.error("Error deleting/archiving evaluation: ", error);
+    throw error;
+  }
 };
 
 export const getEvaluationHistory = async (roomId: string, competitorId: string, testId: string) => {
-    const q = query(
-        collection(db, 'evaluationsHistory'),
-        where('roomId', '==', roomId),
-        where('competitorId', '==', competitorId),
-        where('testId', '==', testId)
-    );
-    const snapshot = await getDocs(q);
-    // Retorna ordenado pelo timestamp de deleção decrescente, mais novos primeiro
-    return snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as any))
-        .sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
+  const q = query(
+    collection(db, 'evaluationsHistory'),
+    where('roomId', '==', roomId),
+    where('competitorId', '==', competitorId),
+    where('testId', '==', testId)
+  );
+  const snapshot = await getDocs(q);
+  // Retorna ordenado pelo timestamp de deleção decrescente, mais novos primeiro
+  return snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() } as any))
+    .sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
 };
 
 export const setDidNotParticipate = async (roomId: string, testId: string, competitorId: string, adminId: string) => {
-    try {
-        await addDoc(collection(db, 'evaluations'), {
-            roomId,
-            testId,
-            competitorId,
-            judgeId: adminId,
-            scores: {},
-            penaltiesApplied: [],
-            finalScore: 0,
-            status: 'did_not_participate',
-            notes: 'Não participou (DNS)',
-            createdAt: Date.now()
-        });
-    } catch (error) {
-        console.error("Error setting DNS: ", error);
-        throw error;
-    }
+  try {
+    await addDoc(collection(db, 'evaluations'), {
+      roomId,
+      testId,
+      competitorId,
+      judgeId: adminId,
+      scores: {},
+      penaltiesApplied: [],
+      finalScore: 0,
+      status: 'did_not_participate',
+      notes: 'Não participou (DNS)',
+      createdAt: Date.now()
+    });
+  } catch (error) {
+    console.error("Error setting DNS: ", error);
+    throw error;
+  }
 };
 
 
@@ -194,4 +195,27 @@ export const getAllPendingEditRequests = async (): Promise<EditScoreRequest[]> =
   const q = query(collection(db, 'editScoreRequests'), where('status', '==', 'pending'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EditScoreRequest));
+};
+export const subscribeToEvaluationsByRoom = (roomId: string, callback: (evaluations: Evaluation[]) => void) => {
+  const q = query(collection(db, 'evaluations'), where('roomId', '==', roomId));
+  return onSnapshot(q, (snapshot) => {
+    const evals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evaluation));
+    callback(evals);
+  });
+};
+
+export const subscribeToEditScoreRequestsByRoom = (roomId: string, callback: (requests: EditScoreRequest[]) => void) => {
+  const q = query(collection(db, 'editScoreRequests'), where('roomId', '==', roomId));
+  return onSnapshot(q, (snapshot) => {
+    const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EditScoreRequest));
+    callback(requests);
+  });
+};
+
+export const subscribeToAllPendingEditRequests = (callback: (requests: EditScoreRequest[]) => void) => {
+  const q = query(collection(db, 'editScoreRequests'), where('status', '==', 'pending'));
+  return onSnapshot(q, (snapshot) => {
+    const requests = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EditScoreRequest));
+    callback(requests);
+  });
 };

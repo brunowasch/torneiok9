@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createRoom, getRooms, deleteRoom, updateRoom } from '@/services/adminService';
-import { getAllPendingEditRequests, respondToEditScoreRequest } from '@/services/evaluationService';
+import { createRoom, getRooms, deleteRoom, updateRoom, subscribeToRooms } from '@/services/adminService';
+import { getAllPendingEditRequests, respondToEditScoreRequest, subscribeToAllPendingEditRequests } from '@/services/evaluationService';
 import { auth } from '@/lib/firebase';
 import {
     PlusCircle,
@@ -65,16 +65,26 @@ export default function AdminDashboard() {
     const [editRoomEndTime, setEditRoomEndTime] = useState('23:59');
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        let unsubRooms: (() => void) | undefined;
+        let unsubRequests: (() => void) | undefined;
+
+        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             if (currentUser) {
-                fetchRooms();
+                unsubRooms = subscribeToRooms(setRooms);
+                unsubRequests = subscribeToAllPendingEditRequests(setPendingRequests);
+                setLoading(false);
             } else {
                 console.log("No user logged in in Admin Dashboard");
                 setLoading(false);
             }
         });
-        return () => unsubscribe();
+
+        return () => {
+            unsubscribeAuth();
+            if (unsubRooms) unsubRooms();
+            if (unsubRequests) unsubRequests();
+        };
     }, []);
 
     const fetchRooms = async () => {
@@ -99,10 +109,10 @@ export default function AdminDashboard() {
 
     const validateDates = (startDate: string, endDate: string): Record<string, string> => {
         const errors: Record<string, string> = {};
-        const fmt = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
+        const fmt = (iso: string) => { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
         if (startDate && startDate < minStartDate) errors.start = `Data de início inválida! O mínimo permitido é ${fmt(minStartDate)}.`;
         else if (startDate && startDate > maxEndDate) errors.start = `Data de início inválida! O máximo permitido é ${fmt(maxEndDate)}.`;
-        
+
         if (endDate && endDate < minStartDate) errors.end = `Data de fim inválida! O mínimo permitido é ${fmt(minStartDate)}.`;
         else if (endDate && endDate > maxEndDate) errors.end = `Data de fim inválida! O máximo permitido é ${fmt(maxEndDate)}.`;
         else if (startDate && endDate && endDate < startDate) errors.end = `Data de fim não pode ser anterior à data de início!`;
@@ -223,563 +233,562 @@ export default function AdminDashboard() {
     return (
         <>
             <div className="min-h-screen bg-k9-white p-4 md:p-8 text-k9-black font-sans">
-            <div className="max-w-6xl mx-auto">
-                <header className="mb-6 bg-black border-b-4 border-k9-orange p-5 md:p-6 py-6 md:py-8 rounded-2xl shadow-lg flex flex-col md:flex-row items-center justify-between text-white relative">
-                    <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                    </div>
-                    <div className="relative z-10 flex items-center gap-4 md:gap-5 w-full md:w-auto">
-                        <div className="h-12 w-12 md:h-16 md:w-16 relative flex items-center justify-center p-1 bg-white/5 rounded-xl border border-white/10 shadow-inner shrink-0">
-                            <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                <div className="max-w-6xl mx-auto">
+                    <header className="mb-6 bg-black border-b-4 border-k9-orange p-5 md:p-6 py-6 md:py-8 rounded-2xl shadow-lg flex flex-col md:flex-row items-center justify-between text-white relative">
+                        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-k9-orange/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
                         </div>
-                        <div className="min-w-0">
-                            <h1 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tighter leading-none mb-1 truncate">
-                                {t('adminDashboard.title')}
-                            </h1>
-                            <p className="text-k9-orange text-[9px] md:text-[10px] uppercase tracking-[0.2em] font-black opacity-80">{t('adminDashboard.subtitle')}</p>
+                        <div className="relative z-10 flex items-center gap-4 md:gap-5 w-full md:w-auto">
+                            <div className="h-12 w-12 md:h-16 md:w-16 relative flex items-center justify-center p-1 bg-white/5 rounded-xl border border-white/10 shadow-inner shrink-0">
+                                <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                            </div>
+                            <div className="min-w-0">
+                                <h1 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tighter leading-none mb-1 truncate">
+                                    {t('adminDashboard.title')}
+                                </h1>
+                                <p className="text-k9-orange text-[9px] md:text-[10px] uppercase tracking-[0.2em] font-black opacity-80">{t('adminDashboard.subtitle')}</p>
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="flex items-center gap-4 mt-4 md:mt-0 relative z-20 w-full md:w-auto justify-end">
+                        <div className="flex items-center gap-4 mt-4 md:mt-0 relative z-20 w-full md:w-auto justify-end">
+                            <button
+                                onClick={handleLogout}
+                                className="text-white hover:text-red-400 text-[10px] md:text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-3 py-2 md:px-4 md:py-2.5 rounded-lg shadow-sm cursor-pointer"
+                            >
+                                <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('adminDashboard.logout')}
+                            </button>
+                        </div>
+                    </header>
+
+                    <div className="flex flex-wrap md:justify-end gap-3 md:gap-4 mb-8">
                         <button
-                            onClick={handleLogout}
-                            className="text-white hover:text-red-400 text-[10px] md:text-xs font-black uppercase flex items-center gap-2 transition-all border-b-2 border-red-900 bg-red-600/10 hover:bg-red-600/20 px-3 py-2 md:px-4 md:py-2.5 rounded-lg shadow-sm cursor-pointer"
+                            onClick={() => router.push('/admin/modalities')}
+                            className="flex-1 md:flex-none justify-center bg-white hover:bg-orange-50 text-k9-black font-bold uppercase px-3 py-3 md:px-4 md:py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-[10px] md:text-xs cursor-pointer border-2 border-gray-200 shadow-sm hover:border-k9-orange whitespace-nowrap"
                         >
-                            <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('adminDashboard.logout')}
+                            <Shield className="w-4 h-4 text-k9-orange" />
+                            {t('adminDashboard.modalities')}
+                        </button>
+                        <button
+                            onClick={() => setShowCreateAdminModal(true)}
+                            className="flex-1 md:flex-none justify-center bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-3 py-3 md:px-4 md:py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-[10px] md:text-xs cursor-pointer border border-gray-700 shadow-sm hover:border-k9-black whitespace-nowrap"
+                        >
+                            <Users className="w-4 h-4 text-k9-orange" />
+                            {t('adminDashboard.newAdmin')}
+                        </button>
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="w-full md:w-auto justify-center px-4 py-3 md:px-6 md:py-3 text-[10px] md:text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:border-orange-600 cursor-pointer"
+                        >
+                            <PlusCircle className="w-5 h-5" />
+                            {t('adminDashboard.newRoom')}
                         </button>
                     </div>
-                </header>
 
-                <div className="flex flex-wrap md:justify-end gap-3 md:gap-4 mb-8">
-                    <button
-                        onClick={() => router.push('/admin/modalities')}
-                        className="flex-1 md:flex-none justify-center bg-white hover:bg-orange-50 text-k9-black font-bold uppercase px-3 py-3 md:px-4 md:py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-[10px] md:text-xs cursor-pointer border-2 border-gray-200 shadow-sm hover:border-k9-orange whitespace-nowrap"
-                    >
-                        <Shield className="w-4 h-4 text-k9-orange" />
-                        {t('adminDashboard.modalities')}
-                    </button>
-                    <button
-                        onClick={() => setShowCreateAdminModal(true)}
-                        className="flex-1 md:flex-none justify-center bg-gray-800 hover:bg-gray-700 text-white font-bold uppercase px-3 py-3 md:px-4 md:py-3 rounded-lg tracking-widest transition-all flex items-center gap-2 text-[10px] md:text-xs cursor-pointer border border-gray-700 shadow-sm hover:border-k9-black whitespace-nowrap"
-                    >
-                        <Users className="w-4 h-4 text-k9-orange" />
-                        {t('adminDashboard.newAdmin')}
-                    </button>
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="w-full md:w-auto justify-center px-4 py-3 md:px-6 md:py-3 text-[10px] md:text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-lg flex items-center gap-2 hover:scale-105 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:border-orange-600 cursor-pointer"
-                    >
-                        <PlusCircle className="w-5 h-5" />
-                        {t('adminDashboard.newRoom')}
-                    </button>
-                </div>
-
-                {/* Global Notification Banner */}
-                {pendingRequests.length > 0 && (
-                    <div
-                        onClick={() => {
-                            setRequestFilterRoomId(null);
-                            setShowRequestsModal(true);
-                        }}
-                        className="mb-8 bg-linear-to-r from-amber-500 to-orange-600 rounded-xl p-4 shadow-lg border-2 border-orange-400 animate-in fade-in slide-in-from-top-4 duration-500 cursor-pointer hover:scale-[1.01] transition-transform"
-                    >
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3 text-white">
-                                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
-                                    <Bell className="w-5 h-5" />
+                    {/* Global Notification Banner */}
+                    {pendingRequests.length > 0 && (
+                        <div
+                            onClick={() => {
+                                setRequestFilterRoomId(null);
+                                setShowRequestsModal(true);
+                            }}
+                            className="mb-8 bg-linear-to-r from-amber-500 to-orange-600 rounded-xl p-4 shadow-lg border-2 border-orange-400 animate-in fade-in slide-in-from-top-4 duration-500 cursor-pointer hover:scale-[1.01] transition-transform"
+                        >
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3 text-white">
+                                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                                        <Bell className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-black uppercase tracking-tight">Solicitações de Edição Pendentes</p>
+                                        <p className="text-[10px] opacity-90 font-bold uppercase">Existem {pendingRequests.length} solicitações aguardando sua revisão nos torneios ativos. Clique para gerenciar.</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-black uppercase tracking-tight">Solicitações de Edição Pendentes</p>
-                                    <p className="text-[10px] opacity-90 font-bold uppercase">Existem {pendingRequests.length} solicitações aguardando sua revisão nos torneios ativos. Clique para gerenciar.</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <div className="px-3 py-1.5 bg-white/10 rounded-lg text-white text-[10px] font-black uppercase border border-white/20">
-                                    {pendingRequests.length} PENDENTES
+                                <div className="flex gap-2">
+                                    <div className="px-3 py-1.5 bg-white/10 rounded-lg text-white text-[10px] font-black uppercase border border-white/20">
+                                        {pendingRequests.length} PENDENTES
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {loading ? (
-                    <div className="text-center p-12 animate-pulse text-k9-orange font-mono">{t('adminDashboard.loading')}</div>
-                ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {rooms.map(room => (
-                            <div key={room.id} className="relative group/card">
-                                <Link href={`/admin/rooms/${room.id}`} className="group">
-                                    <div className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-k9-orange hover:shadow-lg transition-all relative overflow-hidden h-full flex flex-col">
-                                        <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-bl from-k9-orange/5 to-transparent"></div>
+                    {loading ? (
+                        <div className="text-center p-12 animate-pulse text-k9-orange font-mono">{t('adminDashboard.loading')}</div>
+                    ) : (
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {rooms.map(room => (
+                                <div key={room.id} className="relative group/card">
+                                    <Link href={`/admin/rooms/${room.id}`} className="group">
+                                        <div className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-k9-orange hover:shadow-lg transition-all relative overflow-hidden h-full flex flex-col">
+                                            <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-bl from-k9-orange/5 to-transparent"></div>
 
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="p-3 bg-k9-orange/10 rounded-lg text-k9-orange group-hover:scale-110 transition-transform border-2 border-k9-orange/30">
-                                                <MapPin className="w-6 h-6" />
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {pendingRequests.filter(r => r.roomId === room.id).length > 0 && (
-                                                    <div
+                                            <div className="flex items-start justify-between mb-4">
+                                                <div className="p-3 bg-k9-orange/10 rounded-lg text-k9-orange group-hover:scale-110 transition-transform border-2 border-k9-orange/30">
+                                                    <MapPin className="w-6 h-6" />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {pendingRequests.filter(r => r.roomId === room.id).length > 0 && (
+                                                        <div
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setRequestFilterRoomId(room.id);
+                                                                setShowRequestsModal(true);
+                                                            }}
+                                                            className="px-2 py-1 bg-red-500 text-white text-[9px] font-black rounded-lg flex items-center gap-1 shadow-md animate-pulse border-2 border-red-400 cursor-pointer hover:scale-110 transition-transform"
+                                                            title={`${pendingRequests.filter(r => r.roomId === room.id).length} solicitações de edição`}
+                                                        >
+                                                            <Send className="w-3 h-3" />
+                                                            {pendingRequests.filter(r => r.roomId === room.id).length}
+                                                        </div>
+                                                    )}
+                                                    <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider border-2 ${room.active ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
+                                                        {room.active ? t('adminDashboard.inProgress') : t('adminDashboard.finished')}
+                                                    </span>
+                                                    <button
                                                         onClick={(e) => {
                                                             e.preventDefault();
                                                             e.stopPropagation();
-                                                            setRequestFilterRoomId(room.id);
-                                                            setShowRequestsModal(true);
+                                                            handleOpenEditDates(room);
                                                         }}
-                                                        className="px-2 py-1 bg-red-500 text-white text-[9px] font-black rounded-lg flex items-center gap-1 shadow-md animate-pulse border-2 border-red-400 cursor-pointer hover:scale-110 transition-transform"
-                                                        title={`${pendingRequests.filter(r => r.roomId === room.id).length} solicitações de edição`}
+                                                        className="p-1.5 text-black hover:text-blue-500 border-2 border-black hover:border-blue-500 rounded-lg transition-all cursor-pointer z-10 bg-white shadow-sm flex items-center justify-center"
+                                                        title="Editar Datas"
                                                     >
-                                                        <Send className="w-3 h-3" />
-                                                        {pendingRequests.filter(r => r.roomId === room.id).length}
-                                                    </div>
-                                                )}
-                                                <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider border-2 ${room.active ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
-                                                    {room.active ? t('adminDashboard.inProgress') : t('adminDashboard.finished')}
-                                                </span>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        handleOpenEditDates(room);
-                                                    }}
-                                                    className="p-1.5 text-black hover:text-blue-500 border-2 border-black hover:border-blue-500 rounded-lg transition-all cursor-pointer z-10 bg-white shadow-sm flex items-center justify-center"
-                                                    title="Editar Datas"
-                                                >
-                                                    <Calendar className="w-3.5 h-3.5 mt-[1px]" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        handleDeleteRoom(room.id, room.name);
-                                                    }}
-                                                    className="p-1.5 text-black hover:text-red-500 border-2 border-black hover:border-red-500 rounded-lg transition-all cursor-pointer z-10 bg-white shadow-sm"
-                                                    title={t('adminDashboard.deleteRoomTitle')}
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                </button>
+                                                        <Calendar className="w-3.5 h-3.5 mt-[1px]" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            handleDeleteRoom(room.id, room.name);
+                                                        }}
+                                                        className="p-1.5 text-black hover:text-red-500 border-2 border-black hover:border-red-500 rounded-lg transition-all cursor-pointer z-10 bg-white shadow-sm"
+                                                        title={t('adminDashboard.deleteRoomTitle')}
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <h2 className="text-xl font-black text-k9-black uppercase leading-tight mb-1 group-hover:text-k9-orange transition-colors tracking-tight">
+                                                {room.name}
+                                            </h2>
+                                            <p className="text-xs text-gray-600 uppercase tracking-wide mb-6 font-semibold">
+                                                {room.description}
+                                            </p>
+
+                                            <div className="mt-auto flex items-center justify-between text-xs text-gray-500 border-t-2 border-gray-200 pt-4 font-bold">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Calendar className="w-3 h-3 shrink-0" />
+                                                    {room.startDate ? (
+                                                        <span className="text-k9-black font-black">
+                                                            {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                            {room.endDate && room.endDate !== room.startDate && (
+                                                                <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</>
+                                                            )}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-400">{new Date(room.createdAt).toLocaleDateString()}</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1 text-k9-orange group-hover:translate-x-1 transition-transform">
+                                                    {t('adminDashboard.manage')} <ChevronRight className="w-3 h-3" />
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <h2 className="text-xl font-black text-k9-black uppercase leading-tight mb-1 group-hover:text-k9-orange transition-colors tracking-tight">
-                                            {room.name}
-                                        </h2>
-                                        <p className="text-xs text-gray-600 uppercase tracking-wide mb-6 font-semibold">
-                                            {room.description}
-                                        </p>
-
-                                        <div className="mt-auto flex items-center justify-between text-xs text-gray-500 border-t-2 border-gray-200 pt-4 font-bold">
-                                            <div className="flex items-center gap-1.5">
-                                                <Calendar className="w-3 h-3 shrink-0" />
-                                                {room.startDate ? (
-                                                    <span className="text-k9-black font-black">
-                                                        {new Date(room.startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                                                        {room.endDate && room.endDate !== room.startDate && (
-                                                            <> - {new Date(room.endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</>
-                                                        )}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-400">{new Date(room.createdAt).toLocaleDateString()}</span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-1 text-k9-orange group-hover:translate-x-1 transition-transform">
-                                                {t('adminDashboard.manage')} <ChevronRight className="w-3 h-3" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            </div>
-                        ))}
-
-                        {rooms.length === 0 && (
-                            <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
-                                <p className="text-gray-600 uppercase font-bold tracking-widest mb-4">{t('adminDashboard.noRooms')}</p>
-                                <button
-                                    onClick={() => setShowCreateModal(true)}
-                                    className="text-k9-orange hover:text-k9-black underline uppercase text-xs tracking-wider font-bold transition-colors cursor-pointer"
-                                >
-                                    {t('adminDashboard.createFirst')}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Create Room Modal */}
-                {showCreateModal && (
-                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-                        <div className="bg-white border-2 border-gray-200 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
-                            <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
-                                <PlusCircle className="text-k9-orange w-5 h-5" /> {t('adminDashboard.createRoomTitle')}
-                            </h2>
-                            <div className="space-y-4 mb-6">
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Nome da Sala</label>
-                                    <input
-                                        type="text"
-                                        value={newRoomName}
-                                        onChange={(e) => setNewRoomName(e.target.value)}
-                                        className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange uppercase font-semibold placeholder-gray-400"
-                                        placeholder={t('adminDashboard.roomNamePlaceholder')}
-                                    />
+                                    </Link>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" /> Data de Início
-                                        </label>
-                                        <MaskedDateInput
-                                            value={newRoomStartDate}
-                                            onChange={(iso) => { setNewRoomStartDate(iso); if (iso) setDateErrors(prev => ({ ...prev, start: '' })); }}
-                                            onError={(msg) => setDateErrors(prev => ({ ...prev, start: msg }))}
-                                            min={minStartDate}
-                                            max={maxEndDate}
-                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
-                                            <Clock className="w-3 h-3" /> Hora de Início
-                                        </label>
-                                        <input
-                                            type="time"
-                                            value={newRoomStartTime}
-                                            onChange={(e) => setNewRoomStartTime(e.target.value)}
-                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" /> Data de Fim
-                                        </label>
-                                        <MaskedDateInput
-                                            value={newRoomEndDate}
-                                            onChange={(iso) => { setNewRoomEndDate(iso); if (iso) setDateErrors(prev => ({ ...prev, end: '' })); }}
-                                            onError={(msg) => setDateErrors(prev => ({ ...prev, end: msg }))}
-                                            min={newRoomStartDate || minStartDate}
-                                            max={maxEndDate}
-                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
-                                            <Clock className="w-3 h-3" /> Hora de Encerramento
-                                        </label>
-                                        <input
-                                            type="time"
-                                            value={newRoomEndTime}
-                                            onChange={(e) => setNewRoomEndTime(e.target.value)}
-                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
-                                        />
-                                    </div>
-                                </div>
-                                <p className="text-[9px] text-gray-400 uppercase font-bold">* Datas são opcionais</p>
-                            </div>
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => { setShowCreateModal(false); setNewRoomStartDate(''); setNewRoomStartTime('00:00'); setNewRoomEndDate(''); setNewRoomEndTime('23:59'); setDateErrors({}); }}
-                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
-                                >
-                                    {t('adminDashboard.cancelRoom')}
-                                </button>
-                                <button
-                                    onClick={handleCreateRoom}
-                                    disabled={!newRoomName}
-                                    className={`flex-1 py-3 font-black uppercase text-xs rounded-lg tracking-wider transition-all border-2 ${
-                                        newRoomName
-                                            ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500 hover:border-orange-600 shadow-md cursor-pointer hover:scale-105"
-                                            : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                                    }`}
-                                >
-                                    {t('adminDashboard.confirmRoom')}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                            ))}
 
-                {/* Edit Room Dates Modal */}
-                {showEditDatesModal && (
-                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-                        <div className="bg-white border-2 border-gray-200 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
-                            <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
-                                <Pencil className="text-k9-orange w-5 h-5" /> Editar Datas do Torneio
-                            </h2>
-                            <div className="space-y-4 mb-6">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" /> Data de Início
-                                        </label>
-                                        <MaskedDateInput
-                                            value={editRoomStartDate}
-                                            onChange={(iso) => { setEditRoomStartDate(iso); if (iso) setDateErrors(prev => ({ ...prev, start: '' })); }}
-                                            onError={(msg) => setDateErrors(prev => ({ ...prev, start: msg }))}
-                                            min={minStartDate}
-                                            max={maxEndDate}
-                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
-                                            <Clock className="w-3 h-3" /> Hora de Início
-                                        </label>
-                                        <input
-                                            type="time"
-                                            value={editRoomStartTime}
-                                            onChange={(e) => setEditRoomStartTime(e.target.value)}
-                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" /> Data de Fim
-                                        </label>
-                                        <MaskedDateInput
-                                            value={editRoomEndDate}
-                                            onChange={(iso) => { setEditRoomEndDate(iso); if (iso) setDateErrors(prev => ({ ...prev, end: '' })); }}
-                                            onError={(msg) => setDateErrors(prev => ({ ...prev, end: msg }))}
-                                            min={editRoomStartDate || minStartDate}
-                                            max={maxEndDate}
-                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
-                                            <Clock className="w-3 h-3" /> Hora de Encerramento
-                                        </label>
-                                        <input
-                                            type="time"
-                                            value={editRoomEndTime}
-                                            onChange={(e) => setEditRoomEndTime(e.target.value)}
-                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
-                                        />
-                                    </div>
-                                </div>
-                                <p className="text-[9px] text-gray-400 uppercase font-bold">* Datas são opcionais. Você pode limpá-las se quiser.</p>
-                            </div>
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => { setShowEditDatesModal(false); setEditingRoomId(null); setEditRoomStartDate(''); setEditRoomStartTime('00:00'); setEditRoomEndDate(''); setEditRoomEndTime('23:59'); setDateErrors({}); }}
-                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    onClick={handleSaveEditDates}
-                                    className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer shadow-md transition-all border-2 border-green-500 hover:border-green-600 flex items-center justify-center gap-2"
-                                >
-                                    <CheckCircle className="w-4 h-4" /> Salvar Datas
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Create Admin Modal */}
-                {showCreateAdminModal && (
-                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-                        <div className="bg-white border-2 border-gray-200 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
-                            <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
-                                <Users className="text-k9-orange w-5 h-5" /> {t('adminDashboard.createAdminTitle')}
-                            </h2>
-                            <div className="space-y-4 mb-6">
-                                <input
-                                    type="text"
-                                    value={newAdmin.name}
-                                    required
-                                    placeholder={t('adminDashboard.adminNamePlaceholder')}
-                                    onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
-                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
-                                />
-                                <input
-                                    type="email"
-                                    value={newAdmin.email}
-                                    required
-                                    placeholder="usuario@comando.k9"
-                                    onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
-                                    className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
-                                />
-                                <div className="relative">
-                                    <input
-                                        type={showAdminPassword ? "text" : "password"}
-                                        value={newAdmin.password}
-                                        required
-                                        placeholder={t('adminDashboard.adminPasswordPlaceholder')}
-                                        onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
-                                        className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 pr-10 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
-                                    />
+                            {rooms.length === 0 && (
+                                <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+                                    <p className="text-gray-600 uppercase font-bold tracking-widest mb-4">{t('adminDashboard.noRooms')}</p>
                                     <button
-                                        type="button"
-                                        onClick={() => setShowAdminPassword(!showAdminPassword)}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-k9-orange cursor-pointer"
+                                        onClick={() => setShowCreateModal(true)}
+                                        className="text-k9-orange hover:text-k9-black underline uppercase text-xs tracking-wider font-bold transition-colors cursor-pointer"
                                     >
-                                        {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        {t('adminDashboard.createFirst')}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Create Room Modal */}
+                    {showCreateModal && (
+                        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+                            <div className="bg-white border-2 border-gray-200 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+                                <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
+                                    <PlusCircle className="text-k9-orange w-5 h-5" /> {t('adminDashboard.createRoomTitle')}
+                                </h2>
+                                <div className="space-y-4 mb-6">
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Nome da Sala</label>
+                                        <input
+                                            type="text"
+                                            value={newRoomName}
+                                            onChange={(e) => setNewRoomName(e.target.value)}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange uppercase font-semibold placeholder-gray-400"
+                                            placeholder={t('adminDashboard.roomNamePlaceholder')}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" /> Data de Início
+                                            </label>
+                                            <MaskedDateInput
+                                                value={newRoomStartDate}
+                                                onChange={(iso) => { setNewRoomStartDate(iso); if (iso) setDateErrors(prev => ({ ...prev, start: '' })); }}
+                                                onError={(msg) => setDateErrors(prev => ({ ...prev, start: msg }))}
+                                                min={minStartDate}
+                                                max={maxEndDate}
+                                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                                <Clock className="w-3 h-3" /> Hora de Início
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={newRoomStartTime}
+                                                onChange={(e) => setNewRoomStartTime(e.target.value)}
+                                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" /> Data de Fim
+                                            </label>
+                                            <MaskedDateInput
+                                                value={newRoomEndDate}
+                                                onChange={(iso) => { setNewRoomEndDate(iso); if (iso) setDateErrors(prev => ({ ...prev, end: '' })); }}
+                                                onError={(msg) => setDateErrors(prev => ({ ...prev, end: msg }))}
+                                                min={newRoomStartDate || minStartDate}
+                                                max={maxEndDate}
+                                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                                <Clock className="w-3 h-3" /> Hora de Encerramento
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={newRoomEndTime}
+                                                onChange={(e) => setNewRoomEndTime(e.target.value)}
+                                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[9px] text-gray-400 uppercase font-bold">* Datas são opcionais</p>
+                                </div>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => { setShowCreateModal(false); setNewRoomStartDate(''); setNewRoomStartTime('00:00'); setNewRoomEndDate(''); setNewRoomEndTime('23:59'); setDateErrors({}); }}
+                                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
+                                    >
+                                        {t('adminDashboard.cancelRoom')}
+                                    </button>
+                                    <button
+                                        onClick={handleCreateRoom}
+                                        disabled={!newRoomName}
+                                        className={`flex-1 py-3 font-black uppercase text-xs rounded-lg tracking-wider transition-all border-2 ${newRoomName
+                                                ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500 hover:border-orange-600 shadow-md cursor-pointer hover:scale-105"
+                                                : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                                            }`}
+                                    >
+                                        {t('adminDashboard.confirmRoom')}
                                     </button>
                                 </div>
                             </div>
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => setShowCreateAdminModal(false)}
-                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
-                                >
-                                    {t('adminDashboard.cancelAdmin')}
-                                </button>
-                                <button
-                                    onClick={handleCreateAdmin}
-                                    disabled={!newAdmin.name || !newAdmin.email || !newAdmin.password}
-                                    className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105 cursor-pointer"
-                                >
-                                    {t('adminDashboard.confirmAdmin')}
-                                </button>
-                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Delete Confirmation Modal */}
-                {roomToDelete && (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-md">
-                        <div className="bg-white border-2 border-red-200 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden text-black text-center">
-                            <div className="absolute top-0 left-0 w-full h-2 bg-red-500"></div>
-                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 mt-2 border-2 border-red-100">
-                                <Trash2 className="w-8 h-8 text-red-500" />
-                            </div>
-                            <h2 className="text-2xl font-black uppercase mb-2 tracking-tighter">Excluir Sala</h2>
-                            <p className="text-gray-500 text-sm font-semibold mb-6 uppercase">
-                                Você tem certeza que deseja excluir a sala <span className="text-red-600">"{roomToDelete.name.toUpperCase()}"</span>? Esta ação não pode ser desfeita.
-                            </p>
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => setRoomToDelete(null)}
-                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    onClick={confirmDeleteRoom}
-                                    className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 shadow-lg"
-                                >
-                                    Confirmar Exclusão
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Edit Requests Modal */}
-                {showRequestsModal && (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-md">
-                        <div className="bg-white border-2 border-amber-200 p-8 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
-                            <div className="absolute top-0 left-0 w-full h-2 bg-amber-400"></div>
-
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm">
-                                        <Send className="w-5 h-5 text-white" />
+                    {/* Edit Room Dates Modal */}
+                    {showEditDatesModal && (
+                        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+                            <div className="bg-white border-2 border-gray-200 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+                                <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
+                                    <Pencil className="text-k9-orange w-5 h-5" /> Editar Datas do Torneio
+                                </h2>
+                                <div className="space-y-4 mb-6">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" /> Data de Início
+                                            </label>
+                                            <MaskedDateInput
+                                                value={editRoomStartDate}
+                                                onChange={(iso) => { setEditRoomStartDate(iso); if (iso) setDateErrors(prev => ({ ...prev, start: '' })); }}
+                                                onError={(msg) => setDateErrors(prev => ({ ...prev, start: msg }))}
+                                                min={minStartDate}
+                                                max={maxEndDate}
+                                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                                <Clock className="w-3 h-3" /> Hora de Início
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={editRoomStartTime}
+                                                onChange={(e) => setEditRoomStartTime(e.target.value)}
+                                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" /> Data de Fim
+                                            </label>
+                                            <MaskedDateInput
+                                                value={editRoomEndDate}
+                                                onChange={(iso) => { setEditRoomEndDate(iso); if (iso) setDateErrors(prev => ({ ...prev, end: '' })); }}
+                                                onError={(msg) => setDateErrors(prev => ({ ...prev, end: msg }))}
+                                                min={editRoomStartDate || minStartDate}
+                                                max={maxEndDate}
+                                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                                <Clock className="w-3 h-3" /> Hora de Encerramento
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={editRoomEndTime}
+                                                onChange={(e) => setEditRoomEndTime(e.target.value)}
+                                                className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold text-sm"
+                                            />
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-xl font-black text-k9-black uppercase tracking-tighter">Solicitações de Edição</h2>
-                                        <p className="text-[10px] font-bold text-amber-600 uppercase">
-                                            {requestFilterRoomId
-                                                ? `Torneio: ${rooms.find(r => r.id === requestFilterRoomId)?.name}`
-                                                : "Todos os torneios"}
-                                        </p>
+                                    <p className="text-[9px] text-gray-400 uppercase font-bold">* Datas são opcionais. Você pode limpá-las se quiser.</p>
+                                </div>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => { setShowEditDatesModal(false); setEditingRoomId(null); setEditRoomStartDate(''); setEditRoomStartTime('00:00'); setEditRoomEndDate(''); setEditRoomEndTime('23:59'); setDateErrors({}); }}
+                                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleSaveEditDates}
+                                        className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer shadow-md transition-all border-2 border-green-500 hover:border-green-600 flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle className="w-4 h-4" /> Salvar Datas
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Create Admin Modal */}
+                    {showCreateAdminModal && (
+                        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+                            <div className="bg-white border-2 border-gray-200 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+                                <h2 className="text-xl font-black text-k9-black uppercase mb-6 flex items-center gap-2 tracking-tight">
+                                    <Users className="text-k9-orange w-5 h-5" /> {t('adminDashboard.createAdminTitle')}
+                                </h2>
+                                <div className="space-y-4 mb-6">
+                                    <input
+                                        type="text"
+                                        value={newAdmin.name}
+                                        required
+                                        placeholder={t('adminDashboard.adminNamePlaceholder')}
+                                        onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
+                                        className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
+                                    />
+                                    <input
+                                        type="email"
+                                        value={newAdmin.email}
+                                        required
+                                        placeholder="usuario@comando.k9"
+                                        onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
+                                        className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
+                                    />
+                                    <div className="relative">
+                                        <input
+                                            type={showAdminPassword ? "text" : "password"}
+                                            value={newAdmin.password}
+                                            required
+                                            placeholder={t('adminDashboard.adminPasswordPlaceholder')}
+                                            onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
+                                            className="w-full bg-gray-50 border-2 border-gray-300 text-k9-black p-3 pr-10 rounded-lg focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-semibold"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAdminPassword(!showAdminPassword)}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-k9-orange cursor-pointer"
+                                        >
+                                            {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        </button>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setShowRequestsModal(false)}
-                                    className="p-2 text-gray-400 hover:text-black transition-colors"
-                                >
-                                    <XCircle className="w-6 h-6" />
-                                </button>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setShowCreateAdminModal(false)}
+                                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-lg tracking-wider cursor-pointer border-2 border-gray-300 transition-all"
+                                    >
+                                        {t('adminDashboard.cancelAdmin')}
+                                    </button>
+                                    <button
+                                        onClick={handleCreateAdmin}
+                                        disabled={!newAdmin.name || !newAdmin.email || !newAdmin.password}
+                                        className="flex-1 px-6 py-3 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-orange-400 text-white border-orange-400 hover:scale-105 cursor-pointer"
+                                    >
+                                        {t('adminDashboard.confirmAdmin')}
+                                    </button>
+                                </div>
                             </div>
+                        </div>
+                    )}
 
-                            <div className="overflow-y-auto space-y-4 pr-2">
-                                {pendingRequests
-                                    .filter(r => !requestFilterRoomId || r.roomId === requestFilterRoomId)
-                                    .map(req => {
-                                        const room = rooms.find(rm => rm.id === req.roomId);
-                                        return (
-                                            <div key={req.id} className="bg-amber-50/50 rounded-xl border border-amber-100 p-4 shadow-sm hover:shadow-md transition-all">
-                                                <div className="flex flex-col md:flex-row items-start justify-between gap-4">
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <span className="text-[9px] font-black bg-black text-white px-2 py-0.5 rounded uppercase">
-                                                                {room?.name}
-                                                            </span>
+                    {/* Delete Confirmation Modal */}
+                    {roomToDelete && (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-md">
+                            <div className="bg-white border-2 border-red-200 p-8 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden text-black text-center">
+                                <div className="absolute top-0 left-0 w-full h-2 bg-red-500"></div>
+                                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 mt-2 border-2 border-red-100">
+                                    <Trash2 className="w-8 h-8 text-red-500" />
+                                </div>
+                                <h2 className="text-2xl font-black uppercase mb-2 tracking-tighter">Excluir Sala</h2>
+                                <p className="text-gray-500 text-sm font-semibold mb-6 uppercase">
+                                    Você tem certeza que deseja excluir a sala <span className="text-red-600">"{roomToDelete.name.toUpperCase()}"</span>? Esta ação não pode ser desfeita.
+                                </p>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setRoomToDelete(null)}
+                                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={confirmDeleteRoom}
+                                        className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 shadow-lg"
+                                    >
+                                        Confirmar Exclusão
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Edit Requests Modal */}
+                    {showRequestsModal && (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-md">
+                            <div className="bg-white border-2 border-amber-200 p-8 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+                                <div className="absolute top-0 left-0 w-full h-2 bg-amber-400"></div>
+
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm">
+                                            <Send className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-black text-k9-black uppercase tracking-tighter">Solicitações de Edição</h2>
+                                            <p className="text-[10px] font-bold text-amber-600 uppercase">
+                                                {requestFilterRoomId
+                                                    ? `Torneio: ${rooms.find(r => r.id === requestFilterRoomId)?.name}`
+                                                    : "Todos os torneios"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowRequestsModal(false)}
+                                        className="p-2 text-gray-400 hover:text-black transition-colors"
+                                    >
+                                        <XCircle className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="overflow-y-auto space-y-4 pr-2">
+                                    {pendingRequests
+                                        .filter(r => !requestFilterRoomId || r.roomId === requestFilterRoomId)
+                                        .map(req => {
+                                            const room = rooms.find(rm => rm.id === req.roomId);
+                                            return (
+                                                <div key={req.id} className="bg-amber-50/50 rounded-xl border border-amber-100 p-4 shadow-sm hover:shadow-md transition-all">
+                                                    <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <span className="text-[9px] font-black bg-black text-white px-2 py-0.5 rounded uppercase">
+                                                                    {room?.name}
+                                                                </span>
+                                                            </div>
+                                                            <div className="font-black text-k9-black uppercase text-sm truncate">
+                                                                {req.competitorName || 'Competidor'}
+                                                            </div>
+                                                            <div className="text-[10px] text-gray-400 font-bold uppercase">
+                                                                Prova: {req.testTitle || 'Prova'}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className="text-[10px] font-black text-amber-600 uppercase bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+                                                                    <Clock className="w-3 h-3" /> Juiz: {req.judgeName}
+                                                                </span>
+                                                            </div>
+                                                            <div className="mt-2 text-xs text-gray-600 bg-white p-3 rounded-lg border border-amber-100 shadow-inner">
+                                                                <span className="text-[9px] font-black text-gray-400 uppercase block mb-1">Motivo:</span>
+                                                                {req.reason}
+                                                            </div>
+                                                            <div className="text-[9px] text-gray-300 font-mono mt-2">
+                                                                {new Date(req.createdAt).toLocaleString('pt-BR')}
+                                                            </div>
                                                         </div>
-                                                        <div className="font-black text-k9-black uppercase text-sm truncate">
-                                                            {req.competitorName || 'Competidor'}
+                                                        <div className="flex md:flex-col gap-2 shrink-0 w-full md:w-auto">
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await respondToEditScoreRequest(req.id, 'approved', user?.uid || 'admin');
+                                                                        fetchRooms();
+                                                                    } catch (err) {
+                                                                        console.error(err);
+                                                                        alert('Erro ao aprovar.');
+                                                                    }
+                                                                }}
+                                                                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase rounded-lg bg-green-500 text-white border border-green-600 hover:bg-green-600 transition-all cursor-pointer shadow-sm"
+                                                            >
+                                                                <CheckCircle className="w-4 h-4" /> Aprovar
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await respondToEditScoreRequest(req.id, 'rejected', user?.uid || 'admin');
+                                                                        fetchRooms();
+                                                                    } catch (err) {
+                                                                        console.error(err);
+                                                                        alert('Erro ao rejeitar.');
+                                                                    }
+                                                                }}
+                                                                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase rounded-lg bg-white text-red-600 border border-red-200 hover:bg-red-50 transition-all cursor-pointer shadow-sm"
+                                                            >
+                                                                <XCircle className="w-4 h-4" /> Rejeitar
+                                                            </button>
                                                         </div>
-                                                        <div className="text-[10px] text-gray-400 font-bold uppercase">
-                                                            Prova: {req.testTitle || 'Prova'}
-                                                        </div>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-[10px] font-black text-amber-600 uppercase bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
-                                                                <Clock className="w-3 h-3" /> Juiz: {req.judgeName}
-                                                            </span>
-                                                        </div>
-                                                        <div className="mt-2 text-xs text-gray-600 bg-white p-3 rounded-lg border border-amber-100 shadow-inner">
-                                                            <span className="text-[9px] font-black text-gray-400 uppercase block mb-1">Motivo:</span>
-                                                            {req.reason}
-                                                        </div>
-                                                        <div className="text-[9px] text-gray-300 font-mono mt-2">
-                                                            {new Date(req.createdAt).toLocaleString('pt-BR')}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex md:flex-col gap-2 shrink-0 w-full md:w-auto">
-                                                        <button
-                                                            onClick={async () => {
-                                                                try {
-                                                                    await respondToEditScoreRequest(req.id, 'approved', user?.uid || 'admin');
-                                                                    fetchRooms();
-                                                                } catch (err) {
-                                                                    console.error(err);
-                                                                    alert('Erro ao aprovar.');
-                                                                }
-                                                            }}
-                                                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase rounded-lg bg-green-500 text-white border border-green-600 hover:bg-green-600 transition-all cursor-pointer shadow-sm"
-                                                        >
-                                                            <CheckCircle className="w-4 h-4" /> Aprovar
-                                                        </button>
-                                                        <button
-                                                            onClick={async () => {
-                                                                try {
-                                                                    await respondToEditScoreRequest(req.id, 'rejected', user?.uid || 'admin');
-                                                                    fetchRooms();
-                                                                } catch (err) {
-                                                                    console.error(err);
-                                                                    alert('Erro ao rejeitar.');
-                                                                }
-                                                            }}
-                                                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase rounded-lg bg-white text-red-600 border border-red-200 hover:bg-red-50 transition-all cursor-pointer shadow-sm"
-                                                        >
-                                                            <XCircle className="w-4 h-4" /> Rejeitar
-                                                        </button>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
 
-                                {pendingRequests.filter(r => !requestFilterRoomId || r.roomId === requestFilterRoomId).length === 0 && (
-                                    <div className="text-center py-8 text-gray-400 uppercase font-black text-xs tracking-widest">
-                                        Nenhuma solicitação pendente encontrada.
-                                    </div>
-                                )}
+                                    {pendingRequests.filter(r => !requestFilterRoomId || r.roomId === requestFilterRoomId).length === 0 && (
+                                        <div className="text-center py-8 text-gray-400 uppercase font-black text-xs tracking-widest">
+                                            Nenhuma solicitação pendente encontrada.
+                                        </div>
+                                    )}
+                                </div>
+
+                                <button
+                                    onClick={() => setShowRequestsModal(false)}
+                                    className="mt-6 w-full py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                                >
+                                    Fechar
+                                </button>
                             </div>
-
-                            <button
-                                onClick={() => setShowRequestsModal(false)}
-                                className="mt-6 w-full py-3 bg-gray-100 hover:bg-gray-200 text-k9-black font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
-                            >
-                                Fechar
-                            </button>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
-        </div>
-        <DateToast errors={dateErrors} onClose={(key) => setDateErrors(prev => ({ ...prev, [key]: '' }))} />
+            <DateToast errors={dateErrors} onClose={(key) => setDateErrors(prev => ({ ...prev, [key]: '' }))} />
         </>
     );
 }

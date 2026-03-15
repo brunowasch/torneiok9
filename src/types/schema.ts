@@ -56,6 +56,7 @@ export interface Competitor {
   testIds?: string[];
   testId?: string; // Deprecated: mantido para compatibilidade
   photoUrl?: string;
+  drugPointsFound?: Record<string, number>; // testId -> number of points found
   createdAt: number;
 }
 
@@ -87,6 +88,7 @@ export interface TestTemplate {
   groups: ScoreGroup[];
   penalties: PenaltyOption[];
   testNumber?: number;
+  drugPointsAmount?: number;
 }
 
 export interface Evaluation {

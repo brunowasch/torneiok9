@@ -1,5 +1,5 @@
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, getDocs } from 'firebase/firestore';
 import { Competitor, Evaluation } from '../types/schema';
 
 export interface LeaderboardEntry extends Competitor {
@@ -10,28 +10,19 @@ export interface LeaderboardEntry extends Competitor {
 }
 
 export const subscribeToLeaderboard = (roomId: string, callback: (data: LeaderboardEntry[]) => void) => {
-    const qCompetitors = query(collection(db, 'competitors'), where('roomId', '==', roomId));
+    let competitors: Competitor[] = [];
+    let evaluations: Evaluation[] = [];
+    let roomInfo: any = null;
 
-    const unsubscribeCompetitors = onSnapshot(qCompetitors, async (compSnapshot) => {
-        const competitors = compSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+    const updateLeaderboard = () => {
+        if (!competitors.length) {
+            callback([]);
+            return;
+        }
 
-        const { doc: docFn, getDoc } = await import('firebase/firestore');
-        let judgeReserves: string[] = [];
-        let judgeReserveModalities: Record<string, string[]> = {};
-        let judgeCompetitorReserves: Record<string, string[]> = {};
-        try {
-            const roomSnap = await getDoc(docFn(db, 'rooms', roomId));
-            if (roomSnap.exists()) {
-                const data = roomSnap.data();
-                judgeReserves = data.judgeReserves || [];
-                judgeReserveModalities = data.judgeReserveModalities || {};
-                judgeCompetitorReserves = data.judgeCompetitorReserves || {};
-            }
-        } catch { }
-
-        const qEvaluations = query(collection(db, 'evaluations'), where('roomId', '==', roomId));
-        const evalSnapshot = await getDocs(qEvaluations);
-        const evaluations = evalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evaluation));
+        const judgeReserves = roomInfo?.judgeReserves || [];
+        const judgeReserveModalities = roomInfo?.judgeReserveModalities || {};
+        const judgeCompetitorReserves = roomInfo?.judgeCompetitorReserves || {};
 
         const leaderboard: LeaderboardEntry[] = competitors.map(comp => {
             const compEvals = evaluations.filter(e => e.competitorId === comp.id);
@@ -81,8 +72,14 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
                     if (evalsToAverage.length >= 3) {
                         const avg = evalsToAverage.slice(0, 3).reduce((sum, e) => sum + e.finalScore, 0) / 3;
                         scoresByTest[testId] = avg;
+
+                        // Add bonus for "Faro" modalities (e.g., "Faro de Narcóticos"): (drug points found * 50)
+                        if (comp.modality?.toLowerCase().includes('faro')) {
+                            const found = comp.drugPointsFound?.[testId] || 0;
+                            scoresByTest[testId] += (found * 50);
+                        }
                     } else {
-                        scoresByTest[testId] = 0; // Menos de 3 avaliações: não contabiliza ainda
+                        scoresByTest[testId] = 0;
                     }
                 }
                 totalScore += scoresByTest[testId];
@@ -99,9 +96,32 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
 
         leaderboard.sort((a, b) => b.totalScore - a.totalScore);
         callback(leaderboard);
+    };
+
+    const qCompetitors = query(collection(db, 'competitors'), where('roomId', '==', roomId));
+    const unsubscribeCompetitors = onSnapshot(qCompetitors, (snapshot) => {
+        competitors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+        updateLeaderboard();
     });
 
-    return unsubscribeCompetitors;
+    const qEvaluations = query(collection(db, 'evaluations'), where('roomId', '==', roomId));
+    const unsubscribeEvaluations = onSnapshot(qEvaluations, (snapshot) => {
+        evaluations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evaluation));
+        updateLeaderboard();
+    });
+
+    const unsubscribeRoom = onSnapshot(doc(db, 'rooms', roomId), (snapshot) => {
+        if (snapshot.exists()) {
+            roomInfo = snapshot.data();
+            updateLeaderboard();
+        }
+    });
+
+    return () => {
+        unsubscribeCompetitors();
+        unsubscribeEvaluations();
+        unsubscribeRoom();
+    };
 };
 
 export const getAllCompetitors = async () => {

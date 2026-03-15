@@ -5,8 +5,8 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest } from '@/types/schema';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, setJudgeCompetitorReserves, activateReserve, deactivateReserve, updateRoom } from '@/services/adminService';
-import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest, getEvaluationHistory } from '@/services/evaluationService';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, setJudgeCompetitorReserves, activateReserve, deactivateReserve, updateRoom, subscribeToRoom, subscribeToCompetitorsByRoom, subscribeToTestsByRoom } from '@/services/adminService';
+import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest, getEvaluationHistory, subscribeToEvaluationsByRoom, subscribeToEditScoreRequestsByRoom } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
@@ -91,6 +91,7 @@ export default function RoomDetailsPage() {
     const [selectedModality, setSelectedModality] = useState<Modality | ''>('');
     const [genMsg, setGenMsg] = useState('');
     const [editingTestId, setEditingTestId] = useState<string | null>(null);
+    const [templateDrugPointsAmount, setTemplateDrugPointsAmount] = useState<number>(0);
 
     // Judge Form State
     const [showAddJudge, setShowAddJudge] = useState(false);
@@ -175,31 +176,15 @@ export default function RoomDetailsPage() {
         let unsubCompetitors: (() => void) | undefined;
         let unsubTests: (() => void) | undefined;
         let unsubEvaluations: (() => void) | undefined;
+        let unsubRequests: (() => void) | undefined;
 
         const setupListeners = async () => {
             try {
-                const { doc, collection, query, where, onSnapshot } = await import('firebase/firestore');
-                const { db } = await import('@/lib/firebase');
-
-                unsubRoom = onSnapshot(doc(db, 'rooms', roomId), (snap) => {
-                    if (snap.exists()) setRoom({ id: snap.id, ...snap.data() } as Room);
-                    else setRoom(null);
-                }, (err) => console.error('room snapshot error', err));
-
-                const qComp = query(collection(db, 'competitors'), where('roomId', '==', roomId));
-                unsubCompetitors = onSnapshot(qComp, (snap) => {
-                    setCompetitors(snap.docs.map(d => ({ id: d.id, ...d.data() } as Competitor)));
-                }, (err) => console.error('competitors snapshot error', err));
-
-                const qTests = query(collection(db, 'tests'), where('roomId', '==', roomId));
-                unsubTests = onSnapshot(qTests, (snap) => {
-                    setTests(snap.docs.map(d => ({ id: d.id, ...d.data() } as TestTemplate)));
-                }, (err) => console.error('tests snapshot error', err));
-
-                const qEval = query(collection(db, 'evaluations'), where('roomId', '==', roomId));
-                unsubEvaluations = onSnapshot(qEval, (snap) => {
-                    setEvaluations(snap.docs.map(d => ({ id: d.id, ...d.data() } as Evaluation)));
-                }, (err) => console.error('evaluations snapshot error', err));
+                unsubRoom = subscribeToRoom(roomId, setRoom);
+                unsubCompetitors = subscribeToCompetitorsByRoom(roomId, setCompetitors);
+                unsubTests = subscribeToTestsByRoom(roomId, setTests);
+                unsubEvaluations = subscribeToEvaluationsByRoom(roomId, setEvaluations);
+                unsubRequests = subscribeToEditScoreRequestsByRoom(roomId, setEditRequests);
 
                 const fetchedModalities = await getModalities();
                 setModalities(fetchedModalities.length > 0 ? fetchedModalities.map(m => m.name) : INITIAL_MODALITIES);
@@ -221,6 +206,7 @@ export default function RoomDetailsPage() {
             if (unsubCompetitors) unsubCompetitors();
             if (unsubTests) unsubTests();
             if (unsubEvaluations) unsubEvaluations();
+            if (unsubRequests) unsubRequests();
         };
     }, [roomId, loadRoomData]);
 
@@ -293,6 +279,7 @@ export default function RoomDetailsPage() {
         setSelectedModality(test.modality || '');
 
         const allItems = test.groups.flatMap(g => g.items);
+        setTemplateDrugPointsAmount(test.drugPointsAmount || 0);
 
         setScoreItems(allItems);
         setPenaltyItems(test.penalties || []);
@@ -326,7 +313,8 @@ export default function RoomDetailsPage() {
                     maxScore: totalScore,
                     groups,
                     penalties: penaltyItems,
-                    testNumber
+                    testNumber,
+                    drugPointsAmount: templateDrugPointsAmount
                 });
             } else {
                 const testNumber = tests.filter(t => t.modality === selectedModality).length + 1;
@@ -338,7 +326,8 @@ export default function RoomDetailsPage() {
                     groups,
                     penalties: penaltyItems,
                     roomId,
-                    testNumber
+                    testNumber,
+                    drugPointsAmount: templateDrugPointsAmount
                 });
             }
 
@@ -349,6 +338,7 @@ export default function RoomDetailsPage() {
             setTemplateDescription('');
             setSelectedModality('');
             setEditingTestId(null);
+            setTemplateDrugPointsAmount(0);
             setShowAddTest(false);
             loadRoomData();
         } catch (e) {
@@ -463,6 +453,23 @@ export default function RoomDetailsPage() {
             alert('Erro ao salvar as datas da sala.');
         } finally {
             setSavingDates(false);
+        }
+    };
+
+    const handleUpdateDrugPoints = async (competitorId: string, testId: string, value: number) => {
+        try {
+            const comp = competitors.find(c => c.id === competitorId);
+            if (!comp) return;
+            const currentPoints = comp.drugPointsFound || {};
+            await updateCompetitor(competitorId, {
+                drugPointsFound: {
+                    ...currentPoints,
+                    [testId]: value
+                }
+            });
+        } catch (err) {
+            console.error("Error updating drug points", err);
+            alert("Erro ao atualizar pontos de drogas");
         }
     };
 
@@ -1121,6 +1128,24 @@ export default function RoomDetailsPage() {
                                             </select>
                                         </div>
 
+                                        {selectedModality?.toLowerCase().includes('faro') && (
+                                            <div className="mb-6 bg-orange-50 p-4 rounded-xl border border-orange-200">
+                                                <label className="text-xs font-black text-orange-700 uppercase flex items-center gap-2 mb-2">
+                                                    <Search className="w-4 h-4" /> {t('admin.tests.drugPointsAmount')}
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={templateDrugPointsAmount}
+                                                    onChange={e => setTemplateDrugPointsAmount(parseInt(e.target.value) || 0)}
+                                                    className="w-full bg-white border border-orange-300 text-k9-black p-3 rounded focus:outline-none focus:border-k9-orange focus:ring-1 focus:ring-k9-orange font-bold"
+                                                    placeholder="Ex: 5"
+                                                />
+                                                <p className="text-[10px] text-orange-600 font-bold uppercase mt-2">
+                                                    Nota Final = Média dos Juízes + (Pontos Achados x 50)
+                                                </p>
+                                            </div>
+                                        )}
+
                                         {/* Evaluation Items */}
                                         <div className="mb-6 p-4 bg-gray-50 rounded border border-gray-200">
                                             <div className="flex justify-between mb-2">
@@ -1273,102 +1298,102 @@ export default function RoomDetailsPage() {
                                     .filter(j => j.name.toLowerCase().includes(judgesSearch.toLowerCase()) || j.email.toLowerCase().includes(judgesSearch.toLowerCase()))
                                     .sort((a, b) => judgesSortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name))
                                     .map(j => {
-                                    const assignedMods = (room?.judgeModalities?.[j.uid] || []).filter(m => modalities.includes(m));
-                                    const reserveMods: string[] = (room?.judgeReserveModalities?.[j.uid] || []);
-                                    const isGlobalReserve = !room?.judgeReserveModalities?.[j.uid] && (room?.judgeReserves?.includes(j.uid) ?? false);
+                                        const assignedMods = (room?.judgeModalities?.[j.uid] || []).filter(m => modalities.includes(m));
+                                        const reserveMods: string[] = (room?.judgeReserveModalities?.[j.uid] || []);
+                                        const isGlobalReserve = !room?.judgeReserveModalities?.[j.uid] && (room?.judgeReserves?.includes(j.uid) ?? false);
 
-                                    return (
-                                        <div key={j.uid} className={`bg-white border-2 p-4 rounded-2xl hover:shadow-md transition-all ${reserveMods.length > 0 || isGlobalReserve ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-100'
-                                            }`}>
-                                            {/* Cabeçalho: nome + email */}
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="font-bold text-k9-black uppercase text-sm">{j.name}</div>
-                                                    <div className="text-xs text-gray-400 font-mono mt-0.5">{j.email}</div>
-                                                </div>
-                                                {/* Botões de ação */}
-                                                <div className="flex gap-2 shrink-0">
-                                                    <button
-                                                        onClick={() => handleEditJudge(j)}
-                                                        className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer"
-                                                        title="Editar"
-                                                    >
-                                                        <Pencil className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleRemoveJudgeRequest(j.uid, j.name)}
-                                                        className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
-                                                        title="Remover Juiz desta Sala"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Modalidades atribuídas */}
-                                            <div className="flex flex-wrap gap-1.5 mt-3">
-                                                {assignedMods.length > 0 ? assignedMods.map(m => {
-                                                    const isReserveInThisMod = reserveMods.includes(m) || isGlobalReserve;
-                                                    return (
-                                                        <button
-                                                            key={m}
-                                                            onClick={async () => {
-                                                                const newReserveMods = isReserveInThisMod
-                                                                    ? reserveMods.filter(r => r !== m)
-                                                                    : [...reserveMods, m];
-                                                                await setJudgeReserveModalities(room!.id, j.uid, newReserveMods);
-                                                                loadRoomData();
-                                                            }}
-                                                            title={isReserveInThisMod ? `Promover a Titular em ${m}` : `Marcar como Reserva em ${m}`}
-                                                            className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded-full border transition-all cursor-pointer ${isReserveInThisMod
-                                                                ? 'bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200'
-                                                                : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                                                                }`}
-                                                        >
-                                                            {isReserveInThisMod
-                                                                ? <><Zap className="w-2.5 h-2.5" /> Res: {m}</>
-                                                                : <><Check className="w-2.5 h-2.5" /> Tit: {m}</>
-                                                            }
-                                                        </button>
-                                                    );
-                                                }) : (
-                                                    <span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200">
-                                                        {t('admin.judges.noModalities')}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {/* Legenda */}
-                                            {assignedMods.length > 0 && (
-                                                <div className="mt-2 text-[8px] text-gray-400 font-bold uppercase">
-                                                    Clique na modalidade para alternar Titular ↔ Reserva
-                                                </div>
-                                            )}
-
-                                            {/* Competidores específicos desta reserva */}
-                                            {(() => {
-                                                const linkedComps = competitors.filter(c =>
-                                                    (room?.judgeCompetitorReserves?.[c.id] || []).includes(j.uid)
-                                                );
-                                                if (linkedComps.length === 0) return null;
-                                                return (
-                                                    <div className="mt-3 pt-3 border-t border-yellow-200">
-                                                        <div className="text-[8px] text-purple-600 font-black uppercase tracking-widest mb-1.5">
-                                                            Reserva específico de:
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {linkedComps.map(c => (
-                                                                <span key={c.id} className="text-[9px] font-black uppercase px-2 py-0.5 bg-purple-100 text-purple-700 border border-purple-200 rounded-full">
-                                                                    {c.handlerName}
-                                                                </span>
-                                                            ))}
-                                                        </div>
+                                        return (
+                                            <div key={j.uid} className={`bg-white border-2 p-4 rounded-2xl hover:shadow-md transition-all ${reserveMods.length > 0 || isGlobalReserve ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-100'
+                                                }`}>
+                                                {/* Cabeçalho: nome + email */}
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="font-bold text-k9-black uppercase text-sm">{j.name}</div>
+                                                        <div className="text-xs text-gray-400 font-mono mt-0.5">{j.email}</div>
                                                     </div>
-                                                );
-                                            })()}
-                                        </div>
-                                    );
-                                })}
+                                                    {/* Botões de ação */}
+                                                    <div className="flex gap-2 shrink-0">
+                                                        <button
+                                                            onClick={() => handleEditJudge(j)}
+                                                            className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer"
+                                                            title="Editar"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleRemoveJudgeRequest(j.uid, j.name)}
+                                                            className="inline-flex items-center justify-center w-8 h-8 bg-white border border-gray-100 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                                                            title="Remover Juiz desta Sala"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Modalidades atribuídas */}
+                                                <div className="flex flex-wrap gap-1.5 mt-3">
+                                                    {assignedMods.length > 0 ? assignedMods.map(m => {
+                                                        const isReserveInThisMod = reserveMods.includes(m) || isGlobalReserve;
+                                                        return (
+                                                            <button
+                                                                key={m}
+                                                                onClick={async () => {
+                                                                    const newReserveMods = isReserveInThisMod
+                                                                        ? reserveMods.filter(r => r !== m)
+                                                                        : [...reserveMods, m];
+                                                                    await setJudgeReserveModalities(room!.id, j.uid, newReserveMods);
+                                                                    loadRoomData();
+                                                                }}
+                                                                title={isReserveInThisMod ? `Promover a Titular em ${m}` : `Marcar como Reserva em ${m}`}
+                                                                className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded-full border transition-all cursor-pointer ${isReserveInThisMod
+                                                                    ? 'bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200'
+                                                                    : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                                                    }`}
+                                                            >
+                                                                {isReserveInThisMod
+                                                                    ? <><Zap className="w-2.5 h-2.5" /> Res: {m}</>
+                                                                    : <><Check className="w-2.5 h-2.5" /> Tit: {m}</>
+                                                                }
+                                                            </button>
+                                                        );
+                                                    }) : (
+                                                        <span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200">
+                                                            {t('admin.judges.noModalities')}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Legenda */}
+                                                {assignedMods.length > 0 && (
+                                                    <div className="mt-2 text-[8px] text-gray-400 font-bold uppercase">
+                                                        Clique na modalidade para alternar Titular ↔ Reserva
+                                                    </div>
+                                                )}
+
+                                                {/* Competidores específicos desta reserva */}
+                                                {(() => {
+                                                    const linkedComps = competitors.filter(c =>
+                                                        (room?.judgeCompetitorReserves?.[c.id] || []).includes(j.uid)
+                                                    );
+                                                    if (linkedComps.length === 0) return null;
+                                                    return (
+                                                        <div className="mt-3 pt-3 border-t border-yellow-200">
+                                                            <div className="text-[8px] text-purple-600 font-black uppercase tracking-widest mb-1.5">
+                                                                Reserva específico de:
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {linkedComps.map(c => (
+                                                                    <span key={c.id} className="text-[9px] font-black uppercase px-2 py-0.5 bg-purple-100 text-purple-700 border border-purple-200 rounded-full">
+                                                                        {c.handlerName}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        );
+                                    })}
                                 {(!room?.judges || room?.judges.length === 0) && (
                                     <div className="col-span-full text-center py-8 text-gray-500">{t('admin.judges.noJudges')}</div>
                                 )}
@@ -1411,8 +1436,8 @@ export default function RoomDetailsPage() {
                                                     .filter(j => j.name.toLowerCase().includes(judgesSearch.toLowerCase()) || j.email.toLowerCase().includes(judgesSearch.toLowerCase()))
                                                     .sort((a, b) => judgesSortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name))
                                                     .map(j => (
-                                                    <option key={j.uid} value={j.uid}>{j.name} ({j.email})</option>
-                                                ))}
+                                                        <option key={j.uid} value={j.uid}>{j.name} ({j.email})</option>
+                                                    ))}
                                             </select>
                                         </div>
                                     ) : (
@@ -1583,176 +1608,201 @@ export default function RoomDetailsPage() {
                                                     .filter(c => c.handlerName.toLowerCase().includes(rankingsSearch.toLowerCase()) || c.dogName.toLowerCase().includes(rankingsSearch.toLowerCase()))
                                                     .sort((a, b) => rankingsSortOrder === 'asc' ? a.handlerName.localeCompare(b.handlerName) : b.handlerName.localeCompare(a.handlerName))
                                                     .map(comp => {
-                                                    const titularEvals = evaluations.filter(e => {
-                                                        if (e.testId !== test.id || e.competitorId !== comp.id) return false;
-                                                        // Reserva específica para este competidor
-                                                        const compReserves = room?.judgeCompetitorReserves?.[comp.id] || [];
-                                                        if (compReserves.includes(e.judgeId)) return false;
-                                                        // Reserva por modalidade
-                                                        const judgeReserveMods = room?.judgeReserveModalities?.[e.judgeId] || [];
-                                                        if (test.modality && judgeReserveMods.length > 0) {
-                                                            return !judgeReserveMods.includes(test.modality);
-                                                        }
-                                                        return !(room?.judgeReserves || []).includes(e.judgeId);
-                                                    });
-                                                    const titularCount = titularEvals.length;
-                                                    const needsReserve = titularCount < 3;
+                                                        const titularEvals = evaluations.filter(e => {
+                                                            if (e.testId !== test.id || e.competitorId !== comp.id) return false;
+                                                            // Reserva específica para este competidor
+                                                            const compReserves = room?.judgeCompetitorReserves?.[comp.id] || [];
+                                                            if (compReserves.includes(e.judgeId)) return false;
+                                                            // Reserva por modalidade
+                                                            const judgeReserveMods = room?.judgeReserveModalities?.[e.judgeId] || [];
+                                                            if (test.modality && judgeReserveMods.length > 0) {
+                                                                return !judgeReserveMods.includes(test.modality);
+                                                            }
+                                                            return !(room?.judgeReserves || []).includes(e.judgeId);
+                                                        });
+                                                        const titularCount = titularEvals.length;
+                                                        const needsReserve = titularCount < 3;
 
-                                                    const isActivated = (room?.reserveActivations || []).some(
-                                                        a => a.competitorId === comp.id && a.testId === test.id
-                                                    );
+                                                        const isActivated = (room?.reserveActivations || []).some(
+                                                            a => a.competitorId === comp.id && a.testId === test.id
+                                                        );
 
-                                                    const allCompEvals = evaluations.filter(e => e.testId === test.id && e.competitorId === comp.id);
-                                                    const evaluation = allCompEvals[0];
-                                                    const isDNS = allCompEvals.some(e => e.status === 'did_not_participate');
+                                                        const allCompEvals = evaluations.filter(e => e.testId === test.id && e.competitorId === comp.id);
+                                                        const evaluation = allCompEvals[0];
+                                                        const isDNS = allCompEvals.some(e => e.status === 'did_not_participate');
 
-                                                    const isRes = (judgeId: string) => {
-                                                        const compReserves = room?.judgeCompetitorReserves?.[comp.id] || [];
-                                                        if (compReserves.includes(judgeId)) return true;
-                                                        const mods = room?.judgeReserveModalities?.[judgeId] || [];
-                                                        if (mods.length > 0) return mods.includes(test.modality || '');
-                                                        return (room?.judgeReserves || []).includes(judgeId);
-                                                    };
-                                                    const validEvals = allCompEvals.filter(e => e.status !== 'did_not_participate');
-                                                    const titularsForAvg = validEvals.filter(e => !isRes(e.judgeId)).slice(0, 3);
-                                                    const reservesForAvg = validEvals.filter(e => isRes(e.judgeId)).slice(0, Math.max(0, 3 - titularsForAvg.length));
-                                                    const evalsToAvg = titularsForAvg.length > 0 ? [...titularsForAvg, ...reservesForAvg] : reservesForAvg.slice(0, 3);
-                                                    const calculatedAvg = evalsToAvg.length > 0
-                                                        ? evalsToAvg.reduce((s, e) => s + e.finalScore, 0) / evalsToAvg.length
-                                                        : null;
+                                                        const isRes = (judgeId: string) => {
+                                                            const compReserves = room?.judgeCompetitorReserves?.[comp.id] || [];
+                                                            if (compReserves.includes(judgeId)) return true;
+                                                            const mods = room?.judgeReserveModalities?.[judgeId] || [];
+                                                            if (mods.length > 0) return mods.includes(test.modality || '');
+                                                            return (room?.judgeReserves || []).includes(judgeId);
+                                                        };
+                                                        const validEvals = allCompEvals.filter(e => e.status !== 'did_not_participate');
+                                                        const titularsForAvg = validEvals.filter(e => !isRes(e.judgeId)).slice(0, 3);
+                                                        const reservesForAvg = validEvals.filter(e => isRes(e.judgeId)).slice(0, Math.max(0, 3 - titularsForAvg.length));
+                                                        const evalsToAvg = titularsForAvg.length > 0 ? [...titularsForAvg, ...reservesForAvg] : reservesForAvg.slice(0, 3);
+                                                        const calculatedAvg = evalsToAvg.length > 0
+                                                            ? evalsToAvg.reduce((s, e) => s + e.finalScore, 0) / evalsToAvg.length
+                                                            : null;
 
-                                                    return (
-                                                        <div key={comp.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50/50 transition-colors">
-                                                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-400 text-xs overflow-hidden border border-gray-100 shadow-inner shrink-0">
-                                                                    {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
-                                                                </div>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <div className="text-sm font-black text-k9-black uppercase truncate">{comp.handlerName}</div>
-                                                                    <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.rankings.dog')}: {comp.dogName}</div>
+                                                        return (
+                                                            <div key={comp.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50/50 transition-colors">
+                                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-black text-gray-400 text-xs overflow-hidden border border-gray-100 shadow-inner shrink-0">
+                                                                        {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
+                                                                    </div>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="text-sm font-black text-k9-black uppercase truncate">{comp.handlerName}</div>
+                                                                        <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.rankings.dog')}: {comp.dogName}</div>
 
-                                                                    {/* Indicador de juízes titulares */}
-                                                                    <div className="flex items-center gap-2 mt-1.5 overflow-x-auto no-scrollbar">
-                                                                        <div className="flex gap-1 shrink-0">
-                                                                            {[1, 2, 3].map(i => (
-                                                                                <div
-                                                                                    key={i}
-                                                                                    className={`w-3.5 h-3.5 rounded-full border-2 transition-colors ${i <= titularCount
-                                                                                        ? 'bg-orange-400 border-orange-500'
-                                                                                        : 'bg-gray-100 border-gray-300'
-                                                                                        }`}
-                                                                                    title={`Juiz titular ${i}`}
-                                                                                />
-                                                                            ))}
+                                                                        {/* Indicador de juízes titulares */}
+                                                                        <div className="flex items-center gap-2 mt-1.5 overflow-x-auto no-scrollbar">
+                                                                            <div className="flex gap-1 shrink-0">
+                                                                                {[1, 2, 3].map(i => (
+                                                                                    <div
+                                                                                        key={i}
+                                                                                        className={`w-3.5 h-3.5 rounded-full border-2 transition-colors ${i <= titularCount
+                                                                                            ? 'bg-orange-400 border-orange-500'
+                                                                                            : 'bg-gray-100 border-gray-300'
+                                                                                            }`}
+                                                                                        title={`Juiz titular ${i}`}
+                                                                                    />
+                                                                                ))}
+                                                                            </div>
+                                                                            <span className={`text-[9px] font-black uppercase whitespace-nowrap ${titularCount >= 3 ? 'text-green-600' : 'text-gray-400'
+                                                                                }`}>
+                                                                                {titularCount}/3 {t('admin.rankings.titulars')}
+                                                                            </span>
                                                                         </div>
-                                                                        <span className={`text-[9px] font-black uppercase whitespace-nowrap ${titularCount >= 3 ? 'text-green-600' : 'text-gray-400'
-                                                                            }`}>
-                                                                            {titularCount}/3 {t('admin.rankings.titulars')}
-                                                                        </span>
                                                                     </div>
                                                                 </div>
-                                                            </div>
 
-                                                            <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t border-gray-50 sm:border-0 w-full sm:w-auto shrink-0">
-                                                                {/* Botão Configurar Reserva por Competidor */}
-                                                                {(room?.judges && room.judges.length > 0) && (
-                                                                    <button
-                                                                        onClick={() => setCompetitorReserveConfig(comp)}
-                                                                        className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 cursor-pointer"
-                                                                        title="Configurar Juiz Reserva para este competidor"
-                                                                    >
-                                                                        <Gavel className="w-3 h-3" />
-                                                                        Reserva
-                                                                    </button>
-                                                                )}
+                                                                <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t border-gray-50 sm:border-0 w-full sm:w-auto shrink-0">
+                                                                    {/* Botão Configurar Reserva por Competidor */}
+                                                                    {(room?.judges && room.judges.length > 0) && (
+                                                                        <button
+                                                                            onClick={() => setCompetitorReserveConfig(comp)}
+                                                                            className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 cursor-pointer"
+                                                                            title="Configurar Juiz Reserva para este competidor"
+                                                                        >
+                                                                            <Gavel className="w-3 h-3" />
+                                                                            Reserva
+                                                                        </button>
+                                                                    )}
 
-                                                                {/* Botão Acionar / Desacionar Reserva */}
-                                                                {needsReserve && !isDNS && (
-                                                                    <button
-                                                                        onClick={async () => {
-                                                                            try {
-                                                                                if (isActivated) {
-                                                                                    await deactivateReserve(roomId, comp.id, test.id);
-                                                                                } else {
-                                                                                    await activateReserve(roomId, comp.id, test.id, user?.uid || 'admin');
-                                                                                }
-                                                                            } catch (err) {
-                                                                                console.error(err);
-                                                                                alert('Erro ao acionar/desacionar o reserva.');
-                                                                            }
-                                                                        }}
-                                                                        className={`flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all ${isActivated
-                                                                            ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 shadow-sm'
-                                                                            : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
-                                                                            }`}
-                                                                        title={isActivated ? 'Clique para desacionar o reserva' : 'Acionar Juiz Reserva'}
-                                                                    >
-                                                                        {isActivated ? (
-                                                                            <>
-                                                                                <BellOff className="w-3 h-3" />
-                                                                                {t('admin.rankings.activated') || 'Acionado'}
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <Bell className="w-3 h-3" />
-                                                                                {t('admin.rankings.activateReserve') || 'Acionar Reserva'}
-                                                                            </>
-                                                                        )}
-                                                                    </button>
-                                                                )}
-
-                                                                {(allCompEvals.length > 0) ? (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className={`text-right mr-2 ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
-                                                                            <div className="text-xs font-black uppercase leading-none">{isDNS ? 'NC' : calculatedAvg !== null ? calculatedAvg.toFixed(1) : '--'}</div>
-                                                                            <div className="text-[8px] font-bold uppercase opacity-60">{t('admin.rankings.status')}</div>
-                                                                        </div>
-                                                                        
+                                                                    {/* Botão Acionar / Desacionar Reserva */}
+                                                                    {needsReserve && !isDNS && (
                                                                         <button
                                                                             onClick={async () => {
                                                                                 try {
-                                                                                    const history = await getEvaluationHistory(roomId, comp.id, test.id);
-                                                                                    const allNotes = [...allCompEvals, ...history].sort((a,b) => (b.archivedAt || b.createdAt) - (a.archivedAt || a.createdAt));
-                                                                                    setViewingHistoryFor({ comp, test, evals: allNotes });
-                                                                                } catch(err) {
-                                                                                    console.error('Error fetching history:', err);
-                                                                                    setViewingHistoryFor({ comp, test, evals: allCompEvals });
+                                                                                    if (isActivated) {
+                                                                                        await deactivateReserve(roomId, comp.id, test.id);
+                                                                                    } else {
+                                                                                        await activateReserve(roomId, comp.id, test.id, user?.uid || 'admin');
+                                                                                    }
+                                                                                } catch (err) {
+                                                                                    console.error(err);
+                                                                                    alert('Erro ao acionar/desacionar o reserva.');
                                                                                 }
                                                                             }}
-                                                                            className="p-1.5 sm:p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors border border-blue-100"
-                                                                            title="Ver Histórico de Notas"
+                                                                            className={`flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all ${isActivated
+                                                                                ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 shadow-sm'
+                                                                                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
+                                                                                }`}
+                                                                            title={isActivated ? 'Clique para desacionar o reserva' : 'Acionar Juiz Reserva'}
                                                                         >
-                                                                            <History className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                                            {isActivated ? (
+                                                                                <>
+                                                                                    <BellOff className="w-3 h-3" />
+                                                                                    {t('admin.rankings.activated') || 'Acionado'}
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <Bell className="w-3 h-3" />
+                                                                                    {t('admin.rankings.activateReserve') || 'Acionar Reserva'}
+                                                                                </>
+                                                                            )}
                                                                         </button>
+                                                                    )}
 
+                                                                    {test.modality?.toLowerCase().includes('faro') && (
+                                                                        <div className="flex flex-col items-center gap-1 bg-orange-50 p-2 rounded-lg border border-orange-200">
+                                                                            <label className="text-[8px] font-black uppercase text-orange-600">{t('admin.rankings.drugPointsFound')}</label>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    min="0"
+                                                                                    max={test.drugPointsAmount || 10}
+                                                                                    defaultValue={comp.drugPointsFound?.[test.id] || 0}
+                                                                                    onBlur={(e) => handleUpdateDrugPoints(comp.id, test.id, parseInt(e.target.value) || 0)}
+                                                                                    className="w-12 text-center bg-white border border-orange-300 rounded text-xs font-bold focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                                                                />
+                                                                                <span className="text-[10px] font-bold text-gray-400">/ {test.drugPointsAmount || 0}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {(allCompEvals.length > 0) ? (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className={`text-right mr-2 ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
+                                                                                <div className="text-xs font-black uppercase leading-none">
+                                                                                    {isDNS ? 'NC' : (() => {
+                                                                                        if (calculatedAvg === null) return '--';
+                                                                                        const drugBonus = (test.modality?.toLowerCase().includes('faro') && comp.drugPointsFound?.[test.id])
+                                                                                            ? comp.drugPointsFound[test.id] * 50
+                                                                                            : 0;
+                                                                                        return (calculatedAvg + drugBonus).toFixed(1);
+                                                                                    })()}
+                                                                                </div>
+                                                                                <div className="text-[8px] font-bold uppercase opacity-60">{t('admin.rankings.status')}</div>
+                                                                            </div>
+
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    try {
+                                                                                        const history = await getEvaluationHistory(roomId, comp.id, test.id);
+                                                                                        const allNotes = [...allCompEvals, ...history].sort((a, b) => (b.archivedAt || b.createdAt) - (a.archivedAt || a.createdAt));
+                                                                                        setViewingHistoryFor({ comp, test, evals: allNotes });
+                                                                                    } catch (err) {
+                                                                                        console.error('Error fetching history:', err);
+                                                                                        setViewingHistoryFor({ comp, test, evals: allCompEvals });
+                                                                                    }
+                                                                                }}
+                                                                                className="p-1.5 sm:p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors border border-blue-100"
+                                                                                title="Ver Histórico de Notas"
+                                                                            >
+                                                                                <History className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                                            </button>
+
+                                                                            <button
+                                                                                onClick={() => setEvalToDelete({
+                                                                                    id: allCompEvals[0]?.id || '', // Se for para remover 1; mas se for resetar todas, usaremos o modal "Tem certeza que deseja apagar TODAS as notas?"
+                                                                                    name: comp.handlerName,
+                                                                                    testTitle: test.title,
+                                                                                    isNC: isDNS,
+                                                                                    photoUrl: comp.photoUrl,
+                                                                                    deleteAll: true,
+                                                                                    evalIds: allCompEvals.map(e => e.id)
+                                                                                })}
+                                                                                className="p-1.5 sm:p-2 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors border border-red-100"
+                                                                                title="Resetar Todas as Notas"
+                                                                            >
+                                                                                <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
                                                                         <button
-                                                                            onClick={() => setEvalToDelete({
-                                                                                id: allCompEvals[0]?.id || '', // Se for para remover 1; mas se for resetar todas, usaremos o modal "Tem certeza que deseja apagar TODAS as notas?"
-                                                                                name: comp.handlerName,
-                                                                                testTitle: test.title,
-                                                                                isNC: isDNS,
-                                                                                photoUrl: comp.photoUrl,
-                                                                                deleteAll: true,
-                                                                                evalIds: allCompEvals.map(e => e.id)
-                                                                            })}
-                                                                            className="p-1.5 sm:p-2 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors border border-red-100"
-                                                                            title="Resetar Todas as Notas"
+                                                                            onClick={() => setCompToMarkNC({ test, comp })}
+                                                                            className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-600 text-[10px] font-black uppercase rounded-lg border border-gray-200 hover:border-red-100 transition-all flex items-center gap-2"
                                                                         >
-                                                                            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                                            <AlertCircle className="w-3.5 h-3.5" /> {t('admin.rankings.markAbsence')}
                                                                         </button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <button
-                                                                        onClick={() => setCompToMarkNC({ test, comp })}
-                                                                        className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-600 text-[10px] font-black uppercase rounded-lg border border-gray-200 hover:border-red-100 transition-all flex items-center gap-2"
-                                                                    >
-                                                                        <AlertCircle className="w-3.5 h-3.5" /> {t('admin.rankings.markAbsence')}
-                                                                    </button>
-                                                                )}
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                        );
+                                                    })}
                                                 {testCompetitors.length === 0 && (
                                                     <div className="p-8 text-center text-gray-300 text-[10px] font-bold uppercase italic">
                                                         {t('admin.rankings.noCompetitors')}
@@ -1891,7 +1941,7 @@ export default function RoomDetailsPage() {
                                             {viewingHistoryFor.evals.map((ev, index) => {
                                                 const judge = allJudges.find(j => j.uid === ev.judgeId);
                                                 const judgeName = judge ? judge.name : 'Desconhecido';
-                                                
+
                                                 const isReserve = (() => {
                                                     const currentReserves = room?.judgeCompetitorReserves?.[viewingHistoryFor.comp.id] || [];
                                                     if (currentReserves.includes(ev.judgeId)) return true;
@@ -2113,7 +2163,7 @@ export default function RoomDetailsPage() {
                             )}
                             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 w-full">
                                 <p className="text-[11px] text-gray-500 font-bold uppercase leading-relaxed text-center">
-                                    {evalToDelete?.deleteAll ? `Esta ação apagará todas as ${evalToDelete.evalIds?.length} avaliações registradas. ` : ''} 
+                                    {evalToDelete?.deleteAll ? `Esta ação apagará todas as ${evalToDelete.evalIds?.length} avaliações registradas. ` : ''}
                                     {t('admin.evalDeletion.warning')} {evalToDelete?.deleteAll ? 'estas avaliações' : (evalToDelete?.isNC ? t('admin.evalDeletion.absenceRecord') : t('admin.evalDeletion.evaluation'))} {t('admin.evalDeletion.warningEnd')}
                                 </p>
                             </div>
