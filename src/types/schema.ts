@@ -43,6 +43,8 @@ export interface Room {
   startTime?: string;
   endDate?: string;
   endTime?: string;
+  frozenModalities?: string[]; // modalities where visualization is paused
+  allFrozen?: boolean; // if all rankings visualization are paused
 }
 
 export interface Competitor {

@@ -11,7 +11,9 @@ import {
     getModalities,
     subscribeToRoom,
     subscribeToCompetitorsByRoom,
-    subscribeToTestsByRoom
+    subscribeToTestsByRoom,
+    numberCompetitorsByModality,
+    clearCompetitorNumbersByModality
 } from '@/services/adminService';
 import {
     saveEvaluation,
@@ -49,7 +51,8 @@ import {
     Clock,
     Send,
     ChevronRight,
-    Plus
+    Plus,
+    RotateCcw
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Modal from '@/components/Modal';
@@ -90,6 +93,7 @@ export default function JudgeRoomPage() {
     const [testSearch, setTestSearch] = useState('');
     const [competitorSearch, setCompetitorSearch] = useState('');
     const [competitorSortOrder, setCompetitorSortOrder] = useState<'asc' | 'desc'>('asc');
+    const [competitorSortBy, setCompetitorSortBy] = useState<'number' | 'alphabetical'>('number');
 
     // Edit Score Request State
     const [editRequests, setEditRequests] = useState<EditScoreRequest[]>([]);
@@ -97,6 +101,7 @@ export default function JudgeRoomPage() {
     const [editRequestTarget, setEditRequestTarget] = useState<{ competitor: Competitor; test: TestTemplate; evaluation: Evaluation } | null>(null);
     const [editRequestReason, setEditRequestReason] = useState('');
     const [sendingEditRequest, setSendingEditRequest] = useState(false);
+    const [isDrawing, setIsDrawing] = useState(false);
 
     const [authDetermined, setAuthDetermined] = useState(false);
 
@@ -371,6 +376,38 @@ export default function JudgeRoomPage() {
         } catch (err) {
             console.error(err);
             alert('Erro ao iniciar re-avaliação.');
+        }
+    };
+
+    const handleDrawNumbers = async () => {
+        if (!selectedTestView) return;
+        if (!confirm('Deseja realizar o SORTEIO (numeração aleatória) dos competidores desta modalidade?')) return;
+
+        setIsDrawing(true);
+        try {
+            await numberCompetitorsByModality(roomId, selectedTestView.modality || '');
+            alert('Numeração realizada com sucesso!');
+        } catch (error) {
+            console.error(error);
+            alert('Erro ao realizar numeração.');
+        } finally {
+            setIsDrawing(false);
+        }
+    };
+
+    const handleClearNumbers = async () => {
+        if (!selectedTestView) return;
+        if (!confirm('Deseja remover a numeração dos competidores desta modalidade?')) return;
+
+        setIsDrawing(true);
+        try {
+            await clearCompetitorNumbersByModality(roomId, selectedTestView.modality || '');
+            alert('Numeração removida com sucesso!');
+        } catch (error) {
+            console.error(error);
+            alert('Erro ao remover numeração.');
+        } finally {
+            setIsDrawing(false);
         }
     };
 
@@ -964,13 +1001,42 @@ export default function JudgeRoomPage() {
                                             className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-sm font-bold text-k9-black focus:outline-none focus:border-k9-orange focus:ring-2 focus:ring-orange-50 transition-all shadow-sm placeholder:text-gray-300"
                                         />
                                     </div>
-                                    <button
-                                        onClick={() => setCompetitorSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                                        className="bg-white border border-gray-200 text-gray-600 px-3 py-2 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors shrink-0 shadow-sm"
-                                        title="Alternar ordem de classificação"
-                                    >
-                                        {competitorSortOrder === 'asc' ? 'A-Z ↓' : 'Z-A ↑'}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        {/* Draw Button for Judge */}
+                                        <button
+                                            onClick={handleDrawNumbers}
+                                            disabled={isDrawing}
+                                            className="bg-k9-orange text-white px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-wider hover:bg-orange-600 flex items-center justify-center gap-2 transition-colors shrink-0 shadow-sm disabled:opacity-50"
+                                            title="Gera a numeração incremental (1, 2, 3...) dos competidores"
+                                        >
+                                            <Zap className={`w-3 h-3 ${isDrawing ? 'animate-pulse' : ''}`} /> Numerar
+                                        </button>
+
+                                        <button
+                                            onClick={handleClearNumbers}
+                                            disabled={isDrawing}
+                                            className="bg-red-500 text-white px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-wider hover:bg-red-600 flex items-center justify-center gap-2 transition-colors shrink-0 shadow-sm disabled:opacity-50"
+                                            title="Remove a numeração dos competidores"
+                                        >
+                                            <RotateCcw className={`w-3 h-3 ${isDrawing ? 'animate-pulse' : ''}`} /> Remover
+                                        </button>
+
+                                        <select
+                                            value={competitorSortBy}
+                                            onChange={(e) => setCompetitorSortBy(e.target.value as any)}
+                                            className="bg-white border border-gray-200 text-[10px] font-black uppercase tracking-wider rounded-xl px-3 py-2 focus:outline-none focus:border-k9-orange transition-all shadow-sm"
+                                        >
+                                            <option value="number">Nº Sorteio</option>
+                                            <option value="alphabetical">Alfabético</option>
+                                        </select>
+                                        <button
+                                            onClick={() => setCompetitorSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                            className="bg-white border border-gray-200 text-gray-600 px-3 py-2 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors shrink-0 shadow-sm"
+                                            title="Alternar ordem"
+                                        >
+                                            {competitorSortOrder === 'asc' ? '↑' : '↓'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -980,8 +1046,13 @@ export default function JudgeRoomPage() {
                                     .filter(c => c.modality === selectedTestView.modality)
                                     .filter(c => !competitorSearch || c.handlerName.toLowerCase().includes(competitorSearch.toLowerCase()) || c.dogName.toLowerCase().includes(competitorSearch.toLowerCase()))
                                     .sort((a, b) => {
-                                        const result = a.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').localeCompare(b.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
-                                        return competitorSortOrder === 'asc' ? result : -result;
+                                        let comparison = 0;
+                                        if (competitorSortBy === 'number') {
+                                            comparison = (a.competitorNumber || 0) - (b.competitorNumber || 0);
+                                        } else {
+                                            comparison = a.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').localeCompare(b.handlerName.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+                                        }
+                                        return competitorSortOrder === 'asc' ? comparison : -comparison;
                                     })
                                     .map(comp => {
                                         const isDone = isTestEvaluated(comp.id, selectedTestView.id);
@@ -1057,7 +1128,7 @@ export default function JudgeRoomPage() {
                                                         </div>
 
                                                         <div className="flex-1 relative z-10 pt-0.5 min-w-0">
-                                                            <h3 className={`font-black uppercase text-sm leading-tight truncate ${isDone
+                                                            <h3 className={`font-black uppercase text-sm leading-tight truncate flex items-center gap-2 ${isDone
                                                                 ? 'text-green-900'
                                                                 : blockReason === 'not_activated'
                                                                     ? 'text-gray-500'
@@ -1065,7 +1136,8 @@ export default function JudgeRoomPage() {
                                                                         ? 'text-yellow-900'
                                                                         : 'text-k9-black'
                                                                 }`}>
-                                                                {comp.handlerName}
+                                                                {comp.competitorNumber && <span className="bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm shrink-0">#{comp.competitorNumber}</span>}
+                                                                <span className="truncate">{comp.handlerName}</span>
                                                             </h3>
                                                             <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{t('judge.room.conductor')}</div>
 

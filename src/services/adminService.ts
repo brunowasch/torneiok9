@@ -12,7 +12,8 @@ import {
   arrayUnion,
   arrayRemove,
   writeBatch,
-  onSnapshot
+  onSnapshot,
+  deleteField
 } from 'firebase/firestore';
 import { Room, Competitor, TestTemplate, AppUser, ModalityConfig, ReserveActivation } from '../types/schema';
 
@@ -442,4 +443,133 @@ export const subscribeToRooms = (callback: (rooms: Room[]) => void, adminId?: st
     const rooms = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Room));
     callback(rooms);
   });
+};
+
+export const numberCompetitorsByModality = async (roomId: string, modality: string) => {
+  try {
+    const q = query(
+      collection(db, 'competitors'),
+      where('roomId', '==', roomId),
+      where('modality', '==', modality)
+    );
+    const snapshot = await getDocs(q);
+    const competitors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+
+    // Sort randomly for a fair drawing
+    const shuffled = [...competitors].sort(() => Math.random() - 0.5);
+
+    const batch = writeBatch(db);
+    shuffled.forEach((comp, index) => {
+      const docRef = doc(db, 'competitors', comp.id);
+      batch.update(docRef, { competitorNumber: index + 1 });
+    });
+
+    await batch.commit();
+  } catch (error) {
+    console.error("Error numbering competitors: ", error);
+    throw error;
+  }
+};
+
+export const clearCompetitorNumbersByModality = async (roomId: string, modality: string) => {
+  try {
+    const q = query(
+      collection(db, 'competitors'),
+      where('roomId', '==', roomId),
+      where('modality', '==', modality)
+    );
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((d) => {
+      batch.update(d.ref, { competitorNumber: deleteField() });
+    });
+    await batch.commit();
+  } catch (error) {
+    console.error("Error clearing competitor numbers: ", error);
+    throw error;
+  }
+};
+
+export const numberAllCompetitorsByRoom = async (roomId: string) => {
+  try {
+    const q = query(
+      collection(db, 'competitors'),
+      where('roomId', '==', roomId)
+    );
+    const snapshot = await getDocs(q);
+    const allCompetitors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Competitor));
+
+    // Group by modality
+    const byModality: Record<string, Competitor[]> = {};
+    allCompetitors.forEach(c => {
+      if (!byModality[c.modality]) byModality[c.modality] = [];
+      byModality[c.modality].push(c);
+    });
+
+    const batch = writeBatch(db);
+
+    Object.keys(byModality).forEach(mod => {
+      const shuffled = [...byModality[mod]].sort(() => Math.random() - 0.5);
+
+      shuffled.forEach((comp, index) => {
+        const docRef = doc(db, 'competitors', comp.id);
+        batch.update(docRef, { competitorNumber: index + 1 });
+      });
+    });
+
+    await batch.commit();
+  } catch (error) {
+    console.error("Error numbering all competitors: ", error);
+    throw error;
+  }
+};
+
+export const clearAllCompetitorNumbersByRoom = async (roomId: string) => {
+  try {
+    const q = query(
+      collection(db, 'competitors'),
+      where('roomId', '==', roomId)
+    );
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((d) => {
+      batch.update(d.ref, { competitorNumber: deleteField() });
+    });
+    await batch.commit();
+  } catch (error) {
+    console.error("Error clearing all competitor numbers: ", error);
+    throw error;
+  }
+};
+
+export const toggleModalityFreeze = async (roomId: string, modality: string, freeze: boolean) => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+    if (!roomSnap.exists()) return;
+
+    let frozenModalities = roomSnap.data().frozenModalities || [];
+    if (freeze) {
+      if (!frozenModalities.includes(modality)) {
+        frozenModalities.push(modality);
+      }
+    } else {
+      frozenModalities = frozenModalities.filter((m: string) => m !== modality);
+    }
+
+    await updateDoc(roomRef, { frozenModalities });
+  } catch (error) {
+    console.error("Error toggling modality freeze: ", error);
+    throw error;
+  }
+};
+
+export const toggleAllFreeze = async (roomId: string, freeze: boolean) => {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    await updateDoc(roomRef, { allFrozen: freeze });
+  } catch (error) {
+    console.error("Error toggling all freeze: ", error);
+    throw error;
+  }
 };

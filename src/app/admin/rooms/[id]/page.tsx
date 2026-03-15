@@ -5,7 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest } from '@/types/schema';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, setJudgeCompetitorReserves, activateReserve, deactivateReserve, updateRoom, subscribeToRoom, subscribeToCompetitorsByRoom, subscribeToTestsByRoom } from '@/services/adminService';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, setJudgeCompetitorReserves, activateReserve, deactivateReserve, updateRoom, subscribeToRoom, subscribeToCompetitorsByRoom, subscribeToTestsByRoom, numberCompetitorsByModality, clearCompetitorNumbersByModality, numberAllCompetitorsByRoom, clearAllCompetitorNumbersByRoom, toggleModalityFreeze, toggleAllFreeze } from '@/services/adminService';
 import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest, getEvaluationHistory, subscribeToEvaluationsByRoom, subscribeToEditScoreRequestsByRoom } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
@@ -129,6 +129,8 @@ export default function RoomDetailsPage() {
     const [competitorsSearch, setCompetitorsSearch] = useState('');
     const [judgesSearch, setJudgesSearch] = useState('');
     const [rankingsSearch, setRankingsSearch] = useState('');
+    const [rankingsSortBy, setRankingsSortBy] = useState<'score' | 'alphabetical' | 'number'>('score');
+    const [processingAction, setProcessingAction] = useState<string | null>(null);
 
     const loadRoomData = useCallback(async () => {
         try {
@@ -241,13 +243,18 @@ export default function RoomDetailsPage() {
                     photoUrl: compForm.photoUrl
                 });
             } else {
+                const modalityComps = competitors.filter(c => c.modality === compForm.modality);
+                const nextNumber = modalityComps.length > 0
+                    ? Math.max(...modalityComps.map(c => c.competitorNumber || 0)) + 1
+                    : 1;
+
                 await addCompetitor({
                     roomId,
                     handlerName: compForm.handlerName,
                     dogName: compForm.dogName,
                     dogBreed: compForm.dogBreed,
                     modality: compForm.modality as Modality,
-                    competitorNumber: Math.floor(Math.random() * 900) + 100,
+                    competitorNumber: nextNumber,
                     photoUrl: compForm.photoUrl
                 });
             }
@@ -470,6 +477,85 @@ export default function RoomDetailsPage() {
         } catch (err) {
             console.error("Error updating drug points", err);
             alert("Erro ao atualizar pontos de drogas");
+        }
+    };
+
+    const handleAutoNumberModality = async (modality: string) => {
+        if (!confirm(`Deseja numerar todos os competidores da modalidade "${modality}" aleatoriamente (sorteio)?`)) return;
+        setProcessingAction(`numbering-${modality}`);
+        try {
+            await numberCompetitorsByModality(roomId, modality);
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao numerar competidores");
+        } finally {
+            setProcessingAction(null);
+        }
+    };
+
+    const handleClearModalityNumbers = async (modality: string) => {
+        if (!confirm(`Deseja remover a numeração de todos os competidores da modalidade "${modality}"?`)) return;
+        setProcessingAction(`clearing-${modality}`);
+        try {
+            await clearCompetitorNumbersByModality(roomId, modality);
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao remover numeração");
+        } finally {
+            setProcessingAction(null);
+        }
+    };
+
+    const handleNumberAll = async () => {
+        if (!confirm('Deseja realizar o SORTEIO (numeração aleatória) de TODOS os competidores de TODAS as modalidades?')) return;
+        setProcessingAction('numbering-all');
+        try {
+            await numberAllCompetitorsByRoom(roomId);
+            alert('Todos os competidores foram numerados com sucesso!');
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao numerar todos os competidores.');
+        } finally {
+            setProcessingAction(null);
+        }
+    };
+
+    const handleClearAllNumbers = async () => {
+        if (!confirm('Deseja remover a numeração de TODOS os competidores de TODAS as modalidades?')) return;
+        setProcessingAction('clearing-all');
+        try {
+            await clearAllCompetitorNumbersByRoom(roomId);
+            alert('Todas as numerações foram removidas com sucesso!');
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao remover todas as numerações.');
+        } finally {
+            setProcessingAction(null);
+        }
+    };
+
+    const handleToggleModalityFreeze = async (modality: string, currentStatus: boolean) => {
+        setProcessingAction(`freezing-${modality}`);
+        try {
+            await toggleModalityFreeze(roomId, modality, !currentStatus);
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao alterar status de visualização");
+        } finally {
+            setProcessingAction(null);
+        }
+    };
+
+    const handleToggleAllFreeze = async () => {
+        const current = room?.allFrozen || false;
+        setProcessingAction('freezing-all');
+        try {
+            await toggleAllFreeze(roomId, !current);
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao alterar status global de visualização");
+        } finally {
+            setProcessingAction(null);
         }
     };
 
@@ -1529,35 +1615,48 @@ export default function RoomDetailsPage() {
                     {activeTab === 'rankings' && (
                         <div className="space-y-12">
 
-                            {/* Filtro por modalidade */}
-                            {(() => {
-                                const rankingModalities = [...new Set(tests.map(t => t.modality).filter(Boolean))] as string[];
-                                return rankingModalities.length > 1 && (
-                                    <div className="flex flex-wrap gap-2 mb-6">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                                {/* Filtro por modalidade */}
+                                <div className="flex flex-wrap gap-2">
+                                    <button
+                                        onClick={() => setRankingsModalityFilter('')}
+                                        className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${rankingsModalityFilter === ''
+                                            ? 'bg-orange-400 text-white border-orange-400'
+                                            : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                            }`}
+                                    >
+                                        Todas
+                                    </button>
+                                    {([...new Set(tests.map(t => t.modality).filter(Boolean))] as string[]).map(mod => (
                                         <button
-                                            onClick={() => setRankingsModalityFilter('')}
-                                            className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${rankingsModalityFilter === ''
+                                            key={mod}
+                                            onClick={() => setRankingsModalityFilter(mod)}
+                                            className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${rankingsModalityFilter === mod
                                                 ? 'bg-orange-400 text-white border-orange-400'
                                                 : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
                                                 }`}
                                         >
-                                            Todas
+                                            {mod} <span className="opacity-60">({tests.filter(t => t.modality === mod).length})</span>
                                         </button>
-                                        {rankingModalities.map(mod => (
-                                            <button
-                                                key={mod}
-                                                onClick={() => setRankingsModalityFilter(mod)}
-                                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide rounded-lg border-2 transition-all cursor-pointer ${rankingsModalityFilter === mod
-                                                    ? 'bg-orange-400 text-white border-orange-400'
-                                                    : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
-                                                    }`}
-                                            >
-                                                {mod} <span className="opacity-60">({tests.filter(t => t.modality === mod).length})</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                );
-                            })()}
+                                    ))}
+                                </div>
+
+                                {/* Global Freeze Toggle */}
+                                <button
+                                    onClick={handleToggleAllFreeze}
+                                    disabled={processingAction === 'freezing-all'}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest transition-all shadow-sm ${room?.allFrozen
+                                        ? 'bg-red-500 text-white border-red-600 hover:bg-red-600'
+                                        : 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100'
+                                        }`}
+                                >
+                                    {room?.allFrozen ? (
+                                        <><EyeOff className="w-4 h-4" /> Visualização Global Paralisada</>
+                                    ) : (
+                                        <><Eye className="w-4 h-4" /> Visualização Global Ativa</>
+                                    )}
+                                </button>
+                            </div>
 
                             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6 -mt-2">
                                 <div className="relative flex-1 sm:max-w-[250px]">
@@ -1570,13 +1669,53 @@ export default function RoomDetailsPage() {
                                         className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400"
                                     />
                                 </div>
-                                <button
-                                    onClick={() => setRankingsSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                                    className="px-4 py-2 text-sm font-black uppercase tracking-wider rounded-lg border-2 transition-all duration-200 shadow-sm flex items-center justify-center gap-2 bg-white text-gray-600 border-gray-200 hover:bg-gray-50 active:scale-95 shrink-0"
-                                    title="Alternar ordem de classificação"
-                                >
-                                    {rankingsSortOrder === 'asc' ? 'A-Z ↓' : 'Z-A ↑'}
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <select
+                                        value={rankingsSortBy}
+                                        onChange={(e) => setRankingsSortBy(e.target.value as any)}
+                                        className="bg-white border-2 border-gray-200 text-xs font-black uppercase tracking-wider rounded-lg px-4 py-2 focus:outline-none focus:border-orange-400 transition-all shadow-sm"
+                                    >
+                                        <option value="score">Ordenar por Nota</option>
+                                        <option value="alphabetical">Ordem Alfabética</option>
+                                        <option value="number">Ordem de Sorteio (Nº)</option>
+                                    </select>
+                                    <button
+                                        onClick={() => setRankingsSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                        className="bg-white border-2 border-gray-200 text-gray-600 px-4 py-2 rounded-xl font-black text-sm uppercase tracking-wider hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors shrink-0 shadow-sm"
+                                        title="Alternar ordem"
+                                    >
+                                        {rankingsSortOrder === 'asc' ? '↑' : '↓'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Master Controls Section */}
+                            <div className="bg-gray-900 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 border border-gray-800 shadow-xl mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-lg">
+                                        <ShieldCheck className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black text-white uppercase tracking-tight">Controles Master</h3>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase">Ações em massa para todos os competidores</p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <button
+                                        onClick={handleNumberAll}
+                                        disabled={processingAction === 'numbering-all'}
+                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-blue-700 transition-all shadow-md active:scale-95 disabled:opacity-50"
+                                    >
+                                        <Zap className="w-4 h-4" /> Numerar Todos (Geral)
+                                    </button>
+                                    <button
+                                        onClick={handleClearAllNumbers}
+                                        disabled={processingAction === 'clearing-all'}
+                                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-red-700 transition-all shadow-md active:scale-95 disabled:opacity-50"
+                                    >
+                                        <RotateCcw className="w-4 h-4" /> Remover Todas as Numerações
+                                    </button>
+                                </div>
                             </div>
 
                             {tests
@@ -1588,7 +1727,7 @@ export default function RoomDetailsPage() {
 
                                     return (
                                         <div key={test.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                                            <div className="bg-gray-900 p-4 flex justify-between items-center">
+                                            <div className="bg-gray-900 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 rounded-lg bg-orange-400 flex items-center justify-center text-white font-black text-xs">
                                                         {test.testNumber?.toString().padStart(2, '0')}
@@ -1598,15 +1737,83 @@ export default function RoomDetailsPage() {
                                                         <div className="text-[10px] text-orange-400 font-bold uppercase">{test.modality}</div>
                                                     </div>
                                                 </div>
-                                                <div className="text-[10px] text-gray-400 font-bold uppercase">
-                                                    {t('admin.rankings.total')}: {testCompetitors.length}
+
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    {/* Auto Numbering Button */}
+                                                    <button
+                                                        onClick={() => test.modality && handleAutoNumberModality(test.modality)}
+                                                        disabled={processingAction === `numbering-${test.modality}`}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg text-[9px] font-black uppercase hover:bg-blue-600/30 transition-all shadow-sm"
+                                                    >
+                                                        <Zap className="w-3 h-3" /> Numerar 1, 2, 3...
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => test.modality && handleClearModalityNumbers(test.modality)}
+                                                        disabled={processingAction === `clearing-${test.modality}`}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 border border-red-500/30 rounded-lg text-[9px] font-black uppercase hover:bg-red-600/30 transition-all shadow-sm"
+                                                    >
+                                                        <RotateCcw className="w-3 h-3" /> Remover Números
+                                                    </button>
+
+                                                    {/* Modality Freeze Toggle */}
+                                                    <button
+                                                        onClick={() => test.modality && handleToggleModalityFreeze(test.modality, room?.frozenModalities?.includes(test.modality) || false)}
+                                                        disabled={processingAction === `freezing-${test.modality}`}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-[9px] font-black uppercase transition-all shadow-sm ${room?.frozenModalities?.includes(test.modality || '')
+                                                            ? 'bg-red-600/20 text-red-400 border-red-500/30 hover:bg-red-600/30'
+                                                            : 'bg-green-600/20 text-green-400 border-green-500/30 hover:bg-green-600/30'
+                                                            }`}
+                                                    >
+                                                        {room?.frozenModalities?.includes(test.modality || '') ? (
+                                                            <><EyeOff className="w-3 h-3" /> Paralisado</>
+                                                        ) : (
+                                                            <><Eye className="w-3 h-3" /> Ativo</>
+                                                        )}
+                                                    </button>
+
+                                                    <div className="text-[10px] text-gray-400 font-bold uppercase ml-2">
+                                                        {t('admin.rankings.total')}: {testCompetitors.length}
+                                                    </div>
                                                 </div>
                                             </div>
 
                                             <div className="divide-y divide-gray-50">
                                                 {testCompetitors
                                                     .filter(c => c.handlerName.toLowerCase().includes(rankingsSearch.toLowerCase()) || c.dogName.toLowerCase().includes(rankingsSearch.toLowerCase()))
-                                                    .sort((a, b) => rankingsSortOrder === 'asc' ? a.handlerName.localeCompare(b.handlerName) : b.handlerName.localeCompare(a.handlerName))
+                                                    .map(c => {
+                                                        const isRes = (judgeId: string) => {
+                                                            const compReserves = room?.judgeCompetitorReserves?.[c.id] || [];
+                                                            if (compReserves.includes(judgeId)) return true;
+                                                            const mods = room?.judgeReserveModalities?.[judgeId] || [];
+                                                            if (mods.length > 0) return mods.includes(test.modality || '');
+                                                            return (room?.judgeReserves || []).includes(judgeId);
+                                                        };
+                                                        const allCompEvals = evaluations.filter(e => e.testId === test.id && e.competitorId === c.id);
+                                                        const validEvals = allCompEvals.filter(e => e.status !== 'did_not_participate');
+                                                        const titularsForAvg = validEvals.filter(e => !isRes(e.judgeId)).slice(0, 3);
+                                                        const reservesForAvg = validEvals.filter(e => isRes(e.judgeId)).slice(0, Math.max(0, 3 - titularsForAvg.length));
+                                                        const evalsToAvg = titularsForAvg.length > 0 ? [...titularsForAvg, ...reservesForAvg] : reservesForAvg.slice(0, 3);
+                                                        const calculatedAvg = evalsToAvg.length > 0
+                                                            ? evalsToAvg.reduce((s, e) => s + e.finalScore, 0) / evalsToAvg.length
+                                                            : 0;
+                                                        const drugBonus = (test.modality?.toLowerCase().includes('faro') && c.drugPointsFound?.[test.id])
+                                                            ? c.drugPointsFound[test.id] * 50
+                                                            : 0;
+                                                        return { ...c, totalScore: calculatedAvg + drugBonus };
+                                                    })
+                                                    .sort((a, b) => {
+                                                        let comparison = 0;
+                                                        if (rankingsSortBy === 'score') {
+                                                            comparison = b.totalScore - a.totalScore;
+                                                            if (comparison === 0) comparison = a.handlerName.localeCompare(b.handlerName);
+                                                        } else if (rankingsSortBy === 'number') {
+                                                            comparison = (a.competitorNumber || 0) - (b.competitorNumber || 0);
+                                                        } else {
+                                                            comparison = a.handlerName.localeCompare(b.handlerName);
+                                                        }
+                                                        return rankingsSortOrder === 'asc' ? comparison : -comparison;
+                                                    })
                                                     .map(comp => {
                                                         const titularEvals = evaluations.filter(e => {
                                                             if (e.testId !== test.id || e.competitorId !== comp.id) return false;
@@ -1653,7 +1860,10 @@ export default function RoomDetailsPage() {
                                                                         {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
                                                                     </div>
                                                                     <div className="min-w-0 flex-1">
-                                                                        <div className="text-sm font-black text-k9-black uppercase truncate">{comp.handlerName}</div>
+                                                                        <div className="text-sm font-black text-k9-black uppercase truncate flex items-center gap-2">
+                                                                            {comp.competitorNumber && <span className="bg-gray-900 text-white text-[10px] px-1.5 py-0.5 rounded shadow-sm">#{comp.competitorNumber}</span>}
+                                                                            {comp.handlerName}
+                                                                        </div>
                                                                         <div className="text-[10px] text-gray-400 font-bold uppercase">{t('admin.rankings.dog')}: {comp.dogName}</div>
 
                                                                         {/* Indicador de juízes titulares */}
@@ -1746,6 +1956,10 @@ export default function RoomDetailsPage() {
                                                                     {(allCompEvals.length > 0) ? (
                                                                         <div className="flex items-center gap-2">
                                                                             <div className={`text-right mr-2 ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
+                                                                                <div className="text-sm font-black text-k9-black uppercase truncate flex items-center gap-2">
+                                                                                    {comp.competitorNumber && <span className="bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm shrink-0">#{comp.competitorNumber}</span>}
+                                                                                    <span className="truncate">{comp.handlerName}</span>
+                                                                                </div>
                                                                                 <div className="text-xs font-black uppercase leading-none">
                                                                                     {isDNS ? 'NC' : (() => {
                                                                                         if (calculatedAvg === null) return '--';

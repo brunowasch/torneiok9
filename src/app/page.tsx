@@ -5,7 +5,7 @@ import Navbar from '@/components/Navbar';
 import RoomSelect from '@/components/RoomSelect';
 import { Room, TestTemplate, Modality, INITIAL_MODALITIES, ModalityConfig, Competitor } from '@/types/schema';
 import { getModalities } from '@/services/adminService';
-import { Trophy, Medal, Crown, ListFilter, Target, Flame, Calendar } from 'lucide-react';
+import { Trophy, Medal, Crown, ListFilter, Target, Flame, Calendar, Clock } from 'lucide-react';
 import { LeaderboardEntry, subscribeToLeaderboard } from '@/services/rankingService';
 import RoomCountdown from '@/components/RoomCountdown';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [authRole, setAuthRole] = useState<string | null>(null);
   const [hasLoggedInBefore, setHasLoggedInBefore] = useState(false);
+  const [isFrozenState, setIsFrozenState] = useState(false);
+  const [latestLeaderboardData, setLatestLeaderboardData] = useState<LeaderboardEntry[]>([]);
+  const [publicSortBy, setPublicSortBy] = useState<'score' | 'number'>('score');
+  const [publicSortOrder, setPublicSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -144,7 +148,7 @@ export default function Home() {
     setupTestsListener();
 
     const unsubscribeLeaderboard = subscribeToLeaderboard(selectedRoomId, (data) => {
-      setLeaderboard(data);
+      setLatestLeaderboardData(data);
     });
 
     return () => {
@@ -152,6 +156,20 @@ export default function Home() {
       if (unsubscribeLeaderboard) unsubscribeLeaderboard();
     };
   }, [selectedRoomId]);
+
+  useEffect(() => {
+    const currentRoom = rooms.find(r => r.id === selectedRoomId);
+    const isModalityFrozen = currentRoom?.frozenModalities?.includes(selectedModality || '');
+    const isGlobalFrozen = currentRoom?.allFrozen;
+    const frozen = !!(isGlobalFrozen || isModalityFrozen);
+
+    setIsFrozenState(frozen);
+
+    if (!frozen) {
+      setLeaderboard(latestLeaderboardData);
+    }
+    // If frozen, we don't update setLeaderboard, so it stays at its last value
+  }, [rooms, selectedRoomId, selectedModality, latestLeaderboardData]);
 
   useEffect(() => {
     if (selectedRoomId) localStorage.setItem('lastVisitedRoomId', selectedRoomId);
@@ -197,6 +215,12 @@ export default function Home() {
         return { ...entry, currentScore: score, currentCount: count, isNC: hasNC };
       })
       .sort((a, b) => {
+        if (publicSortBy === 'number') {
+          const numA = a.competitorNumber || 99999;
+          const numB = b.competitorNumber || 99999;
+          return publicSortOrder === 'asc' ? numA - numB : numB - numA;
+        }
+
         // Competidores sem avaliação vão para o final
         const aHasEval = a.currentCount > 0;
         const bHasEval = b.currentCount > 0;
@@ -204,8 +228,13 @@ export default function Home() {
         if (!aHasEval && bHasEval) return 1;
 
         // Entre os que têm avaliação, ordena por score desc; empate: alfabético
-        if (b.currentScore !== a.currentScore) return b.currentScore - a.currentScore;
-        return a.handlerName.localeCompare(b.handlerName);
+        let comparison = 0;
+        if (b.currentScore !== a.currentScore) {
+          comparison = b.currentScore - a.currentScore;
+        } else {
+          comparison = a.handlerName.localeCompare(b.handlerName);
+        }
+        return publicSortOrder === 'desc' ? comparison : -comparison;
       });
   };
 
@@ -295,37 +324,69 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Status Alert for Frozen Visualization */}
+        {isFrozenState && (
+          <div className="mb-6 bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-xl shadow-sm animate-pulse">
+            <div className="flex items-center gap-3">
+              <Clock className="text-amber-600 w-5 h-5 shrink-0" />
+              <div>
+                <p className="text-amber-800 font-black uppercase text-xs tracking-wider">Visualização Paralisada</p>
+                <p className="text-amber-600 text-[10px] font-bold uppercase mt-0.5">As notas estão sendo processadas e serão atualizadas em breve.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Test Selector (Sub-nav) */}
         {selectedModality && (
           <div className="mb-8 -mx-4 px-4 overflow-x-auto pb-4">
-            <div className="flex items-center gap-3 md:gap-4 min-w-max">
-              <button
-                onClick={() => setSelectedTestId('geral')}
-                className={`px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer ${selectedTestId === 'geral'
-                  ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
-                  : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
-                  }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Trophy className="w-3 h-3" /> {t('home.modalityChampion')}
-                </div>
-              </button>
-              <div className="w-px h-6 bg-gray-200 mx-1"></div>
-              {modalityTests.length === 0 && <span className="text-xs text-gray-400 px-2">{t('home.noTestsRegistered')}</span>}
-              {modalityTests.map(test => (
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 min-w-max">
+              <div className="flex items-center gap-3 overflow-x-auto pb-2 sm:pb-0">
                 <button
-                  key={test.id}
-                  onClick={() => setSelectedTestId(test.id)}
-                  className={`px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer ${selectedTestId === test.id
+                  onClick={() => setSelectedTestId('geral')}
+                  className={`px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer ${selectedTestId === 'geral'
                     ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
                     : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
                     }`}
                 >
                   <div className="flex items-center gap-1.5">
-                    <Target className="w-3 h-3" /> {test.title}
+                    <Trophy className="w-3 h-3" /> {t('home.modalityChampion')}
                   </div>
                 </button>
-              ))}
+                <div className="w-px h-6 bg-gray-200 mx-1"></div>
+                {modalityTests.length === 0 && <span className="text-xs text-gray-400 px-2">{t('home.noTestsRegistered')}</span>}
+                {modalityTests.map(test => (
+                  <button
+                    key={test.id}
+                    onClick={() => setSelectedTestId(test.id)}
+                    className={`px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-black uppercase tracking-wide rounded-md border-2 transition-all duration-200 whitespace-nowrap shadow-sm cursor-pointer ${selectedTestId === test.id
+                      ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105'
+                      : 'bg-white text-black border-gray-300 hover:bg-orange-400 hover:text-white hover:border-orange-400'
+                      }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Target className="w-3 h-3" /> {test.title}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <select
+                  value={publicSortBy}
+                  onChange={(e) => setPublicSortBy(e.target.value as any)}
+                  className="bg-white border-2 border-gray-100 text-[10px] font-black uppercase tracking-wider rounded-lg px-3 py-1.5 focus:outline-none focus:border-orange-400 transition-all shadow-sm"
+                >
+                  <option value="score">Nota</option>
+                  <option value="number">Nº Sorteio</option>
+                </select>
+                <button
+                  onClick={() => setPublicSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                  className="bg-white border-2 border-gray-100 text-gray-600 px-3 py-1.5 rounded-lg font-black text-xs uppercase hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  {publicSortOrder === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -395,7 +456,16 @@ export default function Home() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-extrabold text-k9-black uppercase tracking-tight text-xs sm:text-sm md:text-lg group-hover:text-k9-orange transition-colors truncate max-w-[100px] sm:max-w-[200px] md:max-w-none">{entry.handlerName}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-extrabold text-k9-black uppercase tracking-tight text-xs sm:text-sm md:text-lg group-hover:text-k9-orange transition-colors truncate max-w-[100px] sm:max-w-[200px] md:max-w-none">
+                              {entry.handlerName}
+                            </div>
+                            {entry.competitorNumber && (
+                              <span className="bg-k9-orange text-white text-[9px] md:text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-sm shrink-0">
+                                Nº {entry.competitorNumber}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[9px] sm:text-[10px] md:text-xs text-gray-500 uppercase font-bold flex items-center gap-1 mt-0.5">
                             <Flame className="w-2.5 h-2.5 md:w-3 md:h-3 text-k9-orange" /> {t('home.table.dog')}: <span className="text-gray-800 truncate">{entry.dogName}</span>
                           </div>
