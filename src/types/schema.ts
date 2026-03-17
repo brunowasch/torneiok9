@@ -64,6 +64,7 @@ export interface Competitor {
     label: string;
     value: number;
     description: string;
+    testId?: string;
     createdAt: number;
   }[];
   createdAt: number;

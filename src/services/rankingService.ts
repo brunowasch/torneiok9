@@ -88,13 +88,23 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
                         scoresByTest[testId] = 0;
                     }
                 }
+                // Subtract Admin Penalties for THIS test
+                if (comp.adminPenalties && comp.adminPenalties.length > 0) {
+                    const testPenalties = comp.adminPenalties
+                        .filter(p => p.testId === testId)
+                        .reduce((sum, p) => sum + Math.abs(p.value), 0);
+                    scoresByTest[testId] -= testPenalties;
+                }
+
                 totalScore += scoresByTest[testId];
             });
 
-            // Subtract Admin Penalties
+            // Subtract Global Admin Penalties (no testId)
             if (comp.adminPenalties && comp.adminPenalties.length > 0) {
-                const totalAdminPenalties = comp.adminPenalties.reduce((sum, p) => sum + Math.abs(p.value), 0);
-                totalScore -= totalAdminPenalties;
+                const globalAdminPenalties = comp.adminPenalties
+                    .filter(p => !p.testId)
+                    .reduce((sum, p) => sum + Math.abs(p.value), 0);
+                totalScore -= globalAdminPenalties;
             }
 
             return {

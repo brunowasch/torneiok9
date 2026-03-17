@@ -603,7 +603,7 @@ export const deletePenaltyTemplate = async (id: string) => {
   }
 };
 
-export const applyAdminPenalty = async (competitorId: string, penalty: { penaltyId: string; label: string; value: number; description: string }) => {
+export const applyAdminPenalty = async (competitorId: string, penalty: { penaltyId: string; label: string; value: number; description: string; testId?: string; }) => {
   try {
     const compRef = doc(db, 'competitors', competitorId);
     const compSnap = await getDoc(compRef);

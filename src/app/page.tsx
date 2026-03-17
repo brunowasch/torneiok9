@@ -201,8 +201,10 @@ export default function Home() {
               count++;
             }
           });
-          const adminPenaltyTotal = (entry.adminPenalties || []).reduce((sum, p) => sum + p.value, 0);
-          score += adminPenaltyTotal;
+          const adminPenaltyGlobal = (entry.adminPenalties || [])
+              .filter(p => !p.testId)
+              .reduce((sum, p) => sum + p.value, 0);
+          score += adminPenaltyGlobal;
         } else {
           const ev = entry.evaluations.find(e => e.testId === selectedTestId);
           if (ev?.status === 'did_not_participate') {

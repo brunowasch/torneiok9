@@ -135,7 +135,7 @@ export default function RoomDetailsPage() {
     const [penaltyTemplates, setPenaltyTemplates] = useState<PenaltyTemplate[]>([]);
     const [showAddPenaltyTemplate, setShowAddPenaltyTemplate] = useState(false);
     const [penaltyForm, setPenaltyForm] = useState({ label: '', value: '', modality: '', description: '' });
-    const [compForPenalty, setCompForPenalty] = useState<Competitor | null>(null);
+    const [compForPenalty, setCompForPenalty] = useState<{ comp: Competitor, testId: string } | null>(null);
     const [manualPenaltyForm, setManualPenaltyForm] = useState({ label: '', value: '', description: '', templateId: '' });
 
     const loadRoomData = useCallback(async () => {
@@ -611,11 +611,12 @@ export default function RoomDetailsPage() {
                 ? penaltyTemplates.find(p => p.id === manualPenaltyForm.templateId)?.label || manualPenaltyForm.label
                 : manualPenaltyForm.label;
 
-            await applyAdminPenalty(compForPenalty.id, {
+            await applyAdminPenalty(compForPenalty.comp.id, {
                 penaltyId: manualPenaltyForm.templateId || 'manual',
                 label,
                 value: -Math.abs(parseFloat(manualPenaltyForm.value)),
-                description: manualPenaltyForm.description
+                description: manualPenaltyForm.description,
+                testId: compForPenalty.testId
             });
             setCompForPenalty(null);
             setManualPenaltyForm({ label: '', value: '', description: '', templateId: '' });
@@ -2026,7 +2027,7 @@ export default function RoomDetailsPage() {
                                                         const drugBonus = (test.modality?.toLowerCase().includes('faro'))
                                                             ? (foundPoints * 50) - (missedPoints * 50)
                                                             : 0;
-                                                        const adminPenaltyTotal = (c.adminPenalties || []).reduce((sum, p) => sum + p.value, 0);
+                                                        const adminPenaltyTotal = (c.adminPenalties || []).filter(p => p.testId === test.id).reduce((sum, p) => sum + p.value, 0);
                                                         return { ...c, totalScore: calculatedAvg + drugBonus + adminPenaltyTotal };
                                                     })
                                                     .sort((a, b) => {
@@ -2085,7 +2086,7 @@ export default function RoomDetailsPage() {
                                                         const drugBonus = (test.modality?.toLowerCase().includes('faro'))
                                                             ? (foundPoints * 50) - (missedPoints * 50)
                                                             : 0;
-                                                        const adminPenaltyTotal = (comp.adminPenalties || []).reduce((sum, p) => sum + p.value, 0);
+                                                        const adminPenaltyTotal = (comp.adminPenalties || []).filter(p => p.testId === test.id).reduce((sum, p) => sum + p.value, 0);
                                                         const finalWithPenalties = (calculatedAvg !== null) ? (calculatedAvg + drugBonus + adminPenaltyTotal) : null;
 
                                                         return (
@@ -2126,7 +2127,7 @@ export default function RoomDetailsPage() {
                                                                 <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t border-gray-50 sm:border-0 w-full sm:w-auto shrink-0">
                                                                     {/* Botão Penalizar Admin */}
                                                                     <button
-                                                                        onClick={() => setCompForPenalty(comp)}
+                                                                                onClick={() => setCompForPenalty({ comp, testId: test.id })}
                                                                         className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-red-50 text-red-700 border-red-200 hover:bg-red-100 cursor-pointer"
                                                                         title="Aplicar penalidade administrativa"
                                                                     >
@@ -2135,19 +2136,22 @@ export default function RoomDetailsPage() {
                                                                     </button>
 
                                                                     {/* Botão Histórico de Penalidades */}
-                                                                    {(comp.adminPenalties && comp.adminPenalties.length > 0) && (
-                                                                        <button
-                                                                            onClick={() => setViewingPenaltyHistoryFor(comp)}
-                                                                            className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 cursor-pointer relative"
-                                                                            title="Ver histórico de penalidades"
-                                                                        >
-                                                                            <History className="w-3 h-3" />
-                                                                            Penalidades
-                                                                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow">
-                                                                                {comp.adminPenalties.length}
-                                                                            </span>
-                                                                        </button>
-                                                                    )}
+                                                                    {(() => {
+                                                                        const testPenalties = (comp.adminPenalties || []).filter(p => p.testId === test.id);
+                                                                        return testPenalties.length > 0 && (
+                                                                            <button
+                                                                                onClick={() => setViewingPenaltyHistoryFor(comp)}
+                                                                                className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 cursor-pointer relative"
+                                                                                title="Ver histórico de penalidades"
+                                                                            >
+                                                                                <History className="w-3 h-3" />
+                                                                                Penalidades
+                                                                                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow">
+                                                                                    {testPenalties.length}
+                                                                                </span>
+                                                                            </button>
+                                                                        );
+                                                                    })()}
 
                                                                     {/* Botão Configurar Reserva por Competidor */}
                                                                     {(room?.judges && room.judges.length > 0) && (
@@ -2263,7 +2267,7 @@ export default function RoomDetailsPage() {
                                                                             </button>
 
                                                                             <button
-                                                                                onClick={() => setCompForPenalty(comp)}
+                                                                                        onClick={() => setCompForPenalty({ comp, testId: test.id })}
                                                                                 className="p-1.5 sm:p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700 rounded-lg transition-colors border border-amber-100"
                                                                                 title="Aplicar Penalidade Admin"
                                                                             >
@@ -2550,26 +2554,26 @@ export default function RoomDetailsPage() {
                         <Modal
                             isOpen={!!compForPenalty}
                             onClose={() => { setCompForPenalty(null); setManualPenaltyForm({ label: '', value: '', description: '', templateId: '' }); }}
-                            title={`Penalizar Competidor: ${compForPenalty.handlerName}`}
+                            title={`Penalizar Competidor: ${compForPenalty.comp.handlerName}`}
                             maxWidth="max-w-lg"
                         >
                             <div className="space-y-6 p-2">
                                 <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl flex items-center gap-4">
                                     <div className="w-12 h-12 bg-white rounded-lg border border-orange-200 flex items-center justify-center font-black text-orange-600 overflow-hidden shrink-0 shadow-sm">
-                                        {compForPenalty.photoUrl ? <img src={compForPenalty.photoUrl} className="w-full h-full object-cover" /> : compForPenalty.handlerName.substring(0, 2).toUpperCase()}
+                                        {compForPenalty.comp.photoUrl ? <img src={compForPenalty.comp.photoUrl} className="w-full h-full object-cover" /> : compForPenalty.comp.handlerName.substring(0, 2).toUpperCase()}
                                     </div>
                                     <div>
-                                        <div className="text-sm font-black text-k9-black uppercase leading-tight">{compForPenalty.handlerName}</div>
-                                        <div className="text-[10px] text-orange-600 font-bold uppercase">{compForPenalty.modality}</div>
+                                        <div className="text-sm font-black text-k9-black uppercase leading-tight">{compForPenalty.comp.handlerName}</div>
+                                        <div className="text-[10px] text-orange-600 font-bold uppercase">{compForPenalty.comp.modality}</div>
                                     </div>
                                 </div>
 
                                 {/* List existing penalties */}
-                                {compForPenalty.adminPenalties && compForPenalty.adminPenalties.length > 0 && (
+                                {compForPenalty.comp.adminPenalties && compForPenalty.comp.adminPenalties.filter(p => p.testId === compForPenalty.testId).length > 0 && (
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Penalidades Aplicadas</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Penalidades Aplicadas (Nesta Prova)</label>
                                         <div className="space-y-2">
-                                            {compForPenalty.adminPenalties.map((p, i) => (
+                                            {compForPenalty.comp.adminPenalties.filter(p => p.testId === compForPenalty.testId).map((p, i) => (
                                                 <div key={i} className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded-xl">
                                                     <div>
                                                         <div className="text-xs font-black text-red-900 uppercase">{p.label}</div>
@@ -2577,7 +2581,7 @@ export default function RoomDetailsPage() {
                                                         {p.description && <div className="text-[9px] text-red-400 mt-1 italic">{p.description}</div>}
                                                     </div>
                                                     <button
-                                                        onClick={() => handleRemoveAdminPenalty(compForPenalty.id, p.createdAt)}
+                                                        onClick={() => handleRemoveAdminPenalty(compForPenalty.comp.id, p.createdAt)}
                                                         className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded transition-all"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
@@ -2612,7 +2616,7 @@ export default function RoomDetailsPage() {
                                             className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:border-red-400 text-sm font-bold uppercase"
                                         >
                                             <option value="">-- Personalizada --</option>
-                                            {penaltyTemplates.filter(p => p.modality === compForPenalty.modality).map(p => (
+                                            {penaltyTemplates.filter(p => p.modality === compForPenalty.comp.modality).map(p => (
                                                 <option key={p.id} value={p.id}>{p.label} ({-Math.abs(p.value)} pts)</option>
                                             ))}
                                         </select>
@@ -2723,6 +2727,11 @@ export default function RoomDetailsPage() {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 flex-wrap mb-1">
                                                             <span className="text-xs font-black text-red-900 uppercase">{p.label}</span>
+                                                            {p.testId && (
+                                                                <span className="text-[9px] bg-red-100 text-red-800 px-2 py-0.5 rounded-md font-bold uppercase border border-red-200">
+                                                                    {tests.find(t => t.id === p.testId)?.title || 'Prova Deletada'}
+                                                                </span>
+                                                            )}
                                                             <span className="text-[10px] font-black text-white bg-red-500 px-2 py-0.5 rounded-full font-mono">
                                                                 {p.value > 0 ? '+' : ''}{p.value} pts
                                                             </span>
