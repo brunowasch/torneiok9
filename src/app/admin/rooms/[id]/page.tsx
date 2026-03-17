@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest } from '@/types/schema';
-import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, setJudgeCompetitorReserves, activateReserve, deactivateReserve, updateRoom, subscribeToRoom, subscribeToCompetitorsByRoom, subscribeToTestsByRoom, numberCompetitorsByModality, clearCompetitorNumbersByModality, numberAllCompetitorsByRoom, clearAllCompetitorNumbersByRoom, toggleModalityFreeze, toggleAllFreeze } from '@/services/adminService';
+import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest, PenaltyTemplate } from '@/types/schema';
+import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, setJudgeCompetitorReserves, activateReserve, deactivateReserve, updateRoom, subscribeToRoom, subscribeToCompetitorsByRoom, subscribeToTestsByRoom, numberCompetitorsByModality, clearCompetitorNumbersByModality, numberAllCompetitorsByRoom, clearAllCompetitorNumbersByRoom, toggleModalityFreeze, toggleAllFreeze, createPenaltyTemplate, getPenaltyTemplates, deletePenaltyTemplate, subscribeToPenaltyTemplates, applyAdminPenalty, removeAdminPenalty } from '@/services/adminService';
 import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest, getEvaluationHistory, subscribeToEvaluationsByRoom, subscribeToEditScoreRequestsByRoom } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
@@ -66,7 +66,7 @@ export default function RoomDetailsPage() {
         await signOut(auth);
         router.push('/');
     };
-    const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges' | 'rankings'>('tests');
+    const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges' | 'rankings' | 'penalties'>('tests');
     const [compToMarkNC, setCompToMarkNC] = useState<{ test: TestTemplate, comp: Competitor } | null>(null);
     const [evalToDelete, setEvalToDelete] = useState<{ id: string, name: string, testTitle: string, isNC: boolean, photoUrl?: string, deleteAll?: boolean, evalIds?: string[], judgeName?: string } | null>(null);
     const [allJudges, setAllJudges] = useState<AppUser[]>([]);
@@ -131,24 +131,31 @@ export default function RoomDetailsPage() {
     const [rankingsSearch, setRankingsSearch] = useState('');
     const [rankingsSortBy, setRankingsSortBy] = useState<'score' | 'alphabetical' | 'number'>('score');
     const [processingAction, setProcessingAction] = useState<string | null>(null);
+    const [penaltyTemplates, setPenaltyTemplates] = useState<PenaltyTemplate[]>([]);
+    const [showAddPenaltyTemplate, setShowAddPenaltyTemplate] = useState(false);
+    const [penaltyForm, setPenaltyForm] = useState({ label: '', value: '', modality: '', description: '' });
+    const [compForPenalty, setCompForPenalty] = useState<Competitor | null>(null);
+    const [manualPenaltyForm, setManualPenaltyForm] = useState({ label: '', value: '', description: '', templateId: '' });
 
     const loadRoomData = useCallback(async () => {
         try {
             const r = await getRoomById(roomId);
             setRoom(r);
 
-            const [c, t, j, e, er] = await Promise.all([
+            const [c, t, j, e, er, pt] = await Promise.all([
                 getCompetitorsByRoom(roomId),
                 getTestTemplates(roomId),
                 getJudgesList(),
                 getEvaluationsByRoom(roomId),
-                getEditScoreRequestsByRoom(roomId)
+                getEditScoreRequestsByRoom(roomId),
+                getPenaltyTemplates(roomId)
             ]);
             setCompetitors(c);
             setTests(t);
             setAllJudges(j);
             setEvaluations(e);
             setEditRequests(er);
+            setPenaltyTemplates(pt);
         } catch (err) {
             console.error("Failed to load room", err);
         } finally {
@@ -179,6 +186,7 @@ export default function RoomDetailsPage() {
         let unsubTests: (() => void) | undefined;
         let unsubEvaluations: (() => void) | undefined;
         let unsubRequests: (() => void) | undefined;
+        let unsubPenalties: (() => void) | undefined;
 
         const setupListeners = async () => {
             try {
@@ -187,6 +195,7 @@ export default function RoomDetailsPage() {
                 unsubTests = subscribeToTestsByRoom(roomId, setTests);
                 unsubEvaluations = subscribeToEvaluationsByRoom(roomId, setEvaluations);
                 unsubRequests = subscribeToEditScoreRequestsByRoom(roomId, setEditRequests);
+                unsubPenalties = subscribeToPenaltyTemplates(roomId, setPenaltyTemplates);
 
                 const fetchedModalities = await getModalities();
                 setModalities(fetchedModalities.length > 0 ? fetchedModalities.map(m => m.name) : INITIAL_MODALITIES);
@@ -209,6 +218,7 @@ export default function RoomDetailsPage() {
             if (unsubTests) unsubTests();
             if (unsubEvaluations) unsubEvaluations();
             if (unsubRequests) unsubRequests();
+            if (unsubPenalties) unsubPenalties();
         };
     }, [roomId, loadRoomData]);
 
@@ -559,6 +569,71 @@ export default function RoomDetailsPage() {
         }
     };
 
+    const handleAddPenaltyTemplate = async () => {
+        if (!penaltyForm.label || !penaltyForm.value || !penaltyForm.modality) {
+            alert('Preencha todos os campos.');
+            return;
+        }
+        try {
+            await createPenaltyTemplate({
+                roomId,
+                label: penaltyForm.label,
+                value: -Math.abs(parseFloat(penaltyForm.value)),
+                modality: penaltyForm.modality,
+                description: penaltyForm.description || undefined
+            });
+            setShowAddPenaltyTemplate(false);
+            setPenaltyForm({ label: '', value: '', modality: '', description: '' });
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao criar penalidade.');
+        }
+    };
+
+    const handleDeletePenaltyTemplate = async (id: string) => {
+        if (!confirm('Deseja excluir esta penalidade padrão?')) return;
+        try {
+            await deletePenaltyTemplate(id);
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao excluir penalidade.');
+        }
+    };
+
+    const handleApplyAdminPenalty = async () => {
+        if (!compForPenalty || (!manualPenaltyForm.label && !manualPenaltyForm.templateId) || !manualPenaltyForm.value) {
+            alert('Preencha os dados da penalidade.');
+            return;
+        }
+        try {
+            const label = manualPenaltyForm.templateId
+                ? penaltyTemplates.find(p => p.id === manualPenaltyForm.templateId)?.label || manualPenaltyForm.label
+                : manualPenaltyForm.label;
+
+            await applyAdminPenalty(compForPenalty.id, {
+                penaltyId: manualPenaltyForm.templateId || 'manual',
+                label,
+                value: -Math.abs(parseFloat(manualPenaltyForm.value)),
+                description: manualPenaltyForm.description
+            });
+            setCompForPenalty(null);
+            setManualPenaltyForm({ label: '', value: '', description: '', templateId: '' });
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao aplicar penalidade.');
+        }
+    };
+
+    const handleRemoveAdminPenalty = async (competitorId: string, createdAt: number) => {
+        if (!confirm('Deseja remover esta penalidade?')) return;
+        try {
+            await removeAdminPenalty(competitorId, createdAt);
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao remover penalidade.');
+        }
+    };
+
     if (loading) return <div className="min-h-screen bg-k9-white flex items-center justify-center text-k9-orange font-mono">{t('admin.loading')}</div>;
     if (!room) return <div className="p-8 text-k9-black">{t('admin.roomNotFound')}</div>;
 
@@ -739,6 +814,13 @@ export default function RoomDetailsPage() {
                             className={`px-3 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer whitespace-nowrap min-w-max ${activeTab === 'judges' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
                         >
                             <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('admin.tabs.judges')} ({room?.judges?.length || 0})
+                        </button>
+
+                        <button
+                            onClick={() => setActiveTab('penalties')}
+                            className={`px-3 py-2 text-[10px] md:text-xs font-black uppercase tracking-wider rounded-md flex items-center gap-2 transition-all border-2 cursor-pointer whitespace-nowrap min-w-max ${activeTab === 'penalties' ? 'bg-orange-400 text-white border-orange-400 shadow-md scale-105' : 'bg-orange-50 text-orange-400 border-orange-100 hover:bg-orange-100 hover:text-orange-500'}`}
+                        >
+                            <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /> Penalidades
                         </button>
 
                         <button
@@ -1612,6 +1694,136 @@ export default function RoomDetailsPage() {
                         </div>
                     )}
 
+                    {activeTab === 'penalties' && (
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h2 className="text-xl font-black text-k9-black uppercase tracking-tight">Gestão de Penalidades Padrão</h2>
+                                    <p className="text-xs text-gray-400 font-bold uppercase mt-1">Crie modelos de penalidade para aplicar nos competidores na aba Resultados</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowAddPenaltyTemplate(true)}
+                                    className="px-4 py-2 bg-black text-white rounded-xl text-[10px] font-black uppercase hover:bg-gray-900 transition-all flex items-center gap-2 shadow-lg cursor-pointer"
+                                >
+                                    <Plus className="w-4 h-4" /> Nova Penalidade Padrão
+                                </button>
+                            </div>
+
+                            {modalities.length === 0 && (
+                                <div className="text-center py-12 text-gray-400 text-xs font-bold uppercase italic">
+                                    Nenhuma modalidade cadastrada. Crie modalidades nas configurações primeiro.
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {modalities.map(mod => {
+                                    const modPenalties = penaltyTemplates.filter(p => p.modality === mod);
+                                    return (
+                                        <div key={mod} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                                            <div className="bg-gray-900 p-4 border-b-2 border-orange-500 flex items-center justify-between">
+                                                <h3 className="text-sm font-black text-white uppercase tracking-tight flex items-center gap-2">
+                                                    <ShieldCheck className="w-4 h-4 text-orange-400" /> {mod}
+                                                </h3>
+                                                <span className="text-[10px] font-bold text-orange-300 bg-orange-500/20 px-2 py-0.5 rounded-full border border-orange-500/30">
+                                                    {modPenalties.length} modelo{modPenalties.length !== 1 ? 's' : ''}
+                                                </span>
+                                            </div>
+                                            <div className="p-4 flex-1 space-y-3">
+                                                {modPenalties.map(p => (
+                                                    <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 group hover:border-red-100 hover:bg-red-50/30 transition-all">
+                                                        <div className="flex-1 min-w-0 pr-2">
+                                                            <div className="text-xs font-black text-k9-black uppercase">{p.label}</div>
+                                                            <div className="text-[10px] font-bold text-red-500 font-mono mt-0.5">{p.value} pts</div>
+                                                            {p.description && (
+                                                                <div className="text-[9px] text-gray-400 italic mt-1 leading-snug">{p.description}</div>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleDeletePenaltyTemplate(p.id)}
+                                                            className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-100 rounded transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                                                            title="Excluir modelo"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                {modPenalties.length === 0 && (
+                                                    <div className="py-8 text-center text-gray-300 text-[10px] font-bold uppercase italic">
+                                                        Nenhum modelo configurado
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="p-3 border-t border-gray-100">
+                                                <button
+                                                    onClick={() => { setPenaltyForm({ label: '', value: '', modality: mod, description: '' }); setShowAddPenaltyTemplate(true); }}
+                                                    className="w-full py-2 text-[10px] font-black uppercase text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg border-2 border-dashed border-gray-200 hover:border-orange-300 transition-all cursor-pointer flex items-center justify-center gap-2"
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" /> Adicionar modelo
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <Modal
+                                isOpen={showAddPenaltyTemplate}
+                                onClose={() => { setShowAddPenaltyTemplate(false); setPenaltyForm({ label: '', value: '', modality: '', description: '' }); }}
+                                title="Nova Penalidade Padrão"
+                            >
+                                <div className="space-y-4 p-2">
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Título da Penalidade</label>
+                                        <input
+                                            value={penaltyForm.label}
+                                            onChange={e => setPenaltyForm({ ...penaltyForm, label: e.target.value })}
+                                            placeholder="Ex: Conduta Antidesportiva"
+                                            className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:border-orange-400 text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Valor (pontos a subtrair)</label>
+                                        <input
+                                            type="number"
+                                            value={penaltyForm.value}
+                                            onChange={e => setPenaltyForm({ ...penaltyForm, value: e.target.value })}
+                                            placeholder="Ex: 10"
+                                            className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:border-orange-400 text-red-600 font-bold text-sm"
+                                        />
+                                        <p className="text-[9px] text-gray-400 mt-1">O valor será automaticamente convertido em negativo.</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Modalidade Aplicável</label>
+                                        <select
+                                            value={penaltyForm.modality}
+                                            onChange={e => setPenaltyForm({ ...penaltyForm, modality: e.target.value })}
+                                            className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:border-orange-400 text-sm"
+                                        >
+                                            <option value="">Selecione uma modalidade</option>
+                                            {modalities.map(m => (
+                                                <option key={m} value={m}>{m}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Descrição <span className="text-gray-300 normal-case">(opcional)</span></label>
+                                        <textarea
+                                            value={penaltyForm.description}
+                                            onChange={e => setPenaltyForm({ ...penaltyForm, description: e.target.value })}
+                                            placeholder="Ex: Aplicada quando o competidor agride verbalmente um juiz"
+                                            rows={3}
+                                            className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:border-orange-400 text-sm resize-none"
+                                        />
+                                    </div>
+                                    <div className="flex gap-4 pt-4">
+                                        <button onClick={() => { setShowAddPenaltyTemplate(false); setPenaltyForm({ label: '', value: '', modality: '', description: '' }); }} className="flex-1 py-3 bg-gray-100 text-gray-600 font-black uppercase text-[10px] rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-200 transition-all">Cancelar</button>
+                                        <button onClick={handleAddPenaltyTemplate} className="flex-1 py-3 bg-black text-white font-black uppercase text-[10px] rounded-lg shadow-lg hover:bg-gray-900 transition-all cursor-pointer">Criar Modelo</button>
+                                    </div>
+                                </div>
+                            </Modal>
+                        </div>
+                    )}
+
                     {activeTab === 'rankings' && (
                         <div className="space-y-12">
 
@@ -1797,10 +2009,14 @@ export default function RoomDetailsPage() {
                                                         const calculatedAvg = evalsToAvg.length > 0
                                                             ? evalsToAvg.reduce((s, e) => s + e.finalScore, 0) / evalsToAvg.length
                                                             : 0;
-                                                        const drugBonus = (test.modality?.toLowerCase().includes('faro') && c.drugPointsFound?.[test.id])
-                                                            ? c.drugPointsFound[test.id] * 50
+                                                        const totalPoints = test.drugPointsAmount || 0;
+                                                        const foundPoints = c.drugPointsFound?.[test.id] || 0;
+                                                        const missedPoints = Math.max(0, totalPoints - foundPoints);
+                                                        const drugBonus = (test.modality?.toLowerCase().includes('faro'))
+                                                            ? (foundPoints * 50) - (missedPoints * 50)
                                                             : 0;
-                                                        return { ...c, totalScore: calculatedAvg + drugBonus };
+                                                        const adminPenaltyTotal = (c.adminPenalties || []).reduce((sum, p) => sum + p.value, 0);
+                                                        return { ...c, totalScore: calculatedAvg + drugBonus + adminPenaltyTotal };
                                                     })
                                                     .sort((a, b) => {
                                                         let comparison = 0;
@@ -1852,6 +2068,14 @@ export default function RoomDetailsPage() {
                                                         const calculatedAvg = evalsToAvg.length > 0
                                                             ? evalsToAvg.reduce((s, e) => s + e.finalScore, 0) / evalsToAvg.length
                                                             : null;
+                                                        const totalPoints = test.drugPointsAmount || 0;
+                                                        const foundPoints = comp.drugPointsFound?.[test.id] || 0;
+                                                        const missedPoints = Math.max(0, totalPoints - foundPoints);
+                                                        const drugBonus = (test.modality?.toLowerCase().includes('faro'))
+                                                            ? (foundPoints * 50) - (missedPoints * 50)
+                                                            : 0;
+                                                        const adminPenaltyTotal = (comp.adminPenalties || []).reduce((sum, p) => sum + p.value, 0);
+                                                        const finalWithPenalties = (calculatedAvg !== null) ? (calculatedAvg + drugBonus + adminPenaltyTotal) : null;
 
                                                         return (
                                                             <div key={comp.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50/50 transition-colors">
@@ -1889,6 +2113,16 @@ export default function RoomDetailsPage() {
                                                                 </div>
 
                                                                 <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t border-gray-50 sm:border-0 w-full sm:w-auto shrink-0">
+                                                                    {/* Botão Penalizar Admin */}
+                                                                    <button
+                                                                        onClick={() => setCompForPenalty(comp)}
+                                                                        className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-red-50 text-red-700 border-red-200 hover:bg-red-100 cursor-pointer"
+                                                                        title="Aplicar penalidade administrativa"
+                                                                    >
+                                                                        <AlertCircle className="w-3 h-3" />
+                                                                        Penalizar
+                                                                    </button>
+
                                                                     {/* Botão Configurar Reserva por Competidor */}
                                                                     {(room?.judges && room.judges.length > 0) && (
                                                                         <button
@@ -1962,11 +2196,8 @@ export default function RoomDetailsPage() {
                                                                                 </div>
                                                                                 <div className="text-xs font-black uppercase leading-none">
                                                                                     {isDNS ? 'NC' : (() => {
-                                                                                        if (calculatedAvg === null) return '--';
-                                                                                        const drugBonus = (test.modality?.toLowerCase().includes('faro') && comp.drugPointsFound?.[test.id])
-                                                                                            ? comp.drugPointsFound[test.id] * 50
-                                                                                            : 0;
-                                                                                        return (calculatedAvg + drugBonus).toFixed(1);
+                                                                                        if (finalWithPenalties === null) return '--';
+                                                                                        return finalWithPenalties.toFixed(1);
                                                                                     })()}
                                                                                 </div>
                                                                                 <div className="text-[8px] font-bold uppercase opacity-60">{t('admin.rankings.status')}</div>
@@ -2003,6 +2234,14 @@ export default function RoomDetailsPage() {
                                                                                 title="Resetar Todas as Notas"
                                                                             >
                                                                                 <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                                            </button>
+
+                                                                            <button
+                                                                                onClick={() => setCompForPenalty(comp)}
+                                                                                className="p-1.5 sm:p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700 rounded-lg transition-colors border border-amber-100"
+                                                                                title="Aplicar Penalidade Admin"
+                                                                            >
+                                                                                <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                                                             </button>
                                                                         </div>
                                                                     ) : (
@@ -2043,79 +2282,85 @@ export default function RoomDetailsPage() {
                                 className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-md"
                                 onClick={(e) => { if (e.target === e.currentTarget) setCompetitorReserveConfig(null); }}
                             >
-                                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border-2 border-purple-200">
+                                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border-b-4 border-orange-500 transform transition-all">
                                     {/* Header */}
-                                    <div className="bg-gradient-to-r from-purple-600 to-purple-800 p-5 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-black text-white text-sm border border-white/20 overflow-hidden">
+                                    <div className="bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 p-6 flex items-center justify-between border-b border-white/10 shadow-lg">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center font-black text-white text-base border border-white/30 overflow-hidden shadow-inner backdrop-blur-sm">
                                                 {comp.photoUrl ? <img src={comp.photoUrl} className="w-full h-full object-cover" /> : comp.handlerName.substring(0, 2).toUpperCase()}
                                             </div>
                                             <div>
-                                                <div className="text-[10px] text-purple-200 font-black uppercase tracking-widest">Juiz Reserva Específico</div>
-                                                <div className="text-white font-black text-base uppercase tracking-tight leading-tight">{comp.handlerName}</div>
-                                                <div className="text-purple-200 text-[10px] font-bold uppercase">{comp.modality}</div>
+                                                <div className="text-[10px] text-orange-100 font-black uppercase tracking-[0.2em] mb-0.5">Juiz Reserva Específico</div>
+                                                <div className="text-white font-black text-lg uppercase tracking-tight leading-tight drop-shadow-sm">{comp.handlerName}</div>
+                                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-black/10 text-orange-50 text-[9px] font-black uppercase rounded-lg border border-white/10 mt-1">
+                                                    <div className="w-1.5 h-1.5 bg-orange-300 rounded-full animate-pulse" /> {comp.modality}
+                                                </div>
                                             </div>
                                         </div>
-                                        <button onClick={() => setCompetitorReserveConfig(null)} className="text-white/60 hover:text-white p-1 rounded cursor-pointer">
+                                        <button onClick={() => setCompetitorReserveConfig(null)} className="text-white/70 hover:text-white p-2 rounded-xl bg-white/10 hover:bg-white/20 cursor-pointer transition-all">
                                             <X className="w-5 h-5" />
                                         </button>
                                     </div>
 
                                     {/* Body */}
                                     <div className="p-6">
-                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-4">
-                                            Juízes marcados abaixo <span className="text-red-600">não poderão avaliar</span> <span className="text-purple-700">{comp.handlerName}</span>. Os demais competidores da sala não serão afetados.
-                                        </p>
+                                        <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100 mb-6">
+                                            <p className="text-[11px] text-orange-700 font-bold uppercase tracking-wide leading-relaxed">
+                                                Selecione os juízes que <span className="text-orange-900 underline underline-offset-2 decoration-orange-300">não poderão avaliar</span> este competidor. O sistema irá ignorar as notas desses juízes para este condutor.
+                                            </p>
+                                        </div>
 
-                                        <div className="space-y-2 mb-6">
+                                        <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar space-y-2 mb-6">
                                             {judgesAvailable.map(judge => {
                                                 const isSelected = currentReserves.includes(judge.uid);
                                                 return (
-                                                    <label key={judge.uid} className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-orange-400 border border-gray-200 hover:border-orange-400 rounded-xl cursor-pointer transition-all group">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            onChange={async (e) => {
-                                                                const newReserves = e.target.checked
-                                                                    ? [...currentReserves, judge.uid]
-                                                                    : currentReserves.filter(id => id !== judge.uid);
-                                                                try {
-                                                                    await setJudgeCompetitorReserves(roomId, comp.id, newReserves);
-                                                                    loadRoomData();
-                                                                } catch (err) {
-                                                                    console.error(err);
-                                                                    alert('Erro ao salvar configuração de reserva.');
-                                                                }
-                                                            }}
-                                                            className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
-                                                        />
-                                                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center text-[10px] text-purple-700 font-black border border-purple-200 shrink-0">
+                                                    <label key={judge.uid} className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border-2 ${isSelected ? 'bg-orange-50 border-orange-500 shadow-md transform translate-x-1' : 'bg-gray-50 border-transparent hover:border-orange-200'}`}>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={async (e) => {
+                                                                    const newReserves = e.target.checked
+                                                                        ? [...currentReserves, judge.uid]
+                                                                        : currentReserves.filter(id => id !== judge.uid);
+                                                                    try {
+                                                                        await setJudgeCompetitorReserves(roomId, comp.id, newReserves);
+                                                                        loadRoomData();
+                                                                    } catch (err) {
+                                                                        console.error(err);
+                                                                        alert('Erro ao salvar configuração de reserva.');
+                                                                    }
+                                                                }}
+                                                                className="w-5 h-5 text-orange-500 border-gray-300 rounded-lg focus:ring-orange-500 focus:ring-offset-0 cursor-pointer accent-orange-500"
+                                                            />
+                                                        </div>
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black border-2 shrink-0 transition-all ${isSelected ? 'bg-orange-500 text-white border-orange-400 shadow-lg' : 'bg-white text-gray-400 border-gray-100'}`}>
                                                             {judge.name.substring(0, 2).toUpperCase()}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="text-sm font-black text-gray-800 uppercase truncate group-hover:text-purple-700 transition-colors">{judge.name}</div>
+                                                            <div className={`text-xs font-black uppercase truncate transition-colors ${isSelected ? 'text-orange-900' : 'text-gray-700'}`}>{judge.name}</div>
                                                             <div className="text-[10px] text-gray-400 font-mono truncate">{judge.email}</div>
                                                         </div>
                                                         {isSelected && (
-                                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded-full shrink-0">
+                                                            <div className="px-3 py-1 bg-orange-500 text-white text-[9px] font-black uppercase rounded-lg shadow-sm border border-orange-400 shrink-0">
                                                                 Reserva
-                                                            </span>
+                                                            </div>
                                                         )}
                                                     </label>
                                                 );
                                             })}
                                             {judgesAvailable.length === 0 && (
-                                                <div className="text-center py-8 text-gray-400 text-xs font-bold uppercase">
-                                                    Nenhum juiz cadastrado na sala.
+                                                <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100">
+                                                    <p className="text-gray-400 text-[11px] font-black uppercase italic tracking-widest">Nenhum juiz disponível</p>
                                                 </div>
                                             )}
                                         </div>
 
                                         <button
                                             onClick={() => setCompetitorReserveConfig(null)}
-                                            className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-black uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-gray-200 transition-all"
+                                            className="w-full py-4 bg-gray-900 hover:bg-black text-white font-black uppercase text-[11px] rounded-2xl tracking-[0.2em] cursor-pointer shadow-xl transition-all active:scale-95"
                                         >
-                                            Fechar
+                                            Confirmar e Fechar
                                         </button>
                                     </div>
                                 </div>
@@ -2272,6 +2517,121 @@ export default function RoomDetailsPage() {
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* MODAL: Aplicar Penalidade Admin */}
+                    {compForPenalty && (
+                        <Modal
+                            isOpen={!!compForPenalty}
+                            onClose={() => { setCompForPenalty(null); setManualPenaltyForm({ label: '', value: '', description: '', templateId: '' }); }}
+                            title={`Penalizar Competidor: ${compForPenalty.handlerName}`}
+                            maxWidth="max-w-lg"
+                        >
+                            <div className="space-y-6 p-2">
+                                <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-white rounded-lg border border-orange-200 flex items-center justify-center font-black text-orange-600 overflow-hidden shrink-0 shadow-sm">
+                                        {compForPenalty.photoUrl ? <img src={compForPenalty.photoUrl} className="w-full h-full object-cover" /> : compForPenalty.handlerName.substring(0, 2).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-black text-k9-black uppercase leading-tight">{compForPenalty.handlerName}</div>
+                                        <div className="text-[10px] text-orange-600 font-bold uppercase">{compForPenalty.modality}</div>
+                                    </div>
+                                </div>
+
+                                {/* List existing penalties */}
+                                {compForPenalty.adminPenalties && compForPenalty.adminPenalties.length > 0 && (
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Penalidades Aplicadas</label>
+                                        <div className="space-y-2">
+                                            {compForPenalty.adminPenalties.map((p, i) => (
+                                                <div key={i} className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded-xl">
+                                                    <div>
+                                                        <div className="text-xs font-black text-red-900 uppercase">{p.label}</div>
+                                                        <div className="text-[10px] font-bold text-red-600 font-mono">{p.value} pts</div>
+                                                        {p.description && <div className="text-[9px] text-red-400 mt-1 italic">{p.description}</div>}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRemoveAdminPenalty(compForPenalty.id, p.createdAt)}
+                                                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded transition-all"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="border-t border-gray-100 pt-6 space-y-4">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Nova Penalidade</label>
+
+                                    {/* Selection Template */}
+                                    <div>
+                                        <label className="text-[9px] font-black text-gray-500 uppercase block mb-1">Usar Modelo Padrão</label>
+                                        <select
+                                            value={manualPenaltyForm.templateId}
+                                            onChange={(e) => {
+                                                const selected = penaltyTemplates.find(p => p.id === e.target.value);
+                                                if (selected) {
+                                                    setManualPenaltyForm({
+                                                        ...manualPenaltyForm,
+                                                        templateId: selected.id,
+                                                        label: selected.label,
+                                                        value: Math.abs(selected.value).toString()
+                                                    });
+                                                } else {
+                                                    setManualPenaltyForm({ ...manualPenaltyForm, templateId: '', label: '', value: '' });
+                                                }
+                                            }}
+                                            className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:border-red-400 text-sm font-bold uppercase"
+                                        >
+                                            <option value="">-- Personalizada --</option>
+                                            {penaltyTemplates.filter(p => p.modality === compForPenalty.modality).map(p => (
+                                                <option key={p.id} value={p.id}>{p.label} ({-Math.abs(p.value)} pts)</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {!manualPenaltyForm.templateId && (
+                                        <div>
+                                            <label className="text-[9px] font-black text-gray-500 uppercase block mb-1">Título Manual</label>
+                                            <input
+                                                value={manualPenaltyForm.label}
+                                                onChange={e => setManualPenaltyForm({ ...manualPenaltyForm, label: e.target.value })}
+                                                placeholder="Ex: Conduta inadequada"
+                                                className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:border-red-400 text-sm"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <label className="text-[9px] font-black text-gray-500 uppercase block mb-1">Pontos (a subtrair)</label>
+                                        <input
+                                            type="number"
+                                            value={manualPenaltyForm.value}
+                                            onChange={e => setManualPenaltyForm({ ...manualPenaltyForm, value: e.target.value })}
+                                            placeholder="Ex: 5.5"
+                                            className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:border-red-400 text-red-600 font-bold"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[9px] font-black text-gray-500 uppercase block mb-1">Observação / Justificativa (Opcional)</label>
+                                        <textarea
+                                            value={manualPenaltyForm.description}
+                                            onChange={e => setManualPenaltyForm({ ...manualPenaltyForm, description: e.target.value })}
+                                            placeholder="Descreve o motivo da penalidade..."
+                                            className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:outline-none focus:border-red-400 text-sm min-h-[80px]"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-4 pt-4">
+                                        <button onClick={() => setCompForPenalty(null)} className="flex-1 py-3 bg-gray-100 text-gray-600 font-black uppercase text-[10px] rounded-lg border border-gray-200">Cancelar</button>
+                                        <button onClick={handleApplyAdminPenalty} className="flex-1 py-3 bg-red-600 text-white font-black uppercase text-[10px] rounded-lg shadow-lg hover:bg-red-700 transition-all">Confirmar Penalidade</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </Modal>
                     )}
 
                     {/* Confirm Deletion Modal */}

@@ -15,7 +15,7 @@ import {
   onSnapshot,
   deleteField
 } from 'firebase/firestore';
-import { Room, Competitor, TestTemplate, AppUser, ModalityConfig, ReserveActivation } from '../types/schema';
+import { Room, Competitor, TestTemplate, AppUser, ModalityConfig, ReserveActivation, PenaltyTemplate } from '../types/schema';
 
 export const createRoom = async (roomData: Omit<Room, 'id' | 'createdAt'>) => {
   try {
@@ -572,4 +572,79 @@ export const toggleAllFreeze = async (roomId: string, freeze: boolean) => {
     console.error("Error toggling all freeze: ", error);
     throw error;
   }
+};
+
+export const createPenaltyTemplate = async (template: Omit<PenaltyTemplate, 'id' | 'createdAt'>) => {
+  try {
+    const docRef = await addDoc(collection(db, 'penaltyTemplates'), {
+      ...template,
+      createdAt: Date.now()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("Error creating penalty template: ", error);
+    throw error;
+  }
+};
+
+export const getPenaltyTemplates = async (roomId: string) => {
+  const q = query(collection(db, 'penaltyTemplates'), where('roomId', '==', roomId));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PenaltyTemplate));
+};
+
+export const deletePenaltyTemplate = async (id: string) => {
+  try {
+    const docRef = doc(db, 'penaltyTemplates', id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting penalty template: ", error);
+    throw error;
+  }
+};
+
+export const applyAdminPenalty = async (competitorId: string, penalty: { penaltyId: string; label: string; value: number; description: string }) => {
+  try {
+    const compRef = doc(db, 'competitors', competitorId);
+    const compSnap = await getDoc(compRef);
+    if (!compSnap.exists()) throw new Error('Competidor não encontrado');
+    
+    const data = compSnap.data() as Competitor;
+    const currentPenalties = data.adminPenalties || [];
+    
+    await updateDoc(compRef, {
+      adminPenalties: [
+        ...currentPenalties,
+        { ...penalty, createdAt: Date.now() }
+      ]
+    });
+  } catch (error) {
+    console.error("Error applying penalty: ", error);
+    throw error;
+  }
+};
+
+export const removeAdminPenalty = async (competitorId: string, createdAt: number) => {
+  try {
+    const compRef = doc(db, 'competitors', competitorId);
+    const compSnap = await getDoc(compRef);
+    if (!compSnap.exists()) throw new Error('Competidor não encontrado');
+    
+    const data = compSnap.data() as Competitor;
+    const currentPenalties = data.adminPenalties || [];
+    const updated = currentPenalties.filter(p => p.createdAt !== createdAt);
+    
+    await updateDoc(compRef, { adminPenalties: updated });
+  } catch (error) {
+    console.error("Error removing penalty: ", error);
+    throw error;
+  }
+};
+
+export const subscribeToPenaltyTemplates = (roomId: string, callback: (templates: PenaltyTemplate[]) => void) => {
+  const q = query(collection(db, 'penaltyTemplates'), where('roomId', '==', roomId));
+  return onSnapshot(q, (snapshot) => {
+    const templates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PenaltyTemplate));
+    callback(templates);
+  });
 };

@@ -59,6 +59,23 @@ export interface Competitor {
   testId?: string; // Deprecated: mantido para compatibilidade
   photoUrl?: string;
   drugPointsFound?: Record<string, number>; // testId -> number of points found
+  adminPenalties?: {
+    penaltyId: string;
+    label: string;
+    value: number;
+    description: string;
+    createdAt: number;
+  }[];
+  createdAt: number;
+}
+
+export interface PenaltyTemplate {
+  id: string;
+  roomId: string;
+  modality: string;
+  label: string;
+  value: number;
+  description?: string;
   createdAt: number;
 }
 

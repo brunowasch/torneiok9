@@ -196,7 +196,7 @@ export default function Home() {
 
         if (selectedTestId === 'geral') {
           modalityTestIds.forEach(tId => {
-            if (entry.scoresByTest[tId] !== undefined && entry.scoresByTest[tId] > 0) {
+            if (entry.scoresByTest[tId] !== undefined) {
               score += entry.scoresByTest[tId];
               count++;
             }
@@ -206,7 +206,7 @@ export default function Home() {
           if (ev?.status === 'did_not_participate') {
             hasNC = true;
             count = 1;
-          } else if (entry.scoresByTest[selectedTestId] !== undefined && entry.scoresByTest[selectedTestId] > 0) {
+          } else if (entry.scoresByTest[selectedTestId] !== undefined) {
             score = entry.scoresByTest[selectedTestId];
             count = 1;
           }

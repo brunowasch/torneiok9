@@ -1,6 +1,6 @@
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, query, where, doc, getDocs } from 'firebase/firestore';
-import { Competitor, Evaluation } from '../types/schema';
+import { Competitor, Evaluation, TestTemplate } from '../types/schema';
 
 export interface LeaderboardEntry extends Competitor {
     totalScore: number;
@@ -12,6 +12,7 @@ export interface LeaderboardEntry extends Competitor {
 export const subscribeToLeaderboard = (roomId: string, callback: (data: LeaderboardEntry[]) => void) => {
     let competitors: Competitor[] = [];
     let evaluations: Evaluation[] = [];
+    let tests: TestTemplate[] = [];
     let roomInfo: any = null;
 
     const updateLeaderboard = () => {
@@ -73,10 +74,15 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
                         const avg = evalsToAverage.slice(0, 3).reduce((sum, e) => sum + e.finalScore, 0) / 3;
                         scoresByTest[testId] = avg;
 
-                        // Add bonus for "Faro" modalities (e.g., "Faro de Narcóticos"): (drug points found * 50)
+                        // Add bonus/penalty for "Faro" modalities (e.g., "Faro de Narcóticos"): 
+                        // (drug points found * 50) - (missed drug points * 50)
                         if (comp.modality?.toLowerCase().includes('faro')) {
+                            const test = tests.find(t => t.id === testId);
+                            const totalPoints = test?.drugPointsAmount || 0;
                             const found = comp.drugPointsFound?.[testId] || 0;
-                            scoresByTest[testId] += (found * 50);
+                            const missed = Math.max(0, totalPoints - found);
+                            
+                            scoresByTest[testId] += (found * 50) - (missed * 50);
                         }
                     } else {
                         scoresByTest[testId] = 0;
@@ -84,6 +90,12 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
                 }
                 totalScore += scoresByTest[testId];
             });
+
+            // Subtract Admin Penalties
+            if (comp.adminPenalties && comp.adminPenalties.length > 0) {
+                const totalAdminPenalties = comp.adminPenalties.reduce((sum, p) => sum + Math.abs(p.value), 0);
+                totalScore -= totalAdminPenalties;
+            }
 
             return {
                 ...comp,
@@ -110,6 +122,12 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
         updateLeaderboard();
     });
 
+    const qTests = query(collection(db, 'tests'), where('roomId', '==', roomId));
+    const unsubscribeTests = onSnapshot(qTests, (snapshot) => {
+        tests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TestTemplate));
+        updateLeaderboard();
+    });
+
     const unsubscribeRoom = onSnapshot(doc(db, 'rooms', roomId), (snapshot) => {
         if (snapshot.exists()) {
             roomInfo = snapshot.data();
@@ -120,6 +138,7 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
     return () => {
         unsubscribeCompetitors();
         unsubscribeEvaluations();
+        unsubscribeTests();
         unsubscribeRoom();
     };
 };
