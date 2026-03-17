@@ -116,6 +116,7 @@ export default function RoomDetailsPage() {
     // Edit Score Requests
     const [editRequests, setEditRequests] = useState<EditScoreRequest[]>([]);
     const [viewingHistoryFor, setViewingHistoryFor] = useState<{ comp: Competitor, test: TestTemplate, evals: (Evaluation & { archivedAt?: number })[] } | null>(null);
+    const [viewingPenaltyHistoryFor, setViewingPenaltyHistoryFor] = useState<Competitor | null>(null);
     // Modal de configuração de reserva por competidor
     const [competitorReserveConfig, setCompetitorReserveConfig] = useState<Competitor | null>(null);
     const [testModalityFilter, setTestModalityFilter] = useState<string>('');
@@ -631,6 +632,16 @@ export default function RoomDetailsPage() {
         } catch (err) {
             console.error(err);
             alert('Erro ao remover penalidade.');
+        }
+    };
+
+    const handleResetAdminPenalties = async (competitorId: string) => {
+        if (!confirm('Deseja remover TODAS as penalidades administrativas deste competidor? Esta ação é irreversível.')) return;
+        try {
+            await updateCompetitor(competitorId, { adminPenalties: [] });
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao resetar penalidades.');
         }
     };
 
@@ -2123,6 +2134,21 @@ export default function RoomDetailsPage() {
                                                                         Penalizar
                                                                     </button>
 
+                                                                    {/* Botão Histórico de Penalidades */}
+                                                                    {(comp.adminPenalties && comp.adminPenalties.length > 0) && (
+                                                                        <button
+                                                                            onClick={() => setViewingPenaltyHistoryFor(comp)}
+                                                                            className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 cursor-pointer relative"
+                                                                            title="Ver histórico de penalidades"
+                                                                        >
+                                                                            <History className="w-3 h-3" />
+                                                                            Penalidades
+                                                                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow">
+                                                                                {comp.adminPenalties.length}
+                                                                            </span>
+                                                                        </button>
+                                                                    )}
+
                                                                     {/* Botão Configurar Reserva por Competidor */}
                                                                     {(room?.judges && room.judges.length > 0) && (
                                                                         <button
@@ -2633,6 +2659,113 @@ export default function RoomDetailsPage() {
                             </div>
                         </Modal>
                     )}
+                    {viewingPenaltyHistoryFor && (
+                        <div
+                            className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-md"
+                            onClick={(e) => { if (e.target === e.currentTarget) setViewingPenaltyHistoryFor(null); }}
+                        >
+                            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border-2 border-indigo-200">
+                                <div className="bg-gradient-to-r from-indigo-600 to-purple-700 p-5 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white border border-white/20">
+                                            <History className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] text-indigo-200 font-black uppercase tracking-widest">Histórico de Penalidades</div>
+                                            <div className="text-white font-black text-base uppercase tracking-tight leading-tight">{viewingPenaltyHistoryFor.handlerName}</div>
+                                            <div className="text-indigo-200 text-[10px] font-bold uppercase">{viewingPenaltyHistoryFor.modality}</div>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setViewingPenaltyHistoryFor(null)} className="text-white/60 hover:text-white p-1 rounded cursor-pointer">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                {/* Summary bar */}
+                                <div className="bg-indigo-50 border-b border-indigo-100 px-5 py-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-white border border-indigo-200 flex items-center justify-center font-black text-indigo-700 text-sm overflow-hidden shadow-sm">
+                                            {viewingPenaltyHistoryFor.photoUrl
+                                                ? <img src={viewingPenaltyHistoryFor.photoUrl} className="w-full h-full object-cover" />
+                                                : viewingPenaltyHistoryFor.handlerName.substring(0, 2).toUpperCase()
+                                            }
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-black text-indigo-900 uppercase">{viewingPenaltyHistoryFor.handlerName}</div>
+                                            <div className="text-[10px] text-indigo-500 font-bold">
+                                                {(viewingPenaltyHistoryFor.adminPenalties || []).length} penalidade(s) •{' '}
+                                                <span className="text-red-600 font-black">
+                                                    {(viewingPenaltyHistoryFor.adminPenalties || []).reduce((s, p) => s + p.value, 0).toFixed(1)} pts
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {(viewingPenaltyHistoryFor.adminPenalties || []).length > 0 && (
+                                        <button
+                                            onClick={() => handleResetAdminPenalties(viewingPenaltyHistoryFor.id)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-red-50 text-red-700 border-red-200 hover:bg-red-100 cursor-pointer"
+                                            title="Remover todas as penalidades"
+                                        >
+                                            <RotateCcw className="w-3 h-3" /> Resetar Todas
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="p-5 max-h-[55vh] overflow-y-auto space-y-3">
+                                    {(viewingPenaltyHistoryFor.adminPenalties || []).length === 0 ? (
+                                        <div className="text-center py-10 text-gray-400 font-bold uppercase italic text-sm">
+                                            Nenhuma penalidade aplicada.
+                                        </div>
+                                    ) : (
+                                        [...(viewingPenaltyHistoryFor.adminPenalties || [])]
+                                            .sort((a, b) => b.createdAt - a.createdAt)
+                                            .map((p, i) => (
+                                                <div key={i} className="flex items-start justify-between gap-4 p-4 bg-red-50 border border-red-100 rounded-xl group hover:border-red-200 transition-all">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                            <span className="text-xs font-black text-red-900 uppercase">{p.label}</span>
+                                                            <span className="text-[10px] font-black text-white bg-red-500 px-2 py-0.5 rounded-full font-mono">
+                                                                {p.value > 0 ? '+' : ''}{p.value} pts
+                                                            </span>
+                                                        </div>
+                                                        {p.description && (
+                                                            <div className="text-[10px] text-red-600 italic mb-1.5">{p.description}</div>
+                                                        )}
+                                                        <div className="text-[9px] text-gray-400 font-mono">
+                                                            {new Date(p.createdAt).toLocaleString('pt-BR')}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!confirm('Deseja remover esta penalidade?')) return;
+                                                            try {
+                                                                await removeAdminPenalty(viewingPenaltyHistoryFor.id, p.createdAt);
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                                alert('Erro ao remover penalidade.');
+                                                            }
+                                                        }}
+                                                        className="p-2 text-red-300 hover:text-red-600 hover:bg-red-100 rounded-lg transition-all opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"
+                                                        title="Remover esta penalidade"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+                                    <button
+                                        onClick={() => setViewingPenaltyHistoryFor(null)}
+                                        className="px-5 py-2.5 bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-800 rounded-xl font-black uppercase text-xs tracking-wider transition-colors shadow-sm"
+                                    >
+                                        Fechar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Confirm Deletion Modal */}
                     {itemToDelete && (
@@ -2751,6 +2884,11 @@ export default function RoomDetailsPage() {
                                             if (evalToDelete.deleteAll && evalToDelete.evalIds) {
                                                 // Exclui múltiplas avaliações em paralelo
                                                 await Promise.all(evalToDelete.evalIds.map(id => deleteEvaluation(id)));
+                                                // Também reseta as penalidades admin do competidor
+                                                const compId = competitors.find(c => c.handlerName === evalToDelete.name)?.id;
+                                                if (compId) {
+                                                    await updateCompetitor(compId, { adminPenalties: [] });
+                                                }
                                             } else {
                                                 await deleteEvaluation(evalToDelete.id);
                                             }
@@ -2759,7 +2897,7 @@ export default function RoomDetailsPage() {
                                     }}
                                     className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
                                 >
-                                    {evalToDelete?.deleteAll ? 'Resetar Notas' : t('admin.evalDeletion.confirm')}
+                                    {evalToDelete?.deleteAll ? 'Resetar Notas + Penalidades' : t('admin.evalDeletion.confirm')}
                                 </button>
                             </div>
                         </div>
