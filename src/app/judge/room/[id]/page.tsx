@@ -619,6 +619,7 @@ export default function JudgeRoomPage() {
                                 />
                             </div>
 
+
                             {(() => {
                                 const normalize = (text: string) =>
                                     text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
@@ -656,6 +657,24 @@ export default function JudgeRoomPage() {
 
                                 return (
                                     <div className="space-y-8">
+                                        <div className="mt-4">
+                                            <select
+                                                value={selectedTestView?.id || ''}
+                                                onChange={(e) => {
+                                                    const selected = assignedTests.find(t => t.id === e.target.value);
+                                                    if (selected) handleSelectTest(selected);
+                                                }}
+                                                className="w-full bg-white border border-gray-200 text-[10px] font-black uppercase tracking-wider rounded-xl px-3 py-3 focus:outline-none focus:border-k9-orange transition-all shadow-sm"
+                                            >
+                                                <option value="" disabled>{t('judge.room.jumpToTest', 'Vá direto para...')}</option>
+                                                {assignedTests.map(test => (
+                                                    <option key={test.id} value={test.id}>
+                                                        {test.testNumber ? `${test.testNumber}. ` : ''}{test.title}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
                                         {Object.entries(groupedByModality).map(([modality, modalityTests]) => (
                                             <div key={modality} className="bg-gray-50/50 border border-gray-100 rounded-3xl p-6 shadow-sm">
                                                 <h3 className="text-sm font-black uppercase text-k9-orange mb-6 flex items-center gap-2 tracking-widest">
@@ -744,7 +763,7 @@ export default function JudgeRoomPage() {
                                         <p className="text-xs text-gray-400 font-bold uppercase">{t('judge.room.competitorQueueHint')}</p>
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 flex-wrap">
                                     <div className="relative w-full sm:w-auto flex-1 min-w-[200px]">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                         <input
