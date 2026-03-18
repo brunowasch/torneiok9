@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createRoom, getRooms, deleteRoom, updateRoom, subscribeToRooms } from '@/services/adminService';
 import { getAllPendingEditRequests, respondToEditScoreRequest, subscribeToAllPendingEditRequests } from '@/services/evaluationService';
@@ -240,7 +241,7 @@ export default function AdminDashboard() {
                         </div>
                         <div className="relative z-10 flex items-center gap-4 md:gap-5 w-full md:w-auto">
                             <div className="h-12 w-12 md:h-16 md:w-16 relative flex items-center justify-center p-1 bg-white/5 rounded-xl border border-white/10 shadow-inner shrink-0">
-                                <img src="/logo.png" alt="Logo" className="object-contain w-full h-full" />
+                                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                             </div>
                             <div className="min-w-0">
                                 <h1 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tighter leading-none mb-1 truncate">
@@ -354,7 +355,7 @@ export default function AdminDashboard() {
                                                         className="p-1.5 text-black hover:text-blue-500 border-2 border-black hover:border-blue-500 rounded-lg transition-all cursor-pointer z-10 bg-white shadow-sm flex items-center justify-center"
                                                         title="Editar Datas"
                                                     >
-                                                        <Calendar className="w-3.5 h-3.5 mt-[1px]" />
+                                                        <Calendar className="w-3.5 h-3.5 mt-px" />
                                                     </button>
                                                     <button
                                                         onClick={(e) => {
@@ -433,7 +434,7 @@ export default function AdminDashboard() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" /> Data de Início
                                             </label>
                                             <MaskedDateInput
@@ -446,7 +447,7 @@ export default function AdminDashboard() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">
                                                 <Clock className="w-3 h-3" /> Hora de Início
                                             </label>
                                             <input
@@ -457,7 +458,7 @@ export default function AdminDashboard() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" /> Data de Fim
                                             </label>
                                             <MaskedDateInput
@@ -470,7 +471,7 @@ export default function AdminDashboard() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">
                                                 <Clock className="w-3 h-3" /> Hora de Encerramento
                                             </label>
                                             <input
@@ -515,7 +516,7 @@ export default function AdminDashboard() {
                                 <div className="space-y-4 mb-6">
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" /> Data de Início
                                             </label>
                                             <MaskedDateInput
@@ -528,7 +529,7 @@ export default function AdminDashboard() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">
                                                 <Clock className="w-3 h-3" /> Hora de Início
                                             </label>
                                             <input
@@ -539,7 +540,7 @@ export default function AdminDashboard() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" /> Data de Fim
                                             </label>
                                             <MaskedDateInput
@@ -552,7 +553,7 @@ export default function AdminDashboard() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block flex items-center gap-1">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">
                                                 <Clock className="w-3 h-3" /> Hora de Encerramento
                                             </label>
                                             <input
@@ -654,7 +655,7 @@ export default function AdminDashboard() {
                                 </div>
                                 <h2 className="text-2xl font-black uppercase mb-2 tracking-tighter">Excluir Sala</h2>
                                 <p className="text-gray-500 text-sm font-semibold mb-6 uppercase">
-                                    Você tem certeza que deseja excluir a sala <span className="text-red-600">"{roomToDelete.name.toUpperCase()}"</span>? Esta ação não pode ser desfeita.
+                                    Você tem certeza que deseja excluir a sala <span className="text-red-600">&quot;{roomToDelete.name.toUpperCase()}&quot;</span>? Esta ação não pode ser desfeita.
                                 </p>
                                 <div className="flex gap-4">
                                     <button

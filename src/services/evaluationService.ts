@@ -104,6 +104,28 @@ export const getEvaluationHistory = async (roomId: string, competitorId: string,
     .sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
 };
 
+export const getEvaluationHistoryByTest = async (roomId: string, testId: string) => {
+  const q = query(
+    collection(db, 'evaluationsHistory'),
+    where('roomId', '==', roomId),
+    where('testId', '==', testId)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+};
+
+export const purgeArchivedEvaluations = async (historyIds: string[]) => {
+  try {
+    const { deleteDoc, doc } = await import('firebase/firestore');
+    await Promise.all(
+      historyIds.map(id => deleteDoc(doc(db, 'evaluationsHistory', id)))
+    );
+  } catch (error) {
+    console.error('Error purging archived evaluations:', error);
+    throw error;
+  }
+};
+
 export const setDidNotParticipate = async (roomId: string, testId: string, competitorId: string, adminId: string) => {
   try {
     await addDoc(collection(db, 'evaluations'), {

@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Room, Competitor, TestTemplate, ScoreGroup, PenaltyOption, ScoreOption, AppUser, Modality, INITIAL_MODALITIES, Evaluation, ModalityConfig, EditScoreRequest, PenaltyTemplate } from '@/types/schema';
 import { getRoomById, getCompetitorsByRoom, getTestTemplates, addCompetitor, updateCompetitor, deleteCompetitor, createTestTemplate, updateTestTemplate, deleteTestTemplate, getJudgesList, addJudgeToRoom, removeJudgeFromRoom, updateJudgeTestAssignments, updateJudgeModalityAssignments, getModalities, setJudgeReserve, setJudgeReserveModalities, setJudgeCompetitorReserves, activateReserve, deactivateReserve, updateRoom, subscribeToRoom, subscribeToCompetitorsByRoom, subscribeToTestsByRoom, numberCompetitorsByModality, clearCompetitorNumbersByModality, numberAllCompetitorsByRoom, clearAllCompetitorNumbersByRoom, toggleModalityFreeze, toggleAllFreeze, createPenaltyTemplate, getPenaltyTemplates, deletePenaltyTemplate, subscribeToPenaltyTemplates, applyAdminPenalty, removeAdminPenalty } from '@/services/adminService';
-import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest, getEvaluationHistory, subscribeToEvaluationsByRoom, subscribeToEditScoreRequestsByRoom } from '@/services/evaluationService';
+import { getEvaluationsByRoom, setDidNotParticipate, deleteEvaluation, getEditScoreRequestsByRoom, respondToEditScoreRequest, getEvaluationHistory, getEvaluationHistoryByTest, purgeArchivedEvaluations, subscribeToEvaluationsByRoom, subscribeToEditScoreRequestsByRoom } from '@/services/evaluationService';
 import { createJudgeByAdmin, updateUser } from '@/services/userService';
 import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
@@ -68,7 +68,17 @@ export default function RoomDetailsPage() {
     };
     const [activeTab, setActiveTab] = useState<'competitors' | 'tests' | 'judges' | 'rankings' | 'penalties'>('tests');
     const [compToMarkNC, setCompToMarkNC] = useState<{ test: TestTemplate, comp: Competitor } | null>(null);
-    const [evalToDelete, setEvalToDelete] = useState<{ id: string, name: string, testTitle: string, isNC: boolean, photoUrl?: string, deleteAll?: boolean, evalIds?: string[], judgeName?: string } | null>(null);
+    const [evalToDelete, setEvalToDelete] = useState<{
+        id: string;
+        name: string;
+        testTitle: string;
+        isNC: boolean;
+        photoUrl?: string;
+        deleteAll?: boolean;
+        evalIds?: string[];
+        judgeName?: string;
+        deleteMode?: 'current' | 'archived';
+    } | null>(null);
     const [allJudges, setAllJudges] = useState<AppUser[]>([]);
 
     // Data Lists
@@ -116,6 +126,26 @@ export default function RoomDetailsPage() {
     // Edit Score Requests
     const [editRequests, setEditRequests] = useState<EditScoreRequest[]>([]);
     const [viewingHistoryFor, setViewingHistoryFor] = useState<{ comp: Competitor, test: TestTemplate, evals: (Evaluation & { archivedAt?: number })[] } | null>(null);
+    const [historyTab, setHistoryTab] = useState<'current' | 'deleted'>('current');
+
+    const currentHistoryEvals = viewingHistoryFor?.evals.filter(ev => !ev.archivedAt) ?? [];
+    const deletedHistoryEvals = viewingHistoryFor?.evals.filter(ev => !!ev.archivedAt) ?? [];
+    const historyEvalsToShow = historyTab === 'current' ? currentHistoryEvals : deletedHistoryEvals;
+
+    const refreshViewingHistory = useCallback(async (currentEvaluations?: Evaluation[]) => {
+        if (!viewingHistoryFor) return;
+        try {
+            const sourceEvals = currentEvaluations ?? evaluations;
+            const current = sourceEvals
+                .filter(e => e.competitorId === viewingHistoryFor.comp.id && e.testId === viewingHistoryFor.test.id);
+            const history = await getEvaluationHistory(roomId, viewingHistoryFor.comp.id, viewingHistoryFor.test.id);
+            const merged = [...current, ...history].sort((a, b) => (b.archivedAt || b.createdAt) - (a.archivedAt || a.createdAt));
+            setViewingHistoryFor(prev => prev ? { ...prev, evals: merged } : prev);
+        } catch (err) {
+            console.error('Error refreshing evaluation history:', err);
+        }
+    }, [roomId, evaluations, viewingHistoryFor?.comp.id, viewingHistoryFor?.test.id]);
+
     const [viewingPenaltyHistoryFor, setViewingPenaltyHistoryFor] = useState<Competitor | null>(null);
     // Modal de configuração de reserva por competidor
     const [competitorReserveConfig, setCompetitorReserveConfig] = useState<Competitor | null>(null);
@@ -163,6 +193,49 @@ export default function RoomDetailsPage() {
             setLoading(false);
         }
     }, [roomId]);
+
+    const handleClearTestCurrentEvaluations = async (testId: string, testTitle: string) => {
+        if (!confirm(`Tem certeza que deseja excluir todas as notas ATUAIS do teste "${testTitle}"?`)) return;
+        setProcessingAction(`clearing-current-${testId}`);
+        try {
+            const evalsToClear = evaluations.filter(e => e.testId === testId);
+            await Promise.all(evalsToClear.map(e => deleteEvaluation(e.id)));
+
+            // Atualiza estado local para refletir exclusão imediatamente
+            const nextEvals = evaluations.filter(e => e.testId !== testId);
+            setEvaluations(nextEvals);
+
+            // Atualiza histórico se estiver aberto para este teste
+            if (viewingHistoryFor?.test.id === testId) {
+                await refreshViewingHistory(nextEvals);
+            }
+        } catch (err) {
+            console.error('Error clearing current evaluations:', err);
+            alert('Erro ao excluir notas atuais. Veja o console para mais detalhes.');
+        } finally {
+            setProcessingAction(null);
+        }
+    };
+
+    const handleClearTestArchivedEvaluations = async (testId: string, testTitle: string) => {
+        if (!confirm(`Tem certeza que deseja excluir todo o histórico (excluídas) do teste "${testTitle}"?`)) return;
+        setProcessingAction(`clearing-archived-${testId}`);
+        try {
+            const history = await getEvaluationHistoryByTest(roomId, testId);
+            if (history.length === 0) return;
+            await purgeArchivedEvaluations(history.map(h => h.id));
+
+            // Atualiza histórico se estiver aberto para este teste
+            if (viewingHistoryFor?.test.id === testId) {
+                await refreshViewingHistory(evaluations);
+            }
+        } catch (err) {
+            console.error('Error clearing archived evaluations:', err);
+            alert('Erro ao excluir histórico de notas. Veja o console para mais detalhes.');
+        } finally {
+            setProcessingAction(null);
+        }
+    };
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -1996,6 +2069,24 @@ export default function RoomDetailsPage() {
                                                         )}
                                                     </button>
 
+                                                    <button
+                                                        onClick={() => handleClearTestCurrentEvaluations(test.id, test.title)}
+                                                        disabled={processingAction === `clearing-current-${test.id}`}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 border border-red-500/30 rounded-lg text-[9px] font-black uppercase hover:bg-red-600/30 transition-all shadow-sm"
+                                                        title="Excluir todas notas atuais deste teste"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" /> Atuais
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleClearTestArchivedEvaluations(test.id, test.title)}
+                                                        disabled={processingAction === `clearing-archived-${test.id}`}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/10 text-gray-700 border border-gray-200 rounded-lg text-[9px] font-black uppercase hover:bg-gray-700/20 transition-all shadow-sm"
+                                                        title="Excluir histórico (excluídas) deste teste"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" /> Histórico
+                                                    </button>
+
                                                     <div className="text-[10px] text-gray-400 font-bold uppercase ml-2">
                                                         {t('admin.rankings.total')}: {testCompetitors.length}
                                                     </div>
@@ -2238,9 +2329,11 @@ export default function RoomDetailsPage() {
                                                                                     try {
                                                                                         const history = await getEvaluationHistory(roomId, comp.id, test.id);
                                                                                         const allNotes = [...allCompEvals, ...history].sort((a, b) => (b.archivedAt || b.createdAt) - (a.archivedAt || a.createdAt));
+                                                                                        setHistoryTab('current');
                                                                                         setViewingHistoryFor({ comp, test, evals: allNotes });
                                                                                     } catch (err) {
                                                                                         console.error('Error fetching history:', err);
+                                                                                        setHistoryTab('current');
                                                                                         setViewingHistoryFor({ comp, test, evals: allCompEvals });
                                                                                     }
                                                                                 }}
@@ -2275,12 +2368,33 @@ export default function RoomDetailsPage() {
                                                                             </button>
                                                                         </div>
                                                                     ) : (
-                                                                        <button
-                                                                            onClick={() => setCompToMarkNC({ test, comp })}
-                                                                            className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-600 text-[10px] font-black uppercase rounded-lg border border-gray-200 hover:border-red-100 transition-all flex items-center gap-2"
-                                                                        >
-                                                                            <AlertCircle className="w-3.5 h-3.5" /> {t('admin.rankings.markAbsence')}
-                                                                        </button>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <button
+                                                                                onClick={() => setCompToMarkNC({ test, comp })}
+                                                                                className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-600 text-[10px] font-black uppercase rounded-lg border border-gray-200 hover:border-red-100 transition-all flex items-center gap-2"
+                                                                            >
+                                                                                <AlertCircle className="w-3.5 h-3.5" /> {t('admin.rankings.markAbsence')}
+                                                                            </button>
+
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    try {
+                                                                                        const history = await getEvaluationHistory(roomId, comp.id, test.id);
+                                                                                        const allNotes = [...allCompEvals, ...history].sort((a, b) => (b.archivedAt || b.createdAt) - (a.archivedAt || a.createdAt));
+                                                                                        setHistoryTab('current');
+                                                                                        setViewingHistoryFor({ comp, test, evals: allNotes });
+                                                                                    } catch (err) {
+                                                                                        console.error('Error fetching history:', err);
+                                                                                        setHistoryTab('current');
+                                                                                        setViewingHistoryFor({ comp, test, evals: allCompEvals });
+                                                                                    }
+                                                                                }}
+                                                                                className="p-1.5 sm:p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors border border-blue-100"
+                                                                                title="Ver Histórico de Notas"
+                                                                            >
+                                                                                <History className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                                                            </button>
+                                                                        </div>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -2421,13 +2535,47 @@ export default function RoomDetailsPage() {
                                     </button>
                                 </div>
                                 <div className="p-6 max-h-[60vh] overflow-y-auto">
-                                    {viewingHistoryFor.evals.length === 0 ? (
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        <button
+                                            onClick={() => setHistoryTab('current')}
+                                            className={`px-4 py-2 text-xs font-black uppercase rounded-lg border ${historyTab === 'current' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-blue-700 border-blue-100 hover:bg-blue-50'}`}
+                                        >
+                                            Atuais ({currentHistoryEvals.length})
+                                        </button>
+                                        <button
+                                            onClick={() => setHistoryTab('deleted')}
+                                            className={`px-4 py-2 text-xs font-black uppercase rounded-lg border ${historyTab === 'deleted' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-blue-700 border-blue-100 hover:bg-blue-50'}`}
+                                        >
+                                            Excluídas ({deletedHistoryEvals.length})
+                                        </button>
+                                    </div>
+
+                                    {(historyEvalsToShow.length > 0) && (
+                                        <div className="flex flex-wrap gap-2 mb-4">
+                                            <button
+                                                onClick={() => setEvalToDelete({
+                                                    id: viewingHistoryFor!.comp.id,
+                                                    name: viewingHistoryFor!.comp.handlerName,
+                                                    testTitle: viewingHistoryFor!.test.title,
+                                                    isNC: false,
+                                                    deleteAll: true,
+                                                    evalIds: historyEvalsToShow.map(ev => ev.id),
+                                                    deleteMode: historyTab === 'current' ? 'current' : 'archived'
+                                                })}
+                                                className="px-3 py-2 text-xs font-black uppercase rounded-lg border bg-red-600/20 text-red-700 border-red-300 hover:bg-red-600/30 transition-all"
+                                            >
+                                                Excluir todas {historyTab === 'current' ? 'atuais' : 'excluídas'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {historyEvalsToShow.length === 0 ? (
                                         <div className="text-center py-8 text-gray-400 font-bold uppercase italic text-sm">
-                                            Nenhuma avaliação encontrada.
+                                            {historyTab === 'current' ? 'Nenhuma avaliação encontrada.' : 'Nenhuma avaliação excluída.'}
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
-                                            {viewingHistoryFor.evals.map((ev, index) => {
+                                            {historyEvalsToShow.map((ev, index) => {
                                                 const judge = allJudges.find(j => j.uid === ev.judgeId);
                                                 const judgeName = judge ? judge.name : 'Desconhecido';
 
@@ -2856,6 +3004,7 @@ export default function RoomDetailsPage() {
                         onClose={() => setEvalToDelete(null)}
                         title={<div className="flex items-center gap-2 text-red-600 uppercase font-black"><Trash2 className="w-5 h-5" /> {evalToDelete?.deleteAll ? t('admin.rankings.resetEvaluations', 'Resetar Notas') : t('admin.deletion.title')}</div>}
                         maxWidth="max-w-md"
+                        zIndexClass="z-[110]"
                     >
                         <div className="flex flex-col items-center text-center p-2">
                             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 border-2 border-red-100 shadow-sm overflow-hidden">
@@ -2889,24 +3038,41 @@ export default function RoomDetailsPage() {
                                 </button>
                                 <button
                                     onClick={async () => {
-                                        if (evalToDelete) {
-                                            if (evalToDelete.deleteAll && evalToDelete.evalIds) {
-                                                // Exclui múltiplas avaliações em paralelo
+                                        if (!evalToDelete) return;
+
+                                        let nextEvals = evaluations;
+
+                                        if (evalToDelete.deleteAll && evalToDelete.evalIds) {
+                                            if (evalToDelete.deleteMode === 'archived') {
+                                                await purgeArchivedEvaluations(evalToDelete.evalIds);
+                                            } else {
+                                                // Exclui múltiplas avaliações em paralelo (arquiva)
                                                 await Promise.all(evalToDelete.evalIds.map(id => deleteEvaluation(id)));
+
+                                                // Atualiza o estado local de avaliações para refletir exclusão imediata
+                                                nextEvals = evaluations.filter(e => !evalToDelete.evalIds?.includes(e.id));
+                                                setEvaluations(nextEvals);
+
                                                 // Também reseta as penalidades admin do competidor
                                                 const compId = competitors.find(c => c.handlerName === evalToDelete.name)?.id;
                                                 if (compId) {
                                                     await updateCompetitor(compId, { adminPenalties: [] });
                                                 }
-                                            } else {
-                                                await deleteEvaluation(evalToDelete.id);
                                             }
-                                            setEvalToDelete(null);
+                                        } else {
+                                            await deleteEvaluation(evalToDelete.id);
+                                            nextEvals = evaluations.filter(e => e.id !== evalToDelete.id);
+                                            setEvaluations(nextEvals);
                                         }
+
+                                        // Atualiza histórico (lista de avaliações mostrada no modal)
+                                        await refreshViewingHistory(nextEvals);
+
+                                        setEvalToDelete(null);
                                     }}
                                     className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold uppercase text-xs rounded-xl tracking-wider cursor-pointer border-2 border-red-700 transition-all shadow-lg hover:shadow-red-500/20"
                                 >
-                                    {evalToDelete?.deleteAll ? 'Resetar Notas + Penalidades' : t('admin.evalDeletion.confirm')}
+                                    {evalToDelete?.deleteAll ? (evalToDelete.deleteMode === 'archived' ? 'Excluir histórico' : 'Resetar Notas + Penalidades') : t('admin.evalDeletion.confirm')}
                                 </button>
                             </div>
                         </div>
