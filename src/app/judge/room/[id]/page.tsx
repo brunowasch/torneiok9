@@ -659,7 +659,7 @@ export default function JudgeRoomPage() {
                                     <div className="space-y-8">
                                         <div className="mt-4">
                                             <select
-                                                value={selectedTestView?.id || ''}
+                                                value=""
                                                 onChange={(e) => {
                                                     const selected = assignedTests.find(t => t.id === e.target.value);
                                                     if (selected) handleSelectTest(selected);
