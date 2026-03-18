@@ -547,16 +547,21 @@ export default function RoomDetailsPage() {
         }
     };
 
-    const handleUpdateDrugPoints = async (competitorId: string, testId: string, value: number) => {
+    const handleUpdateDrugPoints = async (competitorId: string, testId: string, value: number | null) => {
         try {
             const comp = competitors.find(c => c.id === competitorId);
             if (!comp) return;
             const currentPoints = comp.drugPointsFound || {};
+            const updatedPoints = { ...currentPoints };
+
+            if (value === null || isNaN(value)) {
+                delete updatedPoints[testId];
+            } else {
+                updatedPoints[testId] = value;
+            }
+
             await updateCompetitor(competitorId, {
-                drugPointsFound: {
-                    ...currentPoints,
-                    [testId]: value
-                }
+                drugPointsFound: updatedPoints
             });
         } catch (err) {
             console.error("Error updating drug points", err);
@@ -2109,16 +2114,22 @@ export default function RoomDetailsPage() {
                                                         const titularsForAvg = validEvals.filter(e => !isRes(e.judgeId)).slice(0, 3);
                                                         const reservesForAvg = validEvals.filter(e => isRes(e.judgeId)).slice(0, Math.max(0, 3 - titularsForAvg.length));
                                                         const evalsToAvg = titularsForAvg.length > 0 ? [...titularsForAvg, ...reservesForAvg] : reservesForAvg.slice(0, 3);
-                                                        const calculatedAvg = evalsToAvg.length > 0
-                                                            ? evalsToAvg.reduce((s, e) => s + e.finalScore, 0) / evalsToAvg.length
+                                                        // Só calcula média real quando há 3 avaliações (mesma lógica do rankingService)
+                                                        const calculatedAvg = evalsToAvg.length >= 3
+                                                            ? evalsToAvg.slice(0, 3).reduce((s, e) => s + e.finalScore, 0) / 3
                                                             : 0;
+                                                        // Drug bonus e penalidades só se aplicam quando há média calculada
+                                                        // e os pontos de droga foram EXPLICITAMENTE registrados
+                                                        const drugPointsRecorded = c.drugPointsFound?.[test.id] !== undefined;
+                                                        const foundPoints = c.drugPointsFound?.[test.id] ?? 0;
                                                         const totalPoints = test.drugPointsAmount || 0;
-                                                        const foundPoints = c.drugPointsFound?.[test.id] || 0;
                                                         const missedPoints = Math.max(0, totalPoints - foundPoints);
-                                                        const drugBonus = (test.modality?.toLowerCase().includes('faro'))
+                                                        const drugBonus = (calculatedAvg > 0 && drugPointsRecorded && test.modality?.toLowerCase().includes('faro'))
                                                             ? (foundPoints * 50) - (missedPoints * 50)
                                                             : 0;
-                                                        const adminPenaltyTotal = (c.adminPenalties || []).filter(p => p.testId === test.id).reduce((sum, p) => sum + p.value, 0);
+                                                        const adminPenaltyTotal = calculatedAvg > 0
+                                                            ? (c.adminPenalties || []).filter(p => p.testId === test.id).reduce((sum, p) => sum + p.value, 0)
+                                                            : 0;
                                                         return { ...c, totalScore: calculatedAvg + drugBonus + adminPenaltyTotal };
                                                     })
                                                     .sort((a, b) => {
@@ -2168,16 +2179,22 @@ export default function RoomDetailsPage() {
                                                         const titularsForAvg = validEvals.filter(e => !isRes(e.judgeId)).slice(0, 3);
                                                         const reservesForAvg = validEvals.filter(e => isRes(e.judgeId)).slice(0, Math.max(0, 3 - titularsForAvg.length));
                                                         const evalsToAvg = titularsForAvg.length > 0 ? [...titularsForAvg, ...reservesForAvg] : reservesForAvg.slice(0, 3);
-                                                        const calculatedAvg = evalsToAvg.length > 0
-                                                            ? evalsToAvg.reduce((s, e) => s + e.finalScore, 0) / evalsToAvg.length
+                                                        // Só calcula média real quando há 3 avaliações (mesma lógica do rankingService)
+                                                        const calculatedAvg = evalsToAvg.length >= 3
+                                                            ? evalsToAvg.slice(0, 3).reduce((s, e) => s + e.finalScore, 0) / 3
                                                             : null;
+                                                        // Drug bonus e penalidades só se aplicam quando há média real
+                                                        // e os pontos de droga foram EXPLICITAMENTE registrados pelo admin
+                                                        const drugPointsRecorded = comp.drugPointsFound?.[test.id] !== undefined;
+                                                        const foundPoints = comp.drugPointsFound?.[test.id] ?? 0;
                                                         const totalPoints = test.drugPointsAmount || 0;
-                                                        const foundPoints = comp.drugPointsFound?.[test.id] || 0;
                                                         const missedPoints = Math.max(0, totalPoints - foundPoints);
-                                                        const drugBonus = (test.modality?.toLowerCase().includes('faro'))
+                                                        const drugBonus = (calculatedAvg !== null && drugPointsRecorded && test.modality?.toLowerCase().includes('faro'))
                                                             ? (foundPoints * 50) - (missedPoints * 50)
                                                             : 0;
-                                                        const adminPenaltyTotal = (comp.adminPenalties || []).filter(p => p.testId === test.id).reduce((sum, p) => sum + p.value, 0);
+                                                        const adminPenaltyTotal = calculatedAvg !== null
+                                                            ? (comp.adminPenalties || []).filter(p => p.testId === test.id).reduce((sum, p) => sum + p.value, 0)
+                                                            : 0;
                                                         const finalWithPenalties = (calculatedAvg !== null) ? (calculatedAvg + drugBonus + adminPenaltyTotal) : null;
 
                                                         return (
@@ -2218,7 +2235,7 @@ export default function RoomDetailsPage() {
                                                                 <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t border-gray-50 sm:border-0 w-full sm:w-auto shrink-0">
                                                                     {/* Botão Penalizar Admin */}
                                                                     <button
-                                                                                onClick={() => setCompForPenalty({ comp, testId: test.id })}
+                                                                        onClick={() => setCompForPenalty({ comp, testId: test.id })}
                                                                         className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-[9px] font-black uppercase rounded-lg border transition-all bg-red-50 text-red-700 border-red-200 hover:bg-red-100 cursor-pointer"
                                                                         title="Aplicar penalidade administrativa"
                                                                     >
@@ -2299,8 +2316,16 @@ export default function RoomDetailsPage() {
                                                                                     type="number"
                                                                                     min="0"
                                                                                     max={test.drugPointsAmount || 10}
-                                                                                    defaultValue={comp.drugPointsFound?.[test.id] || 0}
-                                                                                    onBlur={(e) => handleUpdateDrugPoints(comp.id, test.id, parseInt(e.target.value) || 0)}
+                                                                                    defaultValue={comp.drugPointsFound?.[test.id] ?? ''}
+                                                                                    onBlur={(e) => {
+                                                                                        const val = e.target.value;
+                                                                                        handleUpdateDrugPoints(comp.id, test.id, val === '' ? null : parseInt(val, 10));
+                                                                                    }}
+                                                                                    onKeyDown={(e) => {
+                                                                                        if (e.key === 'Enter') {
+                                                                                            e.currentTarget.blur();
+                                                                                        }
+                                                                                    }}
                                                                                     className="w-12 text-center bg-white border border-orange-300 rounded text-xs font-bold focus:outline-none focus:ring-1 focus:ring-orange-500"
                                                                                 />
                                                                                 <span className="text-[10px] font-bold text-gray-400">/ {test.drugPointsAmount || 0}</span>
@@ -2311,10 +2336,6 @@ export default function RoomDetailsPage() {
                                                                     {(allCompEvals.length > 0) ? (
                                                                         <div className="flex items-center gap-2">
                                                                             <div className={`text-right mr-2 ${isDNS ? 'text-red-500' : 'text-green-600'}`}>
-                                                                                <div className="text-sm font-black text-k9-black uppercase truncate flex items-center gap-2">
-                                                                                    {comp.competitorNumber && <span className="bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm shrink-0">#{comp.competitorNumber}</span>}
-                                                                                    <span className="truncate">{comp.handlerName}</span>
-                                                                                </div>
                                                                                 <div className="text-xs font-black uppercase leading-none">
                                                                                     {isDNS ? 'NC' : (() => {
                                                                                         if (finalWithPenalties === null) return '--';
@@ -2360,7 +2381,7 @@ export default function RoomDetailsPage() {
                                                                             </button>
 
                                                                             <button
-                                                                                        onClick={() => setCompForPenalty({ comp, testId: test.id })}
+                                                                                onClick={() => setCompForPenalty({ comp, testId: test.id })}
                                                                                 className="p-1.5 sm:p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700 rounded-lg transition-colors border border-amber-100"
                                                                                 title="Aplicar Penalidade Admin"
                                                                             >

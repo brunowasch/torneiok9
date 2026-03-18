@@ -380,6 +380,8 @@ export default function JudgeRoomPage() {
             alert(t('judge.room.successSubmit'));
             setSelectedCompetitor(null);
             setActiveTest(null);
+            setScores({});
+            setNotes('');
             loadData(); // Refresh data
         } catch (error) {
             console.error(error);
@@ -410,7 +412,7 @@ export default function JudgeRoomPage() {
                 <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm px-4 py-3 md:py-4 overflow-hidden">
                     <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
                         <button
-                            onClick={() => setSelectedCompetitor(null)}
+                            onClick={() => { setSelectedCompetitor(null); setActiveTest(null); setScores({}); setNotes(''); }}
                             className="text-gray-500 hover:text-black flex items-center gap-2 text-[10px] md:text-xs font-bold uppercase transition-colors shrink-0"
                         >
                             <ArrowLeft className="w-3.5 h-3.5 md:w-4 md:h-4" /> {t('judge.room.cancel')}

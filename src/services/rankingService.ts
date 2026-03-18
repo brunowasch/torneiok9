@@ -74,22 +74,25 @@ export const subscribeToLeaderboard = (roomId: string, callback: (data: Leaderbo
                         const avg = evalsToAverage.slice(0, 3).reduce((sum, e) => sum + e.finalScore, 0) / 3;
                         scoresByTest[testId] = avg;
 
-                        // Add bonus/penalty for "Faro" modalities (e.g., "Faro de Narcóticos"): 
-                        // (drug points found * 50) - (missed drug points * 50)
+                        // Add bonus/penalty for "Faro" modalities only when drug points
+                        // have been EXPLICITLY recorded by admin (undefined = not yet registered)
                         if (comp.modality?.toLowerCase().includes('faro')) {
                             const test = tests.find(t => t.id === testId);
-                            const totalPoints = test?.drugPointsAmount || 0;
-                            const found = comp.drugPointsFound?.[testId] || 0;
-                            const missed = Math.max(0, totalPoints - found);
-                            
-                            scoresByTest[testId] += (found * 50) - (missed * 50);
+                            const drugPointsRecorded = comp.drugPointsFound?.[testId] !== undefined;
+                            if (drugPointsRecorded) {
+                                const totalPoints = test?.drugPointsAmount || 0;
+                                const found = comp.drugPointsFound![testId] as number;
+                                const missed = Math.max(0, totalPoints - found);
+                                scoresByTest[testId] += (found * 50) - (missed * 50);
+                            }
                         }
                     } else {
                         scoresByTest[testId] = 0;
                     }
                 }
-                // Subtract Admin Penalties for THIS test
-                if (comp.adminPenalties && comp.adminPenalties.length > 0) {
+                // Subtract Admin Penalties for THIS test only when there's a real average
+                // (score of 0 means "no 3 evals yet" — don't apply penalties to an empty score)
+                if (scoresByTest[testId] !== 0 && comp.adminPenalties && comp.adminPenalties.length > 0) {
                     const testPenalties = comp.adminPenalties
                         .filter(p => p.testId === testId)
                         .reduce((sum, p) => sum + Math.abs(p.value), 0);
