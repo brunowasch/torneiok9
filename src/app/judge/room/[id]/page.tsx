@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { formatScore } from '@/utils/score';
 import {
     getRoomById,
     getCompetitorsByRoom,
@@ -419,7 +420,7 @@ export default function JudgeRoomPage() {
                         </button>
                         <div className="text-right min-w-0">
                             <div className="text-[9px] md:text-[10px] text-gray-400 font-mono uppercase font-bold">{t('judge.room.partialTotal')}</div>
-                            <div className="text-xl md:text-2xl font-black text-k9-orange leading-none">{calculateCurrentTotal().toFixed(1)} <span className="text-xs md:text-sm text-gray-300">/ {activeTest.maxScore}</span></div>
+                            <div className="text-xl md:text-2xl font-black text-k9-orange leading-none">{formatScore(calculateCurrentTotal())} <span className="text-xs md:text-sm text-gray-300">/ {activeTest.maxScore}</span></div>
                         </div>
                     </div>
                 </div>
@@ -1066,7 +1067,7 @@ export default function JudgeRoomPage() {
                             </div>
                             <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-200">
                                 <span className="text-[10px] font-black text-gray-400 uppercase">{t('judge.room.editRequest.currentScore')}</span>
-                                <span className="text-lg font-black text-k9-orange">{editRequestTarget.evaluation.finalScore.toFixed(1)} <span className="text-xs text-gray-300">pts</span></span>
+                                <span className="text-lg font-black text-k9-orange">{formatScore(editRequestTarget.evaluation.finalScore)} <span className="text-xs text-gray-300">pts</span></span>
                             </div>
                         </div>
                     )}

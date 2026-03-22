@@ -11,6 +11,8 @@ import RoomCountdown from '@/components/RoomCountdown';
 import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
 import '@/i18n/config';
+import { formatScore } from '@/utils/score';
+
 
 export default function Home() {
   const { t } = useTranslation();
@@ -26,8 +28,6 @@ export default function Home() {
   const [hasLoggedInBefore, setHasLoggedInBefore] = useState(false);
   const [isFrozenState, setIsFrozenState] = useState(false);
   const [latestLeaderboardData, setLatestLeaderboardData] = useState<LeaderboardEntry[]>([]);
-  const [publicSortBy, setPublicSortBy] = useState<'score' | 'number'>('score');
-  const [publicSortOrder, setPublicSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -219,11 +219,6 @@ export default function Home() {
         return { ...entry, currentScore: score, currentCount: count, isNC: hasNC };
       })
       .sort((a, b) => {
-        if (publicSortBy === 'number') {
-          const numA = a.competitorNumber || 99999;
-          const numB = b.competitorNumber || 99999;
-          return publicSortOrder === 'asc' ? numA - numB : numB - numA;
-        }
 
         // Competidores sem avaliação vão para o final
         const aHasEval = a.currentCount > 0;
@@ -238,7 +233,7 @@ export default function Home() {
         } else {
           comparison = a.handlerName.localeCompare(b.handlerName);
         }
-        return publicSortOrder === 'desc' ? comparison : -comparison;
+        return comparison;
       });
   };
 
@@ -374,23 +369,6 @@ export default function Home() {
                   </button>
                 ))}
               </div>
-
-              <div className="flex items-center gap-2 self-end sm:self-center">
-                <select
-                  value={publicSortBy}
-                  onChange={(e) => setPublicSortBy(e.target.value as any)}
-                  className="bg-white border-2 border-gray-100 text-[10px] font-black uppercase tracking-wider rounded-lg px-3 py-1.5 focus:outline-none focus:border-orange-400 transition-all shadow-sm"
-                >
-                  <option value="score">Nota</option>
-                  <option value="number">Nº Sorteio</option>
-                </select>
-                <button
-                  onClick={() => setPublicSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                  className="bg-white border-2 border-gray-100 text-gray-600 px-3 py-1.5 rounded-lg font-black text-xs uppercase hover:bg-gray-50 transition-colors shadow-sm"
-                >
-                  {publicSortOrder === 'asc' ? '↑' : '↓'}
-                </button>
-              </div>
             </div>
           </div>
         )}
@@ -489,7 +467,7 @@ export default function Home() {
                     <td className="p-4 md:p-5 text-right">
                       <div className="flex flex-col items-end">
                         <span className={`text-xl sm:text-2xl md:text-4xl font-black tracking-tighter leading-none group-hover:scale-110 transition-transform origin-right ${entry.isNC ? 'text-red-500' : 'text-k9-black'}`}>
-                          {entry.isNC ? 'NC' : entry.currentScore.toFixed(1)}
+                          {entry.isNC ? 'NC' : formatScore(entry.currentScore)}
                         </span>
                         <span className="text-[7px] md:text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{entry.isNC ? t('home.table.absence') : t('home.table.points')}</span>
                       </div>

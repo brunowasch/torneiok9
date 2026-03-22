@@ -12,6 +12,7 @@ import Modal from '@/components/Modal';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
+import { formatScore } from '@/utils/score';
 import RoomCountdown from '@/components/RoomCountdown';
 import MaskedDateInput from '@/components/MaskedDateInput';
 import DateToast from '@/components/DateToast';
@@ -835,7 +836,7 @@ export default function RoomDetailsPage() {
                                                             </span>
                                                             {eval_ && (
                                                                 <span className="text-[9px] font-black text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
-                                                                    {eval_.finalScore.toFixed(1)} pts
+                                                                    {formatScore(eval_.finalScore)} pts
                                                                 </span>
                                                             )}
                                                         </div>
@@ -2339,7 +2340,7 @@ export default function RoomDetailsPage() {
                                                                                 <div className="text-xs font-black uppercase leading-none">
                                                                                     {isDNS ? 'NC' : (() => {
                                                                                         if (finalWithPenalties === null) return '--';
-                                                                                        return finalWithPenalties.toFixed(1);
+                                                                                        return formatScore(finalWithPenalties);
                                                                                     })()}
                                                                                 </div>
                                                                                 <div className="text-[8px] font-bold uppercase opacity-60">{t('admin.rankings.status')}</div>
@@ -2677,7 +2678,7 @@ export default function RoomDetailsPage() {
                                                             <div className="text-right">
                                                                 <div className="text-xs font-bold uppercase text-gray-400 mb-1">Nota Final</div>
                                                                 <div className={`text-xl sm:text-2xl font-black leading-none ${ev.status === 'did_not_participate' ? 'text-red-500' : 'text-blue-600'}`}>
-                                                                    {ev.status === 'did_not_participate' ? '0.0' : ev.finalScore.toFixed(1)}
+                                                                    {ev.status === 'did_not_participate' ? '0.00' : formatScore(ev.finalScore)}
                                                                 </div>
                                                             </div>
                                                             {!ev.archivedAt && (
@@ -2868,7 +2869,7 @@ export default function RoomDetailsPage() {
                                             <div className="text-[10px] text-indigo-500 font-bold">
                                                 {(viewingPenaltyHistoryFor.adminPenalties || []).length} penalidade(s) •{' '}
                                                 <span className="text-red-600 font-black">
-                                                    {(viewingPenaltyHistoryFor.adminPenalties || []).reduce((s, p) => s + p.value, 0).toFixed(1)} pts
+                                                    {formatScore((viewingPenaltyHistoryFor.adminPenalties || []).reduce((s, p) => s + p.value, 0))} pts
                                                 </span>
                                             </div>
                                         </div>

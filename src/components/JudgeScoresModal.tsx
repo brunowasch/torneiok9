@@ -7,6 +7,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useTranslation } from 'react-i18next';
 import '@/i18n/config';
+import { formatScore } from '@/utils/score';
 
 interface JudgeScore {
     judgeName: string;
@@ -214,7 +215,7 @@ function TestScoreSection({
                 <div className="flex items-center gap-3">
                     <div className="text-right">
                         <div className={`text-2xl font-black leading-none ${isNC ? 'text-red-500' : 'text-k9-orange'}`}>
-                            {isNC ? 'NC' : avg.toFixed(1)}
+                            {isNC ? 'NC' : formatScore(avg)}
                         </div>
                         <div className="text-[9px] text-gray-400 font-black uppercase">{isNC ? t('competitorsPage.absence') : t('competitorsPage.average')}</div>
                     </div>
@@ -241,7 +242,7 @@ function TestScoreSection({
                                         </div>
                                     </div>
                                     <div className={`text-xl font-black ${isJudgeNC ? 'text-red-500' : 'text-k9-black'}`}>
-                                        {isJudgeNC ? 'NC' : judge.finalScore.toFixed(1)}
+                                        {isJudgeNC ? 'NC' : formatScore(judge.finalScore)}
                                         {!isJudgeNC && <span className="text-xs text-gray-300 font-bold ml-1">{t('competitorsPage.pts')}</span>}
                                     </div>
                                 </div>
